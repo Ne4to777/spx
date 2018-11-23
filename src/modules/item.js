@@ -193,26 +193,25 @@ export default class Item {
 	get _fieldsInfo() { return _fieldsInfo }
 
 	async _execute(actionType, spObjectGetter, opts = {}) {
+		let needToQuery;
 		let isArrayCounter = 0;
-		const clientContexts = {};
 		let { cached, showCaml, parallelized = actionType !== 'create' } = opts;
+		const clientContexts = {};
+		const spObjectsToCache = new Map;
 		opts.view = opts.view || (actionType ? ['ID'] : void 0);
 		const elements = await Promise.all(this._contextUrls.map(async contextUrl => {
-			let needToQuery;
 			let totalElements = 0;
 			const spObjects = [];
-			const spObjectsToCache = new Map;
 			const contextUrls = contextUrl.split('/');
-			clientContexts[contextUrl] = {};
+			let clientContext = utility.getClientContext(contextUrl);
+			clientContexts[contextUrl] = [clientContext];
 
 			for (let listUrl of this._listUrls) {
-				let clientContext = utility.getClientContext(contextUrl);
-				clientContexts[contextUrl][listUrl] = [clientContext]
 				for (let elementUrl of this._elementUrls) {
 					if (!elementUrl) elementUrl = '';
 					if (actionType && ++totalElements >= utility.REQUEST_BUNDLE_MAX_SIZE) {
 						clientContext = utility.getClientContext(contextUrl);
-						clientContexts[contextUrl][listUrl].push(clientContext);
+						clientContexts[contextUrl].push(clientContext);
 						totalElements = 0;
 					}
 					const spObject = await spObjectGetter(this._getSPObject(clientContext, listUrl, actionType === 'create' ? void 0 : elementUrl), listUrl, elementUrl);
@@ -236,21 +235,20 @@ export default class Item {
 					}
 				}
 			}
-			if (needToQuery) {
-				if (parallelized) {
-					await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
-						contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
-							listAcc.concat(clientContexts[contextUrl][listUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), [])), []));
-				} else {
-					await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
-						contextAcc.concat(this._listUrls.map(async listUrl => {
-							for (let clientContext of clientContexts[contextUrl][listUrl]) await utility.executeQueryAsync(clientContext, opts)
-						})), []));
-				}
-				!actionType && spObjectsToCache.forEach((value, key) => cache.set(key, value))
-			};
 			return spObjects;
 		}))
+
+		if (needToQuery) {
+			await Promise.all(parallelized ?
+				this._contextUrls.reduce((contextAcc, contextUrl) =>
+					contextAcc.concat(clientContexts[contextUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), []) :
+				this._contextUrls.map(async (contextUrl) => {
+					for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts)
+				}));
+
+			!actionType && spObjectsToCache.forEach((value, key) => cache.set(key, value))
+		};
+
 
 		this._log(actionType, opts);
 		opts.isArray = isArrayCounter || this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
