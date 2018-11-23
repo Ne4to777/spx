@@ -1,0 +1,35 @@
+{
+	"name": "spx",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"dev": "node lib/init.js && concurrently --kill-others \"node lib/proxy.js\" \"webpack-dev-server --open  --config config/webpack.dev.js\"",
+		"prod": "webpack --config config/webpack.prod.js",
+		"build": "webpack --config config/webpack.build.js",
+		"commit": "webpack --config config/webpack.commit.js",
+		"test": "mocha --require babel-core/register src/test/*.js",
+		"testSite": "mocha --require babel-core/register src/test/site.js"
+	},
+	"sideEffects": false,
+	"devDependencies": {
+		"axios": "^0.18.0",
+		"babel-core": "^6.26.3",
+		"babel-loader": "^7.1.5",
+		"babel-plugin-syntax-async-functions": "^6.1.4",
+		"babel-plugin-transform-object-rest-spread": "^6.26.0",
+		"babel-plugin-transform-regenerator": "^6.1.4",
+		"babel-polyfill": "^6.1.4",
+		"babel-preset-env": "^1.7.0",
+		"concurrently": "^3.6.1",
+		"cpass": "^2.0.4",
+		"crypto-js": "^3.1.9-1",
+		"sp-rest-proxy": "^2.7.1"
+	},
+	"dependencies": {
+		"chai": "^4.2.0",
+		"jquery": "^3.3.1",
+		"jsdoc-babel": "^0.5.0",
+		"jsdoc-webpack-plugin": "0.0.2",
+		"ramda": "^0.25.0"
+	}
+}
