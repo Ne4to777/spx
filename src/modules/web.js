@@ -3,7 +3,7 @@ import * as cache from './../cache';
 
 import List from './../modules/list';
 import Folder from './../modules/folderWeb';
-import File from './../modules/file';
+import File from './../modules/fileWeb';
 import User from './../modules/user';
 import RecycleBin from './../modules/recycleBin';
 

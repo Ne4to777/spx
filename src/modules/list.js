@@ -2,7 +2,7 @@ import * as utility from './../utility';
 import * as cache from './../cache';
 import Column from './../modules/column';
 import Folder from './../modules/folderList';
-import File from './../modules/file';
+import File from './../modules/fileList';
 import Item from './../modules/item';
 
 export default class List {

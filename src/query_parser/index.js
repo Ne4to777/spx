@@ -2,6 +2,7 @@ const IN_CHUNK_SIZE = 500;
 const IN_CUSTOM_DELIMETER = '8^)';
 const GROUP_REGEXP_STR = '\\s(and|or)\\s';
 const GROUP_REGEXP = new RegExp(GROUP_REGEXP_STR, 'i');
+const GROUP_BRACES_REGEXP = new RegExp('\\((.*' + GROUP_REGEXP_STR + '.*)\\)', 'i');
 const TIME_STAMP_ISO_REGEXP = /^\d\d\d\d-\d\d-\d\dT\d\d\:\d\d\:\d\d(\.\d\d\d)?Z$/;
 const COLUMN_TYPES = {
 	AppAuthor: 'lookup',
@@ -155,28 +156,55 @@ export const getCamlView = (str, opts = {}) => {
 	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
 }
 
-export const concatQuery = (items, operator, type, value) => {
+export const joinQuery = (items, joiner = 'or', operator, value) => {
 	let item;
-	let query = type === 'and' ? 'ID isnotnull' : 'ID isnull';
+	let query = joiner === 'and' ? 'ID isnotnull' : 'ID isnull';
+	if (!operator) operator = value === void 0 ? 'isnotnull' : 'eq';
 	if (typeOf(value) === 'array') {
 		const valueLastIndex = value.length - 1;
 		for (let i = items.length - 1; i >= 0; i--) {
 			item = items[i];
-			query = `(${item} ${/null/i.test(operator) ? operator : `${operator} ${value[i] || value[valueLastIndex]}`} ${type} ${query})`
+			query = `(${item} ${/null/i.test(operator) ? operator : `${operator} ${value[i] || value[valueLastIndex]}`} ${joiner} ${query})`
 		}
 	} else {
 		for (let i = items.length - 1; i >= 0; i--) {
 			item = items[i];
-			query = `(${item} ${/null/i.test(operator) ? operator : `${operator} ${value}`} ${type} ${query})`
+			query = `(${item} ${/null/i.test(operator) ? operator : `${operator} ${value}`} ${joiner} ${query})`
 		}
 	}
 	query = trimBraces(query);
 	return query;
 }
 
+export const concatQuery = (query1, query2 = '', joiner = 'or') => {
+	const trimmed1 = trimBraces(query1);
+	const trimmed2 = trimBraces(query2);
+	if (!trimmed1) return query2;
+	if (!trimmed2) return '';
+
+	return GROUP_REGEXP.test(trimmed1) ?
+		(GROUP_REGEXP.test(trimmed2) ? `(${trimmed1}) ${joiner} (${trimmed2})` : `(${trimmed1}) ${joiner} ${trimmed2}`) :
+		(GROUP_REGEXP.test(trimmed2) ? `${trimmed1} ${joiner} (${trimmed2})` : `${trimmed1} ${joiner} ${trimmed2}`)
+}
+
 export const camlLog = str => console.log(str && DOMParser ? new DOMParser().parseFromString(str, 'text/xml') : str);
 
-const trimBraces = str => str[0] === '(' && str[str.length - 1] === ')' ? getStringFromOuterBraces(str) : str;
+const trimBraces = (str = '') => {
+	if (str[0] === '(' && str[str.length - 1] === ')') {
+		const openBracesCount = str.match(/\(/g).length;
+		const closeBracesCount = str.match(/\)/g).length;
+		if (openBracesCount !== closeBracesCount) throw new Error('query has wrong braces');
+		const joinerMatches = str.match(new RegExp(GROUP_REGEXP_STR, 'ig'));
+		const joinersCount = joinerMatches ? joinerMatches.length : 0;
+		if (openBracesCount >= joinersCount) {
+			return getStringFromOuterBraces(str);
+		} else {
+			return str
+		}
+	} else {
+		return str
+	}
+};
 
 const convertExpression = str => {
 	let operator, columnSplits, operatorMatch, fieldOption, includeTimeValue, type;
@@ -253,34 +281,64 @@ const convertExpression = str => {
 
 const convertGroupR = str => {
 	let firstExpr, secondExpr, operator;
-	const matches = str.match(new RegExp('^[^\\(]*\\((.*' + GROUP_REGEXP_STR + '.*)\\)[^\\)]*$', 'i'));
-	if (matches) {
-		const dummyStr = '_dummy_';
-		const dummyRE = new RegExp(dummyStr);
-		const groupStr = matches[1];
-		const dummySplits = str.replace(groupStr, dummyStr).split(GROUP_REGEXP);
-		const dummySplit0 = dummySplits[0];
-		if (dummySplits.length === 3) {
-			operator = dummySplits[1];
-			const dummySplit2 = dummySplits[2];
-			if (dummyRE.test(dummySplit0)) {
-				firstExpr = getStringFromOuterBraces(dummySplit0.replace(dummyStr, groupStr));
-				secondExpr = dummySplit2;
-			} else if (dummyRE.test(dummySplit2)) {
-				firstExpr = dummySplit0;
-				secondExpr = getStringFromOuterBraces(dummySplit2.replace(dummyStr, groupStr));
+	let chars = '';
+	let isBracesBefore = false;
+	let isBracesAfter = false;
+	let operatorIndex = 0;
+	if (GROUP_BRACES_REGEXP.test(str)) {
+		let groupIsOpen = 0;
+		for (let i = 0; i < str.length; i++) {
+			let char = str[i];
+			if (char === '(') {
+				if (!operatorIndex) isBracesBefore = true;
+				groupIsOpen++;
+				continue;
+			};
+			if (char === ')') {
+				if (operatorIndex) isBracesAfter = true;
+				groupIsOpen--;
+				continue;
+			};
+			if (!groupIsOpen) {
+				chars = chars.concat(char);
+				if (!operatorIndex) operatorIndex = i;
+			};
+		}
+	}
+	if (chars && isBracesBefore && isBracesAfter) {
+		operator = chars.trim();
+		firstExpr = trimBraces(str.slice(0, operatorIndex));
+		secondExpr = trimBraces(str.slice(operatorIndex + chars.length))
+	} else {
+		const matches = trimBraces(str).match(GROUP_BRACES_REGEXP);
+		if (matches) {
+			const dummyStr = '_dummy_';
+			const dummyRE = new RegExp(dummyStr);
+			const groupStr = matches[1];
+			const dummySplits = str.replace(groupStr, dummyStr).split(GROUP_REGEXP);
+			const dummySplit0 = dummySplits[0];
+			if (dummySplits.length === 3) {
+				operator = dummySplits[1];
+				const dummySplit2 = dummySplits[2];
+				if (dummyRE.test(dummySplit0)) {
+					firstExpr = getStringFromOuterBraces(dummySplit0.replace(dummyStr, groupStr));
+					secondExpr = dummySplit2;
+				} else if (dummyRE.test(dummySplit2)) {
+					firstExpr = dummySplit0;
+					secondExpr = getStringFromOuterBraces(dummySplit2.replace(dummyStr, groupStr));
+				}
+			} else {
+				return convertExpression(dummySplit0);
 			}
 		} else {
-			return convertExpression(dummySplit0);
-		}
-	} else {
-		const splits = str.split(GROUP_REGEXP);
-		firstExpr = splits[0];
-		if (splits.length === 3) {
-			secondExpr = splits[2];
-			operator = splits[1];
-		} else {
-			return convertExpression(firstExpr);
+			const splits = str.split(GROUP_REGEXP);
+			firstExpr = splits[0];
+			if (splits.length === 3) {
+				secondExpr = splits[2];
+				operator = splits[1];
+			} else {
+				return convertExpression(firstExpr);
+			}
 		}
 	}
 	const operatorNorm = GROUP_OPERATORS_MAPPED[operator];

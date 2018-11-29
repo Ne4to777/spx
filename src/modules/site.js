@@ -41,5 +41,5 @@ const execute = async (spObjectGetter, opts = {}) => {
 site._getSPObject = clientContext => clientContext.get_site();
 
 site.recycleBin = new RecycleBin(site);
-
+window.spx = site;
 export default site

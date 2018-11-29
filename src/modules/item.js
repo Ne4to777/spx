@@ -7,8 +7,9 @@ import {
 import {
 	getCamlQuery,
 	getCamlView,
-	concatQuery,
-	camlLog
+	joinQuery,
+	camlLog,
+	concatQuery
 } from './../query_parser';
 
 const _fieldsInfo = {};
@@ -55,135 +56,119 @@ export default class Item {
 			(utility.setItem(this._fieldsInfo[spObject.get_context().get_url()][listUrl], spObject, elementUrl), spObject), opts)
 	}
 
+	async updateByQuery(opts = {}) {
+		return utility.prepareResponseJSOM(await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+			contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+				listAcc.concat(this._elementUrls.map(async  el => {
+					const { query, columns = {} } = el;
+					if (query === void 0) throw new Error('query is missed');
+					const list = spx(contextUrl).list(listUrl);
+					const items = await list.item(query).get(opts);
+					if (items.length) {
+						const itemsToUpdate = items.map(item => {
+							const row = Object.assign({}, columns);
+							row.ID = item.ID;
+							return row
+						});
+						return list.item(itemsToUpdate).update({ expanded: true });
+					}
+				})), [])), [])))
+	}
+
 	async delete(opts = {}) {
 		return this._execute(opts.noRecycle ? 'delete' : 'recycle', spObject =>
 			(spObject[opts.noRecycle ? 'deleteObject' : 'recycle'](), spObject), opts);
 	}
 
-
-	async getDuplicates(opts = {}) {
-		let {
-			columns = []
-		} = opts;
-		let items = await this.parent.item().get({
-			view: ['ID', 'FSObjType', 'Modified', ...columns],
-			scope: 'itemsAll',
-			limit: 50000,
-		})
-		let itemsMap = new Map;
-		let duplicatedsMap = new Map;
-		let deleteMap = new Map;
-		for (let item of items) {
-			let hashedColumnName = getHashedColumnName(item);
-			if (hashedColumnName !== void 0) {
-				if (!itemsMap.has(hashedColumnName)) itemsMap.set(hashedColumnName, []);
-				itemsMap.get(hashedColumnName).push(item);
-			}
-		}
-		for (let [hashedColumnName, duplicateds] of itemsMap) {
-			if (duplicateds.length > 1) {
-				let itemToEval = duplicateds[0];
-				for (let duplicated of duplicateds) {
-					if (!duplicatedsMap.has(hashedColumnName)) duplicatedsMap.set(hashedColumnName, []);
-					if (itemToEval.Modified.getTime() < duplicated.Modified.getTime()) {
-						duplicatedsMap.get(hashedColumnName).push(itemToEval);
-						deleteMap.set(itemToEval.ID, true);
-						itemToEval = duplicated;
-					} else {
-						duplicatedsMap.get(hashedColumnName).push(duplicated);
-						deleteMap.set(duplicated.ID, true);
+	async deleteByQuery(opts = {}) {
+		return utility.prepareResponseJSOM(await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+			contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+				listAcc.concat(this._elementUrls.map(async  el => {
+					const list = spx(contextUrl).list(listUrl);
+					const items = await list.item(el).get({ view: ['ID'], ...opts });
+					if (items.length) {
+						const ids = items.map(item => item.ID);
+						return list.item(ids).delete(opts);
 					}
-				}
-			}
-		}
-		return [
-			[...deleteMap.keys()], duplicatedsMap
-		];
-
-		function getHashedColumnName(itemData) {
-			let values = [];
-			if (typeOf(columns) === 'array') {
-				for (let column of columns) {
-					let value = itemData[column];
-					if (value === null || value === void 0) {
-						return
-					} else {
-						values.push(value.get_lookupId ? value.get_lookupId() : value);
-					}
-				}
-			} else {
-				value = itemData[columns];
-				if (value === null || value === void 0) {
-					return
-				} else {
-					values.push(value.get_lookupId ? value.get_lookupId() : value);
-				}
-			}
-			return MD5(values.join('.')).toString()
-		}
+				})), [])), [])), { expanded: true })
 	}
 
-	async deleteDuplicates(opts) {
-		let [idsToDelete, itemsDuplicated] = await this.getDuplicates(opts);
-		idsToDelete && idsToDelete.length && await this.parent.item(idsToDelete).delete();
+
+	async getDuplicates() {
+		return this._operateDuplicates()
+	}
+
+	async deleteDuplicates() {
+		return this._operateDuplicates({ delete: true })
 	}
 
 	async getEmpties(opts = {}) {
-		let {
-			columns
-		} = opts;
-		return this.parent.item(`${concatQuery(columns, 'isnull', 'or')}`).get({
-			view: ['ID', ...columns],
-			scope: 'itemsAll',
-		})
+		return this._parent.item(`${joinQuery(this._elementUrls, 'or', 'isnull')}`).get({ ...opts, scope: 'itemsAll', limit: utility.MAX_ITEMS_LIMIT })
 	}
 
 	async deleteEmpties(opts) {
-		return this.parent.item(await this.getEmpties(opts)).delete();
+		return this._parent.item((await this.getEmpties(opts)).map(el => el.ID)).delete();
 	}
 
 	async merge(opts = {}) {
-		let {
-			query,
-			target,
-			mediator = value => value,
-			forced
-		} = opts;
-		let itemsToUpdate = [];
-		let elements = typeOf(this.element) === 'array' ? this.element : [this.element];
-		let items = await this.parent.item(query || `${concatQuery(elements, 'isnotnull', 'or')}`).get({
-			...opts,
-			view: ['ID', target, ...elements]
-		});
+		return utility.prepareResponseJSOM(await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+			contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+				listAcc.concat(this._elementUrls.map(async  elementUrl => {
+					const { key, forced, target, source, mediator = x => x } = elementUrl;
+					const sourceColumn = source.column;
+					const sourceQuery = source.query;
+					const sourceWeb = source.web;
+					const sourceList = source.list;
+					const targetColumn = target.column;
+					const targetQuery = target.query;
 
-		for (let item of items) {
-			let row = {};
-			for (let element of elements) {
-				if (item[target] === null || forced) row[target] = await mediator(item[element])
-			}
-			if (Object.keys(row).length) {
-				row.ID = item.ID;
-				itemsToUpdate.push(row);
-			}
-		}
-		return itemsToUpdate.length ? this.parent.item(itemsToUpdate).update(opts) : void 0;
+					const sourceItems = await spx(sourceWeb).list(sourceList).item(concatQuery(`${key} IsNotNull`, sourceQuery)).get({
+						view: ['ID', key, sourceColumn],
+						scope: 'itemsAll',
+						limit: utility.MAX_ITEMS_LIMIT,
+						...opts
+					});
+					let targetList = spx(contextUrl).list(listUrl);
+					const targetItems = await targetList.item(concatQuery(`${key} IsNotNull`, targetQuery)).get({
+						view: ['ID', key, targetColumn],
+						scope: 'itemsAll',
+						limit: utility.MAX_ITEMS_LIMIT,
+						groupBy: key,
+						...opts
+					})
+
+					const itemsToMerge = [];
+					for (let sourceItem of sourceItems) {
+						const targetItem = targetItems[sourceItem[key]];
+						if (targetItem) {
+							const itemToMerge = { ID: targetItem.ID };
+							if (targetItem[targetColumn] === null || forced) {
+								itemToMerge[targetColumn] = await mediator(sourceItem[sourceColumn], sourceItem);
+								itemsToMerge.push(itemToMerge);
+							}
+						}
+					}
+					return targetList.item(itemsToMerge).update(opts);
+				})), [])), [])), { expanded: true })
 	}
-	async clear(opts = {}) {
-		let itemsToClear = [];
-		let elements = typeOf(this.element) === 'array' ? this.element : [this.element];
-		let items = await this.parent.item(`${concatQuery(elements, 'isnotnull', 'or')}`).get({
-			...opts,
-			view: ['ID', ...elements],
-		});
-		for (let item of items) {
-			let row = {};
-			for (let element of elements) row[element] = null;
-			if (Object.keys(row).length) {
-				row.ID = item.ID;
-				itemsToClear.push(row);
-			}
-		}
-		return itemsToUpdate.length ? this.parent.item(itemsToClear).update(opts) : void 0;
+
+	async clear(opts) {
+		return utility.prepareResponseJSOM(await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+			contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+				listAcc.concat(this._elementUrls.map(async  el => {
+					const { query = '', columns = {} } = el;
+					const list = spx(contextUrl).list(listUrl);
+					const items = await list.item(query).get(opts);
+					if (items.length) {
+						const itemsToUpdate = items.map(item => {
+							const row = {};
+							columns.map(col => row[col] = null)
+							row.ID = item.ID;
+							return row
+						});
+						return list.item(itemsToUpdate).update({ expanded: true });
+					}
+				})), [])), [])))
 	}
 
 	// Internal
@@ -195,19 +180,17 @@ export default class Item {
 	async _execute(actionType, spObjectGetter, opts = {}) {
 		let needToQuery;
 		let isArrayCounter = 0;
-		let { cached, showCaml, parallelized = actionType !== 'create' } = opts;
 		const clientContexts = {};
 		const spObjectsToCache = new Map;
+		let { cached, showCaml, parallelized = actionType !== 'create' } = opts;
 		opts.view = opts.view || (actionType ? ['ID'] : void 0);
-		const elements = await Promise.all(this._contextUrls.map(async contextUrl => {
+		const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) => {
 			let totalElements = 0;
-			const spObjects = [];
 			const contextUrls = contextUrl.split('/');
 			let clientContext = utility.getClientContext(contextUrl);
 			clientContexts[contextUrl] = [clientContext];
-
-			for (let listUrl of this._listUrls) {
-				for (let elementUrl of this._elementUrls) {
+			return contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+				listAcc.concat(this._elementUrls.map(async elementUrl => {
 					if (!elementUrl) elementUrl = '';
 					if (actionType && ++totalElements >= utility.REQUEST_BUNDLE_MAX_SIZE) {
 						clientContext = utility.getClientContext(contextUrl);
@@ -225,18 +208,16 @@ export default class Item {
 					} else {
 						const spObjectCached = cached ? cache.get(cachePaths) : null;
 						if (cached && spObjectCached) {
-							spObjects.push(spObjectCached);
+							return spObjectCached;
 						} else {
 							needToQuery = true;
 							const currentSPObjects = utility.load(clientContext, spObject, opts);
 							!actionType && spObjectsToCache.set(cachePaths, currentSPObjects)
-							spObjects.push(currentSPObjects);
+							return currentSPObjects;
 						}
 					}
-				}
-			}
-			return spObjects;
-		}))
+				})), []))
+		}, []))
 
 		if (needToQuery) {
 			await Promise.all(parallelized ?
@@ -245,11 +226,8 @@ export default class Item {
 				this._contextUrls.map(async (contextUrl) => {
 					for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts)
 				}));
-
 			!actionType && spObjectsToCache.forEach((value, key) => cache.set(key, value))
 		};
-
-
 		this._log(actionType, opts);
 		opts.isArray = isArrayCounter || this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
 		return utility.prepareResponseJSOM(elements, opts);
@@ -298,5 +276,80 @@ export default class Item {
 				this._name}(s) at ${
 				this._contextUrls.join(', ')} in ${
 				this._listUrls.join(', ')}`);
+	}
+
+	async _operateClear() {
+		const items = await this._parent.item(`${joinQuery(this._elementUrls, 'or', 'isnull')}`).get({
+			...opts,
+			view: ['ID', ...this._elementUrls],
+		});
+		const itemsToClear = items.reduce((acc, item) => {
+			const row = {};
+			for (let element of this._elementUrls) row[element] = null;
+			if (Object.keys(row).length) {
+				row.ID = item.ID;
+				acc.push(row);
+			}
+			return acc;
+		}, []);
+		return itemsToClear.length ? this._parent.item(itemsToClear).update(opts) : void 0;
+	}
+
+	async _operateDuplicates(params = {}) {
+		const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+			contextAcc.concat(this._listUrls.map(async (listUrl) => {
+				const items = await spx(contextUrl).list(listUrl).item().get({
+					view: ['ID', 'FSObjType', 'Modified', ...this._elementUrl],
+					scope: 'itemsAll',
+					limit: utility.MAX_ITEMS_LIMIT,
+				});
+
+				const itemsMap = new Map;
+				const duplicatedsMap = new Map;
+				const deleteMap = new Map;
+				const getHashedColumnName = itemData => {
+					const values = [];
+					for (let column of this._elementUrls) {
+						const value = itemData[column];
+						if (value === null || value === void 0) {
+							return
+						} else {
+							values.push(value.get_lookupId ? value.get_lookupId() : value);
+						}
+					}
+					return MD5(values.join('.')).toString()
+				}
+				for (let item of items) {
+					let hashedColumnName = getHashedColumnName(item);
+					if (hashedColumnName !== void 0) {
+						if (!itemsMap.has(hashedColumnName)) itemsMap.set(hashedColumnName, []);
+						itemsMap.get(hashedColumnName).push(item);
+					}
+				}
+				for (let [hashedColumnName, duplicateds] of itemsMap) {
+					if (duplicateds.length > 1) {
+						let itemToEval = duplicateds[0];
+						for (let duplicated of duplicateds) {
+							if (!duplicatedsMap.has(hashedColumnName)) duplicatedsMap.set(hashedColumnName, []);
+							if (itemToEval.Modified.getTime() < duplicated.Modified.getTime()) {
+								duplicatedsMap.get(hashedColumnName).push(itemToEval);
+								deleteMap.set(itemToEval.ID, true);
+								itemToEval = duplicated;
+							} else {
+								duplicatedsMap.get(hashedColumnName).push(duplicated);
+								deleteMap.set(duplicated.ID, true);
+							}
+						}
+					}
+				}
+				if (params.delete) {
+					await spx(contextUrl).list(listUrl).item([...deleteMap.keys()]).delete();
+				} else {
+					let array = [];
+					for (let [k, v] of duplicatedsMap) array.push(v);
+					return array
+				}
+			})), []))
+		return elements;
 	}
 }

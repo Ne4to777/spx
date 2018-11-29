@@ -4,6 +4,7 @@ import PathBuilder from './../pathBuilder';
 import spx from './../modules/site';
 
 export const REQUEST_TIMEOUT = 3600000;
+export const MAX_ITEMS_LIMIT = 100000;
 
 export const REQUEST_BUNDLE_MAX_SIZE = 252;
 export const ACTION_TYPES = {
@@ -69,7 +70,8 @@ export const prepareResponseJSOM = (inputData, opts = {}) => {
   }
 }
 
-export const prepareResponseREST = data => {
+export const prepareResponseREST_ = (inputData, opts = {}) => {
+  if (!inputData) return inputData;
   let result;
   if (typeOf(data) === 'array') {
     let outputData = [];
@@ -97,6 +99,29 @@ export const prepareResponseREST = data => {
     if (result) {
       return result.results ? result.results : result;
     }
+  }
+}
+
+export const prepareResponseREST = (inputData, opts = {}) => {
+  if (!inputData) return inputData;
+  const { expanded, groupBy } = opts;
+  const getValues = restObject => {
+    if (!restObject) return;
+    try {
+      const result = JSON.parse(restObject.body).d;
+      return result.results ? result.results : result;
+    } catch (err) {
+      return restObject.body
+    }
+  }
+  if (typeOf(inputData) === 'array') {
+    const flattenElements = flatter(inputData);
+    const isArray = opts.isArray || flattenElements.length > 1;
+    if (expanded) return isArray ? flattenElements : flattenElements[0];
+    const preparedElements = flattenElements.map(getValues);
+    return groupBy ? groupper(groupBy, preparedElements) : isArray ? preparedElements : preparedElements[0];
+  } else {
+    return getValues(inputData)
   }
 }
 
@@ -309,9 +334,9 @@ export const get_ = async (methodName, opts = {}) => {
     })
 }
 
-export const requestExecutor = async (params = {}) =>
+export const requestExecutor = (contextUrl = '/', params = {}) =>
   new Promise((resolve, reject) => {
-    new SP.RequestExecutor(this.contextUrl).executeAsync({
+    new SP.RequestExecutor(contextUrl).executeAsync({
       ...params,
       method: !params.method || /^get$/i.test(params.method) ? 'GET' : 'POST',
       success: resolve,
@@ -334,7 +359,7 @@ export const getValidMethodName = (spObject, methodName) => {
 export const convertFileContent = data => {
   if (typeOf(data) === 'arraybuffer') {
     let out = '';
-    let bytes = new Uint8Array(data);
+    const bytes = new Uint8Array(data);
     for (let byte of bytes) out += String.fromCharCode(byte);
     return btoa(out);
   } else {
@@ -472,3 +497,24 @@ export const setFields = (spObject, params) => {
 }
 
 export const getLastPath = url => url.split('/').slice(-1)[0];
+
+
+export const getSPFolderByUrl = (spFolderObject, url) => {
+  const folderUrls = url.split('/').filter(el => !!el.length);
+  const getSPFolderR = (base, i) =>
+    i < folderUrls.length ? (getSPFolderR(base.get_folders().getByUrl(folderUrls[i]), ++i)) : base;
+  return getSPFolderR(spFolderObject, 0);
+}
+
+export const getFolderAndFilenameFromUrl = elementUrl => {
+  let folder, filename;
+  if (elementUrl) {
+    const fileSplits = elementUrl.split('/');
+    if (/\./.test(fileSplits.slice(-1))) filename = fileSplits.pop();
+    folder = fileSplits.join('/');
+  }
+  return {
+    filename,
+    folder
+  }
+}

@@ -14,11 +14,17 @@ import {
 	getCamlQuery,
 	getCamlView,
 	camlLog,
+	joinQuery,
 	concatQuery
 } from './query_parser';
+window.axios = axios;
 window.spx = spx;
 window.log = log;
 window.getCamlView = getCamlView;
+window.getCamlQuery = getCamlQuery;
+window.joinQuery = joinQuery;
+window.concatQuery = concatQuery;
+window.camlLog = camlLog;
 
 // siteTest()
 
@@ -34,37 +40,44 @@ window.getCamlView = getCamlView;
 // 	spx('/test/spx/testFolder').list('files').file(files).create().then(log);
 // }
 
-// $('#send').click(e => {
-// 	e.preventDefault();
-// 	spx('/test/spx/testFolder2').list('files').file('image-2.jpg').get({
-// 		blob: true
-// 	}).then(data => {
-// 		console.log(data);
-// 		showFile(data, 'downloaded.jpg', 'image/jpeg')
-// 	});
-// })
+$('#send').click(e => {
+	e.preventDefault();
+	const file = $('#file').get(0).files[0];
+	// console.log(file);
+	const list = spx('/test/spx/testMulti1').list('src');
+	list.file('fox.jpg').get({ blob: true }).then(blob => {
+		console.log(blob);
+		showFile(blob, 'downloaded.jpg', 'image/jpeg')
+		list.file({ Url: '/a/fox1.jpg', Content: blob }).create()
+	})
+	// spx('/test/spx/testMulti1').list('src').file({ Url: 'test.jpg', Content: file, OnProgress: console.log }).create({
+	// 	file: true
+	// }).then(data => {
+	// 	showFile(file, 'downloaded.jpg', 'image/jpeg')
+	// });
+})
 
 
-// function showFile(data, filename, mime) {
-// 	// let blob = new Blob([data], {
-// 	// 	type: mime || 'application/octet-stream'
-// 	// })
-// 	// if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-// 	// 	window.navigator.msSaveOrOpenBlob(blob);
-// 	// 	return;
-// 	// } else {
-// 	// 	const data = window.URL.createObjectURL(blob);
-// 	// 	let link = document.createElement('a');
-// 	// 	link.href = data;
-// 	// 	link.download = filename;
-// 	// 	link.click();
-// 	// 	setTimeout(() => {
-// 	// 		window.URL.revokeObjectURL(data);
-// 	// 	}, 100);
-// 	// }
-// 	let img = document.querySelector("#photo");
-// 	img.src = window.URL.createObjectURL(data);
-// };
+function showFile(data, filename, mime) {
+	// let blob = new Blob([data], {
+	// 	type: mime || 'application/octet-stream'
+	// })
+	// if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+	// 	window.navigator.msSaveOrOpenBlob(blob);
+	// 	return;
+	// } else {
+	// 	const data = window.URL.createObjectURL(blob);
+	// 	let link = document.createElement('a');
+	// 	link.href = data;
+	// 	link.download = filename;
+	// 	link.click();
+	// 	setTimeout(() => {
+	// 		window.URL.revokeObjectURL(data);
+	// 	}, 100);
+	// }
+	let img = document.querySelector("#photo");
+	img.src = window.URL.createObjectURL(data);
+};
 
 
 function loadQuery() {
@@ -262,3 +275,20 @@ window.update = function update() {
 
 // update()
 
+const exec = () => {
+	let context = new SP.ClientContext('/test/spx/testMulti1');
+	let list = context.get_web().get_lists().getByTitle('test1');
+	let items = list.getItems('');
+	items.removeFromParentCollection();
+	context.load(items);
+
+	context.executeQueryAsync(() => {
+		console.log(items);
+		let enumerator = items.getEnumerator()
+		while (enumerator.moveNext()) {
+			console.log(enumerator.get_current());
+		}
+	}, (sender, args) => console.log(args.get_message()))
+}
+
+// exec()

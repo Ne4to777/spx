@@ -62,27 +62,25 @@ export default class FolderList {
   get _name() { return 'folder' }
 
   async _execute(actionType, spObjectGetter, opts = {}) {
-    const { cached, parallelized = actionType !== 'create' } = opts;
-    opts.view = opts.view || (actionType ? ['ID'] : void 0);
+    let needToQuery;
     let isArrayCounter = 0;
     const clientContexts = {};
-    const elements = await Promise.all(this._contextUrls.map(async contextUrl => {
-      let needToQuery;
+    const spObjectsToCache = new Map;
+    const { cached, parallelized = actionType !== 'create' } = opts;
+    opts.view = opts.view || (actionType ? ['ID'] : void 0);
+    const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) => {
       let totalElements = 0;
-      const spObjects = [];
-      const spObjectsToCache = new Map;
       const contextUrls = contextUrl.split('/');
-      clientContexts[contextUrl] = {};
-      for (let listUrl of this._listUrls) {
-        let clientContext = utility.getClientContext(contextUrl);
-        clientContexts[contextUrl][listUrl] = [clientContext]
-        for (let elementUrl of this._elementUrls) {
+      let clientContext = utility.getClientContext(contextUrl);
+      clientContexts[contextUrl] = [clientContext]
+      return contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+        listAcc.concat(this._elementUrls.map(async elementUrl => {
           const element = this._liftElementUrlType(elementUrl);
           let folderUrl = element.Url;
           if (actionType === 'create') folderUrl = '';
           if (actionType && ++totalElements >= utility.REQUEST_BUNDLE_MAX_SIZE) {
             clientContext = utility.getClientContext(contextUrl);
-            clientContexts[contextUrl][listUrl].push(clientContext);
+            clientContexts[contextUrl].push(clientContext);
             totalElements = 0;
           }
           const spObject = await spObjectGetter(this._getSPObject(clientContext, listUrl, folderUrl), listUrl, element);
@@ -95,31 +93,26 @@ export default class FolderList {
           } else {
             const spObjectCached = cached ? cache.get(cachePaths) : null;
             if (cached && spObjectCached) {
-              spObjects.push(spObjectCached);
+              return spObjectCached;
             } else {
               needToQuery = true;
               const currentSPObjects = utility.load(clientContext, spObject, opts);
               spObjectsToCache.set(cachePaths, currentSPObjects)
-              spObjects.push(currentSPObjects);
+              return currentSPObjects;
             }
           }
-        }
-      }
-      if (needToQuery) {
-        if (parallelized) {
-          await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
-            contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
-              listAcc.concat(clientContexts[contextUrl][listUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), [])), []));
-        } else {
-          await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
-            contextAcc.concat(this._listUrls.map(async listUrl => {
-              for (let clientContext of clientContexts[contextUrl][listUrl]) await utility.executeQueryAsync(clientContext, opts)
-            })), []));
-        }
-        spObjectsToCache.forEach((value, key) => cache.set(key, value))
-      };
-      return spObjects;
-    }))
+        })), []))
+    }, []))
+
+    if (needToQuery) {
+      await Promise.all(parallelized ?
+        this._contextUrls.reduce((contextAcc, contextUrl) =>
+          contextAcc.concat(clientContexts[contextUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), []) :
+        this._contextUrls.map(async (contextUrl) => {
+          for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts)
+        }));
+      spObjectsToCache.forEach((value, key) => cache.set(key, value))
+    };
 
     this._log(actionType, opts);
     opts.isArray = isArrayCounter || this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
@@ -129,15 +122,8 @@ export default class FolderList {
   _getSPObject(clientContext, listUrl, elementUrl) {
     if (clientContext) {
       if (elementUrl) {
-        const folderUrls = elementUrl.split('/').filter(el => !!el.length);
-        const getSPFolderR = (base, i) => {
-          if (i < folderUrls.length) {
-            return getSPFolderR(base.get_folders().getByUrl(folderUrls[i]), ++i)
-          } else {
-            return /\/$/.test(elementUrl) ? base.get_folders() : base;
-          }
-        }
-        return getSPFolderR(this._parent._getSPObject(clientContext, listUrl).get_rootFolder(), 0);
+        const folders = utility.getSPFolderByUrl(this._parent._getSPObject(clientContext, listUrl).get_rootFolder(), elementUrl);;
+        return /\/$/.test(elementUrl) ? folders.get_folders() : folders
       } else {
         return this._parent._getSPObject(clientContext, listUrl)
       }

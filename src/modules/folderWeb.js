@@ -43,7 +43,7 @@ export default class FolderWeb {
   get _name() { return 'folder' }
 
   async _execute(actionType, spObjectGetter, opts = {}) {
-    const { cached, parallelized = true } = opts;
+    const { cached } = opts;
     let isArrayCounter = 0;
     const clientContexts = {};
     const elements = await Promise.all(this._contextUrls.map(async contextUrl => {
@@ -82,15 +82,8 @@ export default class FolderWeb {
       }))
 
       if (needToQuery) {
-        if (parallelized) {
-          await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
-            contextAcc.concat(clientContexts[contextUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), []));
-        } else {
-          await Promise.all(this._contextUrls.map(async  contextUrl => {
-            const currentClientContexts = clientContexts[contextUrl];
-            for (let clientContext of currentClientContexts) await utility.executeQueryAsync(clientContext, opts)
-          }))
-        }
+        await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+          contextAcc.concat(clientContexts[contextUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), []));
         spObjectsToCache.forEach((value, key) => cache.set(key, value))
       };
       return spObjects;

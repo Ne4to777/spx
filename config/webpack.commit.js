@@ -5,7 +5,7 @@ const webpack = require('webpack');
 module.exports = {
 	mode: 'production',
 	devtool: 'source-map',
-	entry: ['babel-polyfill', './src/main.js'],
+	entry: ['babel-polyfill', './src/modules/site.js'],
 	module: {
 		rules: [{
 			test: /\.js$/,
