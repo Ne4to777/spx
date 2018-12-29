@@ -30,11 +30,21 @@ export default class Column {
 				LookupWebId,
 				LookupList,
 				LookupField = 'Title',
-				RichText
+				MaxLength,
+				RichText,
+				SchemaXml
 			} = element;
 			const type = TypeAsString || Type;
 			const clientContext = spContextObject.get_context();
-			const spFieldObject = spContextObject.addFieldAsXml(`<Field Type="${type}" DisplayName="${Title}"/>`, true, SP.AddFieldOptions.defaultValue);
+			let schema = SchemaXml;
+			if (SchemaXml) {
+				if (MaxLength) schema = SchemaXml.replace(/MaxLegth="\d+"/);
+			} else {
+				schema = MaxLength && type === 'Text' ?
+					`<Field Type="${type}" DisplayName="${Title}" MaxLength="${MaxLength}"/>` :
+					`<Field Type="${type}" DisplayName="${Title}"/>`;
+			}
+			const spFieldObject = spContextObject.addFieldAsXml(schema, true, SP.AddFieldOptions.defaultValue);
 			utility.setFields(spFieldObject, {
 				set_defaultValue: element.DefaultValue,
 				set_description: element.Description,
@@ -42,30 +52,35 @@ export default class Column {
 				set_enforceUniqueValues: element.EnforceUniqueValues,
 				set_fieldTypeKind: element.FieldTypeKind,
 				set_group: element.Group,
-				set_hidden: element.Hidden,
+				// set_hidden: element.Hidden ,
 				set_indexed: element.Indexed,
 				set_jsLink: element.JsLink,
 				set_objectVersion: element.ObjectVersion,
 				set_readOnlyField: element.ReadOnlyField,
 				set_required: element.Required,
-				set_schemaXml: element.SchemaXml,
+				set_schemaXml: element.SchemaXml ? element.SchemaXml.replace(/ID="{[^}]+}"/, '') : '',
 				set_staticName: element.StaticName,
 				set_title: element.Title,
 				set_typeAsString: element.TypeAsString,
-				set_validationFormula: element.ValidationFormula,
-				set_validationMessage: element.ValidationMessage
-			})
+				set_validationFormula: element.ValidationFormula || void 0,
+				set_validationMessage: element.ValidationMessage || void 0
+			});
 			const castTo = value => clientContext.castTo(spFieldObject, value);
+
 			switch (type) {
 				case 'Text': spObject = castTo(SP.FieldText); break;
 				case 'Note':
 					spObject = castTo(SP.FieldMultiLineText);
 					RichText && spObject.set_richText(true);
 					break;
+				case 'Likes':
 				case 'Number': spObject = castTo(SP.FieldNumber); break;
 				case 'Boolean': spObject = castTo(SP.Field); break;
 				case 'Choice': spObject = castTo(AllowMultipleValues ? SP.FieldMultiChoice : SP.FieldChoice); break;
 				case 'DateTime': spObject = castTo(SP.FieldDateTime); break;
+				case 'URL': spObject = castTo(SP.FieldUrl); break;
+				case 'RatingCount':
+				case 'AverageRating': spObject = castTo(SP.FieldRatingScale); break;
 				case 'Lookup':
 				case 'LookupMulti':
 					spObject = castTo(SP.FieldLookup);
@@ -110,6 +125,10 @@ export default class Column {
 				set_validationFormula: element.ValidationFormula,
 				set_validationMessage: element.ValidationMessage
 			})
+			if (element.MaxLength) {
+				const name = element.Name || element.Title;
+				spObject.set_schemaXml(`<Field Type="Text" DisplayName="${name}" MaxLength="${element.MaxLength}" />`);
+			}
 			spObject.update();
 			spObject.cachePath = 'property';
 			return spObject;
@@ -133,11 +152,11 @@ export default class Column {
 			const contextUrls = contextUrl.split('/');
 			const spObjects = await Promise.all(this._listUrls.reduce((acc, listUrl) => acc.concat(this._elementUrls.map(elementUrl => {
 				const element = this._liftElementUrlType(elementUrl);
-				let fieldTitle = element.Title;
+				let fieldTitle = element.Name || element.Title;
 				if (actionType === 'create') fieldTitle = '';
 				const spObject = spObjectGetter(this._getSPObject(clientContext, listUrl, fieldTitle), element);
 				const cachePaths = [...contextUrls, listUrl, fieldTitle, this._name, spObject.cachePath];
-				utility.ACTION_TYPES_TO_UNSET[actionType] && cache.unset(cachePaths.slice([...contextUrls, listUrl]));
+				utility.ACTION_TYPES_TO_UNSET[actionType] && cache.unset([...contextUrls, listUrl]);
 				if (actionType === 'delete' || actionType === 'recycle') {
 					needToQuery = true;
 				} else {
@@ -154,7 +173,7 @@ export default class Column {
 			})), []))
 
 			if (needToQuery) {
-				await utility.executeQueryAsync(clientContext, opts)
+				await utility.executeQueryAsync(clientContext, opts);
 				spObjectsToCache.forEach((value, key) => cache.set(key, value))
 			};
 			return spObjects;
@@ -176,7 +195,8 @@ export default class Column {
 				return elementUrl;
 			case 'string':
 				return {
-					Title: elementUrl
+					Title: elementUrl,
+					Name: elementUrl
 				}
 		}
 	}

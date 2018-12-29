@@ -33,17 +33,21 @@ export default class Item {
 	async create(opts) {
 		await utility.initFieldsInfo(this._contextUrls, this._listUrls, this._fieldsInfo);
 		return this._execute('create', async (spContextObject, listUrl, elementUrl) => {
-			const elementUrlNew = Object.assign({}, elementUrl);
-			const folder = elementUrl.folder;
-			delete elementUrlNew.folder;
+			let folderUrl = '';
 			const contextUrl = spContextObject.get_context().get_url();
 			const itemCreationInfo = new SP.ListItemCreationInformation();
-			if (folder) {
+			const elementUrlNew = Object.assign({}, elementUrl);
+			if (elementUrlNew.folder) {
+				const folder = elementUrlNew.folder;
+				delete elementUrlNew.folder;
 				const spxFolder = spx(contextUrl).list(listUrl).folder(folder);
 				const folderOpts = { cached: true, silent: true };
-				const folderUrl = await spxFolder.get(folderOpts).catch(async err => await spxFolder.create(folderOpts));
-				itemCreationInfo.set_folderUrl(folderUrl.ServerRelativeUrl || folderUrl.FileRef);
+				const folderData = await spxFolder
+					.get({ ...folderOpts, asItem: true })
+					.catch(async err => await spxFolder.create({ ...folderOpts, view: ['FileRef'] }));
+				folderUrl = folderData.FileRef;
 			}
+			folderUrl && folderUrl.split(listUrl)[1] && itemCreationInfo.set_folderUrl(folderUrl);
 			const spObject = spContextObject.addItem(itemCreationInfo);
 			utility.setItem(this._fieldsInfo[contextUrl][listUrl], spObject, elementUrlNew);
 			return spObject;
@@ -103,7 +107,7 @@ export default class Item {
 	}
 
 	async getEmpties(opts = {}) {
-		return this._parent.item(`${joinQuery(this._elementUrls, 'or', 'isnull')}`).get({ ...opts, scope: 'itemsAll', limit: utility.MAX_ITEMS_LIMIT })
+		return this._parent.item(`${joinQuery(this._elementUrls, 'or', 'isnull')}`).get({ ...opts, scope: 'allItems', limit: utility.MAX_ITEMS_LIMIT })
 	}
 
 	async deleteEmpties(opts) {
@@ -114,24 +118,24 @@ export default class Item {
 		return utility.prepareResponseJSOM(await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
 			contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
 				listAcc.concat(this._elementUrls.map(async  elementUrl => {
-					const { key, forced, target, source, mediator = x => x } = elementUrl;
+					const { key, forced, target, source, mediator = _ => _ } = elementUrl;
 					const sourceColumn = source.column;
 					const sourceQuery = source.query;
-					const sourceWeb = source.web;
-					const sourceList = source.list;
+					const sourceWeb = source.webUrl;
+					const sourceList = source.listUrl;
 					const targetColumn = target.column;
 					const targetQuery = target.query;
 
 					const sourceItems = await spx(sourceWeb).list(sourceList).item(concatQuery(`${key} IsNotNull`, sourceQuery)).get({
 						view: ['ID', key, sourceColumn],
-						scope: 'itemsAll',
+						scope: 'allItems',
 						limit: utility.MAX_ITEMS_LIMIT,
 						...opts
 					});
 					let targetList = spx(contextUrl).list(listUrl);
 					const targetItems = await targetList.item(concatQuery(`${key} IsNotNull`, targetQuery)).get({
 						view: ['ID', key, targetColumn],
-						scope: 'itemsAll',
+						scope: 'allItems',
 						limit: utility.MAX_ITEMS_LIMIT,
 						groupBy: key,
 						...opts
@@ -171,6 +175,36 @@ export default class Item {
 				})), [])), [])))
 	}
 
+	async createDiscussion(opts) {
+		return await this._execute('create', (spContextObject, listUrl, element) => {
+			let spObject;
+			const clientContext = spContextObject.get_context();
+			const list = this._getSPObject(clientContext, listUrl);
+			if (typeOf(element) === 'string') {
+				spObject = SP.Utilities.Utility.createNewDiscussion(clientContext, list, element);
+			} else {
+				spObject = SP.Utilities.Utility.createNewDiscussion(clientContext, list, element.Title);
+				for (let columnName in element) spObject.set_item(columnName, element[columnName]);
+			}
+			spObject.update();
+			spObject.cachePath = 'discussion';
+			return spObject
+		}, opts);
+	}
+
+	async createReply(opts) {
+		return await this._execute('create', async (spContextObject, listUrl, element) => {
+			const { id, columns } = element;
+			const clientContext = spContextObject.get_context();
+			const item = await this._getSPObject(clientContext, listUrl, id);
+			const spObject = SP.Utilities.Utility.createNewDiscussionReply(clientContext, item);
+			for (let columnName in columns) spObject.set_item(columnName, columns[columnName]);
+			spObject.update();
+			spObject.cachePath = 'reply';
+			return spObject
+		}, opts);
+	}
+
 	// Internal
 
 	get _name() { return 'item' }
@@ -183,7 +217,7 @@ export default class Item {
 		const clientContexts = {};
 		const spObjectsToCache = new Map;
 		let { cached, showCaml, parallelized = actionType !== 'create' } = opts;
-		opts.view = opts.view || (actionType ? ['ID'] : void 0);
+		if (!opts.view && actionType) opts.view = ['ID'];
 		const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) => {
 			let totalElements = 0;
 			const contextUrls = contextUrl.split('/');
@@ -255,7 +289,7 @@ export default class Item {
 					camlQuery.set_viewXml(getCamlView(elementUrl.query, elementUrl));
 					if (elementUrl.page) {
 						const page = elementUrl.page;
-						const pageStr = `${page.previous ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_${page.field || 'ID'}=${page.value || ''}`;
+						const pageStr = `${page.previous ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${page.id}&p_${page.column || 'ID'}=${page.value || ''}`;
 						const position = new SP.ListItemCollectionPosition();
 						position.set_pagingInfo(pageStr);
 						camlQuery.set_listItemCollectionPosition(position);
@@ -300,7 +334,7 @@ export default class Item {
 			contextAcc.concat(this._listUrls.map(async (listUrl) => {
 				const items = await spx(contextUrl).list(listUrl).item().get({
 					view: ['ID', 'FSObjType', 'Modified', ...this._elementUrl],
-					scope: 'itemsAll',
+					scope: 'allItems',
 					limit: utility.MAX_ITEMS_LIMIT,
 				});
 

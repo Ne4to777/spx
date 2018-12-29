@@ -43,9 +43,10 @@ export default class FolderWeb {
   get _name() { return 'folder' }
 
   async _execute(actionType, spObjectGetter, opts = {}) {
-    const { cached } = opts;
+    let { cached } = opts;
     let isArrayCounter = 0;
     const clientContexts = {};
+    if (opts.asItem) opts.view = ['ListItemAllFields'];
     const elements = await Promise.all(this._contextUrls.map(async contextUrl => {
       let needToQuery;
       let totalElements = 0;

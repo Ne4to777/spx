@@ -93,6 +93,7 @@ export default class FileWeb {
     const { cached } = opts;
     let isArrayCounter = 0;
     const clientContexts = {};
+    if (opts.asItem) opts.view = ['ListItemAllFields'];
     const elements = await Promise.all(this._contextUrls.map(async contextUrl => {
       let needToQuery;
       let totalElements = 0;

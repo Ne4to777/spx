@@ -1,3 +1,4 @@
+const config = require('./private.json');
 const path = require('path');
 const webpack = require('webpack');
 
@@ -18,9 +19,9 @@ module.exports = {
 		})
 	],
 	output: {
-		filename: 'spx.js',
+		filename: config.filename,
 		path: path.resolve(__dirname, '../dist'),
-		library: 'SPX',
+		library: config.library,
 		libraryTarget: 'umd'
 	}
 };

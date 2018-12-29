@@ -292,3 +292,58 @@ const exec = () => {
 }
 
 // exec()
+
+const gen = () => {
+	const encryptors = [];
+	for (let i = 2; i < 102; i++) {
+		encryptors.push({
+			encryptor: `function (x){return (x+${i})*${i}+${i}}`,
+			decryptor: `function (x){return (x-${i})/${i}-${i}}`
+		})
+	}
+	console.log(encryptors);
+	// spx('/app-core').list('Encryptors').item(encryptors).create();
+}
+
+
+// gen();
+
+const getFile = () => {
+	let clientContext = new SP.ClientContext('/test/spx/testMulti1');
+	let file = clientContext.get_web().getFileByServerRelativeUrl('/test/spx/testMulti1/src/fox.jpg');
+	clientContext.load(file, 'ListItemAllFields');
+	clientContext.executeQueryAsync(_ => {
+		console.log(file.get_listItemAllFields().get_fieldValues());
+	})
+}
+
+// getFile()
+
+const getFolder = () => {
+	let clientContext = new SP.ClientContext('/test/spx/testMulti1');
+	let folder = clientContext.get_web().getFolderByServerRelativeUrl('/test/spx/testMulti1/src/j');
+	clientContext.load(folder, 'ListItemAllFields');
+	clientContext.executeQueryAsync(_ => {
+		console.log(folder.get_listItemAllFields().get_fieldValues());
+	}, log)
+}
+
+// getFolder()
+
+const getAllUsers = () => {
+	console.log(1);
+	const clientContext = new SP.ClientContext('/');
+	const web = clientContext.get_web();
+	const userInfoList = web.get_siteUserInfoList();
+	const collListItem = userInfoList.getItems();
+	clientContext.load(collListItem);
+	clientContext.executeQueryAsync(_ => {
+		console.log(2);
+		const item = collListItem.itemAt(0);
+		const profileNotes = item.get_item('Notes');
+		console.log(profileNotes);
+	}, console.log);
+}
+
+
+// getAllUsers();

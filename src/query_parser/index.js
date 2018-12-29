@@ -1,6 +1,6 @@
 const IN_CHUNK_SIZE = 500;
 const IN_CUSTOM_DELIMETER = '8^)';
-const GROUP_REGEXP_STR = '\\s(and|or)\\s';
+const GROUP_REGEXP_STR = '\\s(\&\&|\|\|)\\s';
 const GROUP_REGEXP = new RegExp(GROUP_REGEXP_STR, 'i');
 const GROUP_BRACES_REGEXP = new RegExp('\\((.*' + GROUP_REGEXP_STR + '.*)\\)', 'i');
 const TIME_STAMP_ISO_REGEXP = /^\d\d\d\d-\d\d-\d\dT\d\d\:\d\d\:\d\d(\.\d\d\d)?Z$/;
@@ -107,10 +107,7 @@ const OPERATORS_MAPPED = {
 	search: 'Search',
 	in: 'In'
 }
-const GROUP_OPERATORS_MAPPED = {
-	and: 'And',
-	or: 'Or'
-}
+const GROUP_OPERATORS_MAPPED = { '&&': 'And', '||': 'Or' }
 
 export const getCamlQuery = str => {
 	if (!str) return '';
@@ -134,7 +131,7 @@ export const getCamlView = (str, opts = {}) => {
 		if (typeOf(orderBy) !== 'array') orderBys = [orderBy];
 		for (let item of orderBys) {
 			itemSplits = item.split('>');
-			orderByStr += `<FieldRef Name="${itemSplits[0]}"${/\>/.test(item) ? ' Ascending="False"' : ''}/>`
+			orderByStr += `<FieldRef Name="${itemSplits[0]}"${/\>/.test(item) ? ' Ascending="FALSE"' : ''}/>`
 		}
 		orderByStr = `<OrderBy>${orderByStr}</OrderBy>`;
 	}
@@ -156,9 +153,9 @@ export const getCamlView = (str, opts = {}) => {
 	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
 }
 
-export const joinQuery = (items, joiner = 'or', operator, value) => {
+export const joinQuery = (items, joiner = '||', operator, value) => {
 	let item;
-	let query = joiner === 'and' ? 'ID isnotnull' : 'ID isnull';
+	let query = joiner === '&&' ? 'ID isnotnull' : 'ID isnull';
 	if (!operator) operator = value === void 0 ? 'isnotnull' : 'eq';
 	if (typeOf(value) === 'array') {
 		const valueLastIndex = value.length - 1;
@@ -176,7 +173,7 @@ export const joinQuery = (items, joiner = 'or', operator, value) => {
 	return query;
 }
 
-export const concatQuery = (query1, query2 = '', joiner = 'or') => {
+export const concatQuery = (query1, query2 = '', joiner = '||') => {
 	const trimmed1 = trimBraces(query1);
 	const trimmed2 = trimBraces(query2);
 	if (!trimmed1) return query2;
@@ -255,7 +252,7 @@ const convertExpression = str => {
 		case 'search':
 			let searchQuery = 'ID isnull';
 			const valueSplits = value.replace(/\s+/g, ' ').trim().split(' ');
-			for (let split of valueSplits) searchQuery = `(${type} ${name} contains ${split} or ${searchQuery})`
+			for (let split of valueSplits) searchQuery = `(${type} ${name} contains ${split} || ${searchQuery})`
 			return convertGroupR(trimBraces(searchQuery));
 	}
 	const operatorNorm = OPERATORS_MAPPED[operator];

@@ -32,18 +32,18 @@ export default class FolderList {
       delete elementNew.Url;
       const clientContext = spContextObject.get_context();
       const itemCreationInfo = new SP.ListItemCreationInformation;
-      const parentFolderUrl = url.split('/').slice(0, -1);
+      const parentFolderUrl = url.split('/').slice(0, -1).join('/');
       const contextUrl = clientContext.get_url();
       parentFolderUrl && await spx(contextUrl).list(listUrl).folder(parentFolderUrl).create({
         view: ['FileLeafRef'],
         silent: true,
         expanded: true,
-      }).catch(() => { });
+      }).catch(_ => _);
       itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder);
       itemCreationInfo.set_leafName(url);
       const spObject = spContextObject.addItem(itemCreationInfo);
       await utility.setItem(_fieldsInfo[contextUrl][listUrl], spObject, elementNew);
-      spObject.update()
+      spObject.update();
       spObject.cachePath = 'property';
       return spObject
     }, opts);
@@ -66,8 +66,9 @@ export default class FolderList {
     let isArrayCounter = 0;
     const clientContexts = {};
     const spObjectsToCache = new Map;
-    const { cached, parallelized = actionType !== 'create' } = opts;
-    opts.view = opts.view || (actionType ? ['ID'] : void 0);
+    const { cached, view = [], parallelized = actionType !== 'create' } = opts;
+    if (!view.length && actionType) opts.view = ['ID'];
+    if (opts.asItem) opts.view = ['ListItemAllFields'];
     const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) => {
       let totalElements = 0;
       const contextUrls = contextUrl.split('/');
@@ -109,7 +110,7 @@ export default class FolderList {
         this._contextUrls.reduce((contextAcc, contextUrl) =>
           contextAcc.concat(clientContexts[contextUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), []) :
         this._contextUrls.map(async (contextUrl) => {
-          for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts)
+          for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts);
         }));
       spObjectsToCache.forEach((value, key) => cache.set(key, value))
     };
@@ -146,6 +147,8 @@ export default class FolderList {
           Url: elementUrl,
           Title: utility.getLastPath(elementUrl)
         }
+      default:
+        return { Url: '/' }
     }
   }
 

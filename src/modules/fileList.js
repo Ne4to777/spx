@@ -76,19 +76,136 @@ export default class FileList {
   }
 
   async copy(opts = {}) {
-    return this._execute('copy', (spObject, listUrl, elementUrl) => {
-      spObject.copyTo(`${listUrl}/${elementUrl.To}`.replace(/\/\/+/g, '/'));
-      spObject.cachePath = 'property';
-      return spObject;
-    }, opts);
+    const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+      contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+        listAcc.concat(this._elementUrls.map(async  elementUrl => {
+          const { Url, to = {} } = elementUrl;
+          const targetWebUrl = to.webUrl;
+          const targetListUrl = to.listUrl;
+          const targetFileUrl = to.fileUrl;
+
+          if (!targetWebUrl) throw new Error('Target webUrl is missed');
+          if (!targetListUrl) throw new Error('Target listUrl is missed');
+          if (!targetFileUrl) throw new Error('Target fileUrl is missed');
+          if (!Url) throw new Error('Source file Url is missed');
+
+          const spxSourceList = spx(contextUrl).list(listUrl);
+          const spxSourceFile = spxSourceList.file(Url);
+          const spxTargetList = spx(targetWebUrl).list(targetListUrl);
+          const sourceFileData = await spxSourceFile.get({ asItem: true });
+          if (sourceFileData) {
+            if (!opts.forced && contextUrl === targetWebUrl) {
+              const clientContext = utility.getClientContext(contextUrl);
+              const spObject = this._getSPObject(clientContext, listUrl, Url);
+              spObject.copyTo(`${targetListUrl}/${targetFileUrl}`.replace(/\/\/+/g, '/'));
+              const currentSPObjects = utility.load(clientContext, spObject, opts);
+              await utility.executeQueryAsync(clientContext, opts);
+            } else {
+              await spxTargetList.file({
+                Url: targetFileUrl,
+                Content: await spxSourceList.file(Url).get({ blob: true }),
+                OnProgress: elementUrl.OnProgress,
+                Overwrite: elementUrl.Overwrite
+              }).create({ silent: true });
+            }
+            const columnsToUpdate = {};
+            for (let columnName in sourceFileData) {
+              if (!utility.LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
+            }
+            if (Object.keys(columnsToUpdate).length) {
+              const targetFileData = await spxTargetList.file(targetFileUrl).get({ asItem: true });
+              const existedColumnsToUpdate = {};
+              for (let columnName in columnsToUpdate) {
+                if (!targetFileData.hasOwnProperty(columnName)) continue;
+                existedColumnsToUpdate[columnName] = sourceFileData[columnName];
+              }
+              if (Object.keys(existedColumnsToUpdate).length) {
+                existedColumnsToUpdate.ID = targetFileData.ID;
+                await spxTargetList.item(existedColumnsToUpdate).update({ silent: true })
+              }
+            }
+            return;
+          }
+        })), [])), []));
+    console.log(`${
+      utility.ACTION_TYPES.copy} ${
+      this._contextUrls.length * this._elementUrls.length} ${
+      this._name}(s) at ${
+      this._contextUrls.join(', ')}: ${
+      this._elementUrls.map(el => {
+        const element = this._liftElementUrlType(el);
+        return element.To ? `${element.Url} -> ${element.To}` : element.Url
+      }).join(', ')} from ${
+      this._listUrls.join(', ')}`);
+    opts.isArray = this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
+    return utility.prepareResponseJSOM(elements, opts);
   }
 
   async move(opts = {}) {
-    return this._execute('move', (spObject, listUrl, elementUrl) => {
-      spObject.moveTo(`${listUrl}/${elementUrl.To}`.replace(/\/\/+/g, '/'));
-      spObject.cachePath = 'property';
-      return spObject;
-    }, opts);
+    const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) =>
+      contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
+        listAcc.concat(this._elementUrls.map(async  elementUrl => {
+          const { Url, to = {} } = elementUrl;
+          const targetWebUrl = to.webUrl;
+          const targetListUrl = to.listUrl;
+          const targetFileUrl = to.fileUrl;
+
+          if (!targetWebUrl) throw new Error('Target webUrl is missed');
+          if (!targetListUrl) throw new Error('Target listUrl is missed');
+          if (!targetFileUrl) throw new Error('Target fileUrl is missed');
+          if (!Url) throw new Error('Source file Url is missed');
+
+          const spxSourceList = spx(contextUrl).list(listUrl);
+          const spxSourceFile = spxSourceList.file(Url);
+          const spxTargetList = spx(targetWebUrl).list(targetListUrl);
+          const sourceFileData = await spxSourceFile.get({ asItem: true });
+          if (sourceFileData) {
+            if (!opts.forced && contextUrl === targetWebUrl) {
+              const clientContext = utility.getClientContext(contextUrl);
+              const spObject = this._getSPObject(clientContext, listUrl, Url);
+              spObject.moveTo(`${targetListUrl}/${targetFileUrl}`.replace(/\/\/+/g, '/'));
+              const currentSPObjects = utility.load(clientContext, spObject, opts);
+              await utility.executeQueryAsync(clientContext, opts);
+            } else {
+              await spxTargetList.file({
+                Url: targetFileUrl,
+                Content: await spxSourceFile.get({ blob: true }),
+                OnProgress: elementUrl.OnProgress,
+                Overwrite: elementUrl.Overwrite
+              }).create({ silent: true });
+            }
+            const columnsToUpdate = {};
+            for (let columnName in sourceFileData) {
+              if (!utility.LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
+            }
+            if (Object.keys(columnsToUpdate).length) {
+              const targetFileData = await spxTargetList.file(targetFileUrl).get({ asItem: true });
+              const existedColumnsToUpdate = {};
+              for (let columnName in columnsToUpdate) {
+                if (!targetFileData.hasOwnProperty(columnName)) continue;
+                existedColumnsToUpdate[columnName] = sourceFileData[columnName];
+              }
+              if (Object.keys(existedColumnsToUpdate).length) {
+                existedColumnsToUpdate.ID = targetFileData.ID;
+                await spxTargetList.item(existedColumnsToUpdate).update({ silent: true });
+                await spxSourceList.item(sourceFileData.ID).delete({ silent: true })
+              }
+            }
+            return;
+          }
+        })), [])), []));
+    console.log(`${
+      utility.ACTION_TYPES.move} ${
+      this._contextUrls.length * this._elementUrls.length} ${
+      this._name}(s) at ${
+      this._contextUrls.join(', ')}: ${
+      this._elementUrls.map(el => {
+        const element = this._liftElementUrlType(el);
+        return element.To ? `${element.Url} -> ${element.To}` : element.Url
+      }).join(', ')} from ${
+      this._listUrls.join(', ')}`);
+    opts.isArray = this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
+    return utility.prepareResponseJSOM(elements, opts);
   }
   // Internal
 
@@ -97,7 +214,7 @@ export default class FileList {
   async _createWithRESTFromFile(contextUrl, listUrl, elementUrl) {
     let founds;
     const inputs = [];
-    const { Url, Content = '', Overwrite = true, OnProgress = () => { } } = elementUrl;
+    const { Url, Content = '', Overwrite = true, OnProgress = _ => _ } = elementUrl;
     const { folder = '', filename } = utility.getFolderAndFilenameFromUrl(Url);
     if (folder) await spx(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(() => { });
     const requiredInputs = {
@@ -182,8 +299,9 @@ export default class FileList {
     let isArrayCounter = 0;
     const clientContexts = {};
     const spObjectsToCache = new Map;
-    const { cached, parallelized = actionType !== 'create' } = opts;
-    opts.view = opts.view || (actionType ? ['ServerRelativeUrl'] : void 0);
+    const { cached, view = [], parallelized = actionType !== 'create' } = opts;
+    if (!view.length && actionType) opts.view = ['ID'];
+    if (opts.asItem) opts.view = ['ListItemAllFields'];
     const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) => {
       let totalElements = 0;
       const contextUrls = contextUrl.split('/');
@@ -200,6 +318,7 @@ export default class FileList {
             totalElements = 0;
           }
           const spObject = await spObjectGetter(this._getSPObject(clientContext, listUrl, fileUrl), listUrl, elementUrl);
+          if (!spObject) return;
           !!spObject.getEnumerator && isArrayCounter++;
           const fileUrls = fileUrl.split('/');
           const cachePaths = [...contextUrls, listUrl, ...fileUrls, this._name, spObject.cachePath];
@@ -213,7 +332,7 @@ export default class FileList {
             } else {
               needToQuery = true;
               const currentSPObjects = utility.load(clientContext, spObject, opts);
-              !actionType && spObjectsToCache.set(cachePaths, currentSPObjects)
+              spObjectsToCache.set(cachePaths, currentSPObjects);
               return currentSPObjects;
             }
           }
@@ -227,7 +346,7 @@ export default class FileList {
         this._contextUrls.map(async (contextUrl) => {
           for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts)
         }));
-      !actionType && spObjectsToCache.forEach((value, key) => cache.set(key, value))
+      spObjectsToCache.forEach((value, key) => cache.set(key, value))
     };
     this._log(actionType, opts);
     opts.isArray = isArrayCounter || this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
@@ -267,13 +386,13 @@ export default class FileList {
     const spContextObject = this._parent._getSPObject(clientContext, listUrl);
     const spFolderObject = spContextObject.get_rootFolder();
     if (elementUrl) {
-      const { folderUrl, filename } = utility.getFolderAndFilenameFromUrl(elementUrl);
-      if (folderUrl) {
-        const files = utility.getSPFolderByUrl(spFolderObject, folderUrl).get_files();
+      const { folder, filename } = utility.getFolderAndFilenameFromUrl(elementUrl);
+      if (folder) {
+        const files = utility.getSPFolderByUrl(spFolderObject, folder).get_files();
         return filename ? files.getByUrl(filename) : files;
       } else {
-        if (/\/$/.test(folderUrl)) {
-          return utility.getSPFolderByUrl(spFolderObject, folderUrl).get_files();
+        if (/\/$/.test(folder)) {
+          return utility.getSPFolderByUrl(spFolderObject, folder).get_files();
         } else {
           const files = spFolderObject.get_files();
           return filename ? files.getByUrl(filename) : files;

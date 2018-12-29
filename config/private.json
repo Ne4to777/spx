@@ -4,5 +4,7 @@
   "domain": "dme",
   "username": "asalekseev",
   "password": "d4b83373dfd00dc6187e3138f2a6761fa66e5f7a0acf953184f932c0af32b2c28a839822b7151e8fc7c58a041af0d292zTT9ijU81m3Wn6JZG4lBFg==",
-  "path": "Z:\\common\\Modules\\native\\spx"
+  "path": "Z:\\common\\Modules\\native\\spx",
+  "filename": "spx.js",
+  "library": "SPXTest"
 }

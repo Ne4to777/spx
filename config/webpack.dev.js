@@ -1,3 +1,4 @@
+const config = require('./private.json');
 const webpack = require('webpack');
 const path = require('path');
 const proxyPathConfig = {
@@ -35,10 +36,5 @@ module.exports = {
 	],
 	performance: {
 		hints: false
-	},
-	resolve: {
-		alias: {
-			spx: path.resolve(__dirname, './../dist/spx.js')
-		}
 	}
 };

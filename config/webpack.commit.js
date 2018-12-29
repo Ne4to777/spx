@@ -19,9 +19,9 @@ module.exports = {
 		})
 	],
 	output: {
-		filename: 'spx.js',
+		filename: config.filename,
 		path: config.path,
-		library: 'SPX',
+		library: config.library,
 		libraryTarget: 'umd'
 	}
 };

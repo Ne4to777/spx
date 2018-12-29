@@ -1,11 +1,8 @@
 import * as cache from './../cache';
-import axios from 'axios';
-import PathBuilder from './../pathBuilder';
 import spx from './../modules/site';
 
 export const REQUEST_TIMEOUT = 3600000;
 export const MAX_ITEMS_LIMIT = 100000;
-
 export const REQUEST_BUNDLE_MAX_SIZE = 252;
 export const ACTION_TYPES = {
   create: 'created',
@@ -46,11 +43,87 @@ export const ACTION_TYPES_TO_UNSET = {
   restore: true
 }
 
+export const FILE_LIST_TEMPLATES = {
+  101: true,
+  109: true,
+  110: true,
+  113: true,
+  114: true,
+  116: true,
+  119: true,
+  121: true,
+  122: true,
+  123: true,
+  175: true,
+  851: true,
+  10102: true
+}
+
+export const LIBRARY_STANDART_COLUMN_NAMES = {
+  AppAuthor: true,
+  AppEditor: true,
+  Author: true,
+  CheckedOutTitle: true,
+  CheckedOutUserId: true,
+  CheckoutUser: true,
+  ContentTypeId: true,
+  Created: true,
+  Created_x0020_By: true,
+  Created_x0020_Date: true,
+  DocConcurrencyNumber: true,
+  Editor: true,
+  FSObjType: true,
+  FileDirRef: true,
+  FileLeafRef: true,
+  FileRef: true,
+  File_x0020_Size: true,
+  File_x0020_Type: true,
+  FolderChildCount: true,
+  GUID: true,
+  HTML_x0020_File_x0020_Type: true,
+  ID: true,
+  InstanceID: true,
+  IsCheckedoutToLocal: true,
+  ItemChildCount: true,
+  Last_x0020_Modified: true,
+  MetaInfo: true,
+  Modified: true,
+  Modified_x0020_By: true,
+  Order: true,
+  ParentLeafName: true,
+  ParentVersionString: true,
+  ProgId: true,
+  ScopeId: true,
+  SortBehavior: true,
+  SyncClientId: true,
+  TemplateUrl: true,
+  Title: true,
+  UniqueId: true,
+  VirusStatus: true,
+  WorkflowInstanceID: true,
+  WorkflowVersion: true,
+  owshiddenversion: true,
+  xd_ProgID: true,
+  xd_Signature: true,
+  _CheckinComment: true,
+  _CopySource: true,
+  _HasCopyDestinations: true,
+  _IsCurrentVersion: true,
+  _Level: true,
+  _ModerationComments: true,
+  _ModerationStatus: true,
+  _SharedFileIndex: true,
+  _SourceUrl: true,
+  _UIVersion: true,
+  _UIVersionString: true,
+}
+
 export const prepareResponseJSOM = (inputData, opts = {}) => {
   if (!inputData) return inputData;
   const { expanded, groupBy } = opts;
   const getValues = spObject => {
     if (!spObject) return;
+    if (opts.asItem) spObject = spObject.get_listItemAllFields();
     if (spObject.get_fieldValues) {
       return spObject.get_fieldValues();
     } else if (spObject.get_objectData) {
@@ -67,38 +140,6 @@ export const prepareResponseJSOM = (inputData, opts = {}) => {
     return groupBy ? groupper(groupBy, preparedElements) : isArray ? preparedElements : preparedElements[0];
   } else {
     return getValues(inputData)
-  }
-}
-
-export const prepareResponseREST_ = (inputData, opts = {}) => {
-  if (!inputData) return inputData;
-  let result;
-  if (typeOf(data) === 'array') {
-    let outputData = [];
-    for (let elementData of data) {
-      try {
-        result = JSON.parse(elementData.body).d;
-      } catch (err) {
-        outputData.push(elementData)
-      }
-      if (result) {
-        if (result.results) {
-          outputData = [...outputData, ...result.results]
-        } else {
-          outputData.push(result)
-        }
-      }
-    }
-    return outputData;
-  } else {
-    try {
-      result = JSON.parse(data.body).d;
-    } catch (err) {
-      return data
-    }
-    if (result) {
-      return result.results ? result.results : result;
-    }
   }
 }
 
@@ -125,25 +166,6 @@ export const prepareResponseREST = (inputData, opts = {}) => {
   }
 }
 
-export const getChunkedArray = (elements, size) => {
-  let chunks = [];
-  let chunkSize = size || this.REQUEST_BUNDLE_MAX_SIZE;
-  if (elements === void 0) return [chunks];
-  if (typeOf(elements) === 'array') {
-    elements = [...elements];
-    while (elements.length) chunks.push(elements.splice(0, chunkSize))
-  } else {
-    chunks.push([elements])
-  }
-  return chunks;
-}
-
-export const getRequestDigestREST = async relPath => {
-  return (await axios.post(`${(!relPath || relPath === '/' ? '' : relPath)}/_api/contextinfo`, null, {
-    headers: { 'Accept': 'application/json; odata=verbose' }
-  })).data.d.GetContextWebInformation.FormDigestValue;
-}
-
 export const getClientContext = contextUrl => {
   const clientContext = new SP.ClientContext(contextUrl);
   clientContext.set_requestTimeout(REQUEST_TIMEOUT);
@@ -153,7 +175,11 @@ export const getClientContext = contextUrl => {
 export const load = (clientContext, data, opts = {}) => {
   let { groupBy, view } = opts;
   if (view) {
-    view = typeOf(view) === 'array' ? view : [view]
+    if (typeOf(view) === 'array') {
+      if (!view.length) view = void 0;
+    } else {
+      view = [view];
+    }
     if (groupBy) view = view.concat(typeOf(groupBy) === 'array' ? groupBy : [groupBy]);
   };
   if (data.getEnumerator) {
@@ -169,170 +195,16 @@ export const executeQueryAsync = (clientContext, opts = {}) =>
     clientContext.executeQueryAsync((sender, args) => {
       resolve([sender, args])
     }, (sender, args) => {
-      !opts.silent && console.error(args.get_message());
+      if (!opts.silent && !opts.silentErrors) {
+        console.error(`\nMessage: ${
+          args.get_message().replace(/\n{1,}/g, ' ')}\nValue: ${
+          args.get_errorValue()}\nType: ${
+          args.get_errorTypeName()}\nId: ${
+          args.get_errorTraceCorrelationId()}`);
+      }
       reject(args)
     })
   })
-
-export const execute = async (elementName, element, handler, opts = {}) =>
-  this[`_execute${opts.rest ? 'REST' : 'JSOM'}`](elementName, element, handler, opts)
-
-export const _executeREST = async (elementName, element, handler, opts = {}) => {
-  let {
-    silent,
-    actionType,
-    logTextToAdd = '',
-    cached,
-    getter
-  } = opts;
-  let restObjectsChunks = [];
-  let elementNameREST = `${elementName}REST`;
-  let pathBuilder = new PathBuilder;
-  pathBuilder.set('clientContext', this.contextUrl);
-  pathBuilder.set('parentElement', this.parent.element);
-  await this.iterateChunks(element, async (elementsChunk) => {
-    let elementUrl;
-    let elementUrls = [];
-    let restObjects = [];
-    for (let elementChunk of elementsChunk) {
-      let {
-        request,
-        params = {}
-      } = await handler(elementChunk);
-      if (!request) continue;
-      elementUrl = typeOf(elementChunk) === 'object' ? (elementChunk.Url || elementChunk.Title) : elementChunk;
-      elementUrls.push(elementUrl);
-      pathBuilder.set('element', elementUrl);
-      if (cached && actionType !== 'delete' && actionType !== 'recycle' && (!actionType || actionType === 'get' || actionType === 'create')) {
-        try {
-          let restObjectCached = cache(pathBuilder.build(), elementNameREST).get();
-          if (getter) restObjectCached = getter(restObjectCached);
-          restObjects.push(restObjectCached);
-          continue;
-        } catch (err) { }
-      }
-      let httpProvider = params.httpProvider || this.requestExecutor.bind(this);
-      let restObject = await httpProvider(request);
-      if (params.errorHandler) params.errorHandler(restObject);
-      if (getter) restObject = getter(restObject);
-      cache(pathBuilder.build(), elementNameREST, restObject)[actionType === 'delete' || actionType === 'recycle' ? 'delete' : 'set']();
-      restObjects.push(restObject);
-    }
-    restObjectsChunks = [...restObjectsChunks, ...restObjects];
-    (this.debug || !silent) && (actionType && actionType !== 'get') &&
-      console.log(`${this.ACTION_TYPES[actionType]} ${elementName} at ${this.contextUrl}: ${elementUrls.join(', ')}${logTextToAdd}`)
-  }, actionType)
-  if (actionType !== 'delete' && actionType !== 'recycle') return this.prepareResponseREST(typeOf(element) === 'array' ? restObjectsChunks : restObjectsChunks[0], opts);
-}
-
-export const _executeJSOM = async (elementName, element, handler, opts = {}) => {
-  let {
-    view,
-    cached,
-    actionType,
-    silent,
-    getter,
-    logTextToAdd = ''
-  } = opts;
-  let pathBuilder = new PathBuilder;
-  pathBuilder.set('clientContext', this.contextUrl);
-  pathBuilder.set('parentElement', this.parent.element);
-  let spObjectChunks = [];
-  let isNotDeleteAction = actionType !== 'delete' && actionType !== 'recycle';
-  await this.iterateChunks(element, async elementsChunk => {
-    let elementUrl;
-    let elementUrls = [];
-    let spObjects = [];
-    let clientContextsMap = new Map;
-    this._initClientContext();
-    for (let elementChunk of elementsChunk) {
-      let spObject = await handler(elementChunk);
-      if (!spObject) continue;
-      if (typeOf(spObject) === 'array') {
-        spObjects = [...spObjects, ...spObject];
-        continue;
-      }
-      if (spObject.cacheUrl) {
-        elementUrl = spObject.cacheUrl;
-      } else if (typeOf(elementChunk) === 'object') {
-        elementUrl = elementChunk.Url || elementChunk.Title;
-      } else {
-        elementUrl = elementChunk;
-      }
-      pathBuilder.set('element', elementUrl);
-      let clientContext = spObject.get_context();
-      let currentContextUrl = clientContext.get_url();
-      if (isNotDeleteAction) this.load(clientContext, spObject, view);
-      if (cached && isNotDeleteAction && (!actionType || actionType === 'get' || actionType === 'create')) {
-        try {
-          let spObjectCached = cache(pathBuilder.build(), elementName, spObject).get();
-          if (getter) spObjectCached = getter(spObjectCached);
-          spObjects.push(spObjectCached);
-          continue;
-        } catch (err) { }
-      };
-      !clientContextsMap.has(currentContextUrl) && clientContextsMap.set(currentContextUrl, {
-        clientContext,
-        spObjects: []
-      })
-      clientContextsMap.get(currentContextUrl).spObjects.push({
-        spObject,
-        elementUrl
-      })
-    }
-    for (let [currentContextUrl, elementSP] of clientContextsMap) {
-      await this.executeQueryAsync(elementSP.clientContext, opts);
-      for (let {
-        spObject,
-        elementUrl
-      } of elementSP.spObjects) {
-        if (spObject.get_id && isNotDeleteAction) elementUrl = spObject.get_id();
-        pathBuilder.set('element', elementUrl);
-        elementUrls.push(elementUrl);
-        cache(pathBuilder.build(), elementName, spObject)[isNotDeleteAction ? 'set' : 'delete']();
-        if (getter) spObject = getter(spObject);
-        spObjects.push(spObject);
-      }
-    }
-    spObjectChunks = [...spObjectChunks, ...spObjects];
-    let elementsToLog = elementUrls.join(', ');
-    elementsToLog && (this.debug || !silent) && (actionType && actionType !== 'get') &&
-      console.log(`${this.ACTION_TYPES[actionType]} ${elementName} at ${this.contextUrl}: ${elementsToLog}${logTextToAdd}`);
-  }, actionType)
-  if (isNotDeleteAction) {
-    let isElementArray = typeOf(element) === 'array';
-    return this.prepareResponseJSOM(isElementArray || (!isElementArray && spObjectChunks.length > 1) ? spObjectChunks : spObjectChunks[0], opts);
-  }
-}
-
-export const iterateChunks = async (elements, handlerAsync, actionType) => {
-  let elementsType = typeOf(elements);
-  if (!actionType ||
-    actionType === 'get' ||
-    elementsType !== 'array') {
-    await handlerAsync(elementsType !== 'array' ? [elements] : elements);
-  } else {
-    let chunkedElements = this.getChunkedArray(elements);
-    for (let chunk of chunkedElements) await handlerAsync(chunk);
-  }
-}
-
-export const get_ = async (methodName, opts = {}) => {
-  let {
-    args = []
-  } = opts;
-  return this.executeBinded(element => {
-    if (element) {
-      return this._getSPObject(element);
-    } else {
-      console.log(this._getSPObject(element))
-    }
-  }, {
-      ...opts,
-      raw: true,
-      getter: spObject => spObject[this.getValidMethodName(spObject, methodName)](...args)
-    })
-}
 
 export const requestExecutor = (contextUrl = '/', params = {}) =>
   new Promise((resolve, reject) => {
@@ -425,6 +297,7 @@ export const setItem = (fieldsInfo, item, fields) => {
     if (fieldValues === void 0) continue;
     const fieldInfo = fieldsInfo[fieldsTitle];
     if (fieldInfo) {
+      if (fieldInfo.ReadOnlyField) continue;
       const setItem = value => item.set_item(fieldInfo.InternalName, value);
       switch (fieldInfo.TypeAsString) {
         case 'Text':
@@ -469,7 +342,11 @@ export const _setLookup = (lookupValue, fieldValues) => {
       lookupValue.set_lookupId(fieldValues.get_lookupId());
     } else {
       const valueInt = parseInt(fieldValues);
-      typeOf(valueInt) === 'number' && valueInt > 0 && lookupValue.set_lookupId(valueInt);
+      if (typeOf(valueInt) === 'number' && valueInt > 0) {
+        lookupValue.set_lookupId(valueInt);
+      } else {
+        lookupValue = null;
+      }
     }
   }
   return lookupValue;
@@ -481,7 +358,7 @@ export const initFieldsInfo = async (contextUrls, listUrls, targetObject) => {
     return acc.concat(listUrls.map(async listUrl => {
       if (!targetObject[contextUrl][listUrl]) {
         targetObject[contextUrl][listUrl] = await spx(contextUrl).list(listUrl).column().get({
-          view: ['TypeAsString', 'InternalName', 'Title'],
+          view: ['TypeAsString', 'InternalName', 'Title', 'ReadOnlyField'],
           groupBy: 'InternalName',
           cached: true
         })
@@ -498,7 +375,6 @@ export const setFields = (spObject, params) => {
 
 export const getLastPath = url => url.split('/').slice(-1)[0];
 
-
 export const getSPFolderByUrl = (spFolderObject, url) => {
   const folderUrls = url.split('/').filter(el => !!el.length);
   const getSPFolderR = (base, i) =>
@@ -513,8 +389,5 @@ export const getFolderAndFilenameFromUrl = elementUrl => {
     if (/\./.test(fileSplits.slice(-1))) filename = fileSplits.pop();
     folder = fileSplits.join('/');
   }
-  return {
-    filename,
-    folder
-  }
+  return { filename, folder }
 }

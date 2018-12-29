@@ -4,7 +4,6 @@ import * as cache from './../cache';
 import List from './../modules/list';
 import Folder from './../modules/folderWeb';
 import File from './../modules/fileWeb';
-import User from './../modules/user';
 import RecycleBin from './../modules/recycleBin';
 
 export default class Web {
@@ -19,7 +18,6 @@ export default class Web {
 
 	folder(elementUrl) { return new Folder(this, elementUrl) }
 	file(elementUrl) { return new File(this, elementUrl) }
-	user(elementUrl) { return new User(this, elementUrl) }
 	list(elementUrl) { return new List(this, elementUrl) }
 	get recycleBin() { return new RecycleBin(this) }
 
@@ -56,6 +54,25 @@ export default class Web {
 				set_webTemplate: element.WebTemplate || this._APP_WEB_TEMPLATE
 			})
 			const spObject = spContextObject.add(webCreationInfo);
+			utility.setFields(spObject, {
+				set_alternateCssUrl: element.AlternateCssUrl,
+				set_associatedMemberGroup: element.AssociatedMemberGroup,
+				set_associatedOwnerGroup: element.AssociatedOwnerGroup,
+				set_associatedVisitorGroup: element.AssociatedVisitorGroup,
+				set_customMasterUrl: element.CustomMasterUrl,
+				set_enableMinimalDownload: element.EnableMinimalDownload,
+				set_masterUrl: element.MasterUrl,
+				set_objectVersion: element.ObjectVersion,
+				set_quickLaunchEnabled: element.QuickLaunchEnabled,
+				set_saveSiteAsTemplateEnabled: element.SaveSiteAsTemplateEnabled,
+				set_serverRelativeUrl: element.ServerRelativeUrl,
+				set_siteLogoUrl: element.SiteLogoUrl,
+				set_syndicationEnabled: element.SyndicationEnabled,
+				set_treeViewEnabled: element.TreeViewEnabled,
+				set_uiVersion: element.UiVersion,
+				set_uiVersionConfigurationEnabled: element.UiVersionConfigurationEnabled
+			})
+			spObject.update();
 			spObject.cachePath = 'properties';
 			return spObject;
 		}, opts);
