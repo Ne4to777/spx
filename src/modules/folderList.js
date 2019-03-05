@@ -1,164 +1,148 @@
-import * as utility from './../utility';
+import {
+  ACTION_TYPES_TO_UNSET,
+  REQUEST_BUNDLE_MAX_SIZE,
+  ACTION_TYPES,
+  Box,
+  getInstance,
+  prepareResponseJSOM,
+  getClientContext,
+  urlSplit,
+  load,
+  executorJSOM,
+  prop,
+  getInstanceEmpty,
+  slice,
+  setItem,
+  getColumns,
+  hasUrlTailSlash,
+  ifThen,
+  constant,
+  methodEmpty,
+  getSPFolderByUrl,
+  pipe,
+  popSlash,
+  isExists,
+  getParentUrl,
+  identity,
+  overstep
+} from './../utility';
 import * as cache from './../cache';
-import spx from './../modules/site';
 
-const _fieldsInfo = {};
+// Internal
 
-export default class FolderList {
-  constructor(parent, elementUrl) {
-    this._elementUrl = elementUrl;
-    this._elementUrlIsArray = typeOf(this._elementUrl) === 'array';
-    this._elementUrls = this._elementUrlIsArray ? this._elementUrl : [this._elementUrl];
-    this._parent = parent;
-    this._contextUrlIsArray = this._parent._contextUrlIsArray;
-    this._contextUrls = this._parent._contextUrls;
-    this._listUrlIsArray = this._parent._elementUrlIsArray;
-    this._listUrls = this._parent._elementUrls;
-  }
+const NAME = 'folder';
 
-  // Inteface
+const getSPObject = elementUrl => ifThen(constant(elementUrl))([
+  spObject => getSPFolderByUrl(elementUrl)(spObject.get_rootFolder()),
+  methodEmpty('get_rootFolder')
+])
 
-  async get(opts) {
-    return this._execute(null, spObject =>
-      (spObject.cachePath = spObject.getEnumerator ? 'properties' : 'property', spObject), opts)
-  }
+const getSPObjectCollection = elementUrl => pipe([
+  getSPObject(popSlash(elementUrl)),
+  methodEmpty('get_folders')
+])
 
-  async create(opts) {
-    await utility.initFieldsInfo(this._contextUrls, this._listUrls, this._fieldsInfo);
-    return this._execute('create', async (spContextObject, listUrl, element) => {
-      if (!element) throw new Error('no folders to create');
+const report = ({ silent, actionType }) => contextBox => parentBox => box => spObjects => (
+  !silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()} in ${parentBox.join()} at ${contextBox.join()}`),
+  spObjects
+)
+
+const execute = parent => box => cacheLeaf => actionType => spObjectGetter => async (opts = {}) => {
+  let needToQuery;
+  const clientContexts = {};
+  const spObjectsToCache = new Map;
+  const { cached, parallelized = actionType !== 'create' } = opts;
+  if (opts.asItem) opts.view = ['ListItemAllFields'];
+  const elements = await parent.parent.box.chainAsync(async contextElement => {
+    let totalElements = 0;
+    const contextUrl = contextElement.Url;
+    const contextUrls = urlSplit(contextUrl);
+    let clientContext = getClientContext(contextUrl);
+    clientContexts[contextUrl] = [clientContext];
+    return parent.box.chainAsync(listElement => {
+      const listUrl = listElement.Url;
+      let listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
+      return box.chainAsync(async element => {
+        const elementUrl = element.Url;
+        if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
+          clientContext = getClientContext(contextUrl);
+          listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
+          clientContexts[contextUrl].push(clientContext);
+          totalElements = 0;
+        }
+        listSPObject.listUrl = listUrl;
+        listSPObject.isLibrary = opts.isLibrary;
+        const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
+        const spObject = await spObjectGetter({
+          spParentObject: actionType === 'create'
+            ? listSPObject
+            : isCollection
+              ? getSPObjectCollection(elementUrl)(listSPObject)
+              : getSPObject(elementUrl)(listSPObject),
+          element
+        });
+        const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
+        ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePath));
+        if (actionType === 'delete' || actionType === 'recycle') {
+          needToQuery = true;
+        } else {
+          const spObjectCached = cached ? cache.get(cachePath) : null;
+          if (cached && spObjectCached) {
+            return spObjectCached;
+          } else {
+            needToQuery = true;
+            const currentSPObjects = load(clientContext)(spObject)(opts);
+            spObjectsToCache.set(cachePath, currentSPObjects)
+            return currentSPObjects;
+          }
+        }
+      })
+    })
+  });
+  if (needToQuery) {
+    parallelized ?
+      await parent.parent.box.chain(el => {
+        return Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+      }) :
+      await parent.parent.box.chain(async el => {
+        for (let clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
+      });
+    !actionType && spObjectsToCache.forEach((value, key) => cache.set(value)(key))
+  };
+  const items = prepareResponseJSOM(opts)(elements);
+  report({ ...opts, actionType })(parent.parent.box)(parent.box)(actionType === 'create' ? getInstance(Box)(items, 'item') : box)();
+  return items;
+}
+
+// Inteface
+
+export default (parent, elements) => {
+  const instance = {
+    box: getInstance(Box)(elements, 'folder'),
+    parent,
+  };
+  const executeBinded = execute(parent)(instance.box)('properties');
+  return {
+    get: executeBinded(null)(prop('spParentObject')),
+
+    create: executeBinded('create')(async ({ spParentObject, element }) => {
+      const listUrl = spParentObject.listUrl;
+      const contextUrl = spParentObject.get_context().get_url();
+      const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
+      const parentFolderUrl = getParentUrl(element.Url);
       const elementNew = Object.assign({}, element);
-      const url = element.Url;
-      delete elementNew.Url;
-      const clientContext = spContextObject.get_context();
-      const itemCreationInfo = new SP.ListItemCreationInformation;
-      const parentFolderUrl = url.split('/').slice(0, -1).join('/');
-      const contextUrl = clientContext.get_url();
       parentFolderUrl && await spx(contextUrl).list(listUrl).folder(parentFolderUrl).create({
         view: ['FileLeafRef'],
         silent: true,
         expanded: true,
-      }).catch(_ => _);
+      }).catch(identity);
       itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder);
-      itemCreationInfo.set_leafName(url);
-      const spObject = spContextObject.addItem(itemCreationInfo);
-      await utility.setItem(_fieldsInfo[contextUrl][listUrl], spObject, elementNew);
-      spObject.update();
-      spObject.cachePath = 'property';
-      return spObject
-    }, opts);
-  }
+      itemCreationInfo.set_leafName(element.Url);
+      const spObject = spParentObject.addItem(itemCreationInfo);
+      return setItem(await getColumns(contextUrl)(listUrl))(elementNew)((spObject));
+    }),
 
-  async delete(opts = {}) {
-    return this._execute(opts.noRecycle ? 'delete' : 'recycle', spObject => {
-      spObject.recycle && spObject[opts.noRecycle ? 'deleteObject' : 'recycle']();
-      spObject.cachePath = 'property';
-      return spObject;
-    }, opts)
-  }
-
-  // Internal
-
-  get _name() { return 'folder' }
-
-  async _execute(actionType, spObjectGetter, opts = {}) {
-    let needToQuery;
-    let isArrayCounter = 0;
-    const clientContexts = {};
-    const spObjectsToCache = new Map;
-    const { cached, view = [], parallelized = actionType !== 'create' } = opts;
-    if (!view.length && actionType) opts.view = ['ID'];
-    if (opts.asItem) opts.view = ['ListItemAllFields'];
-    const elements = await Promise.all(this._contextUrls.reduce((contextAcc, contextUrl) => {
-      let totalElements = 0;
-      const contextUrls = contextUrl.split('/');
-      let clientContext = utility.getClientContext(contextUrl);
-      clientContexts[contextUrl] = [clientContext]
-      return contextAcc.concat(this._listUrls.reduce((listAcc, listUrl) =>
-        listAcc.concat(this._elementUrls.map(async elementUrl => {
-          const element = this._liftElementUrlType(elementUrl);
-          let folderUrl = element.Url;
-          if (actionType === 'create') folderUrl = '';
-          if (actionType && ++totalElements >= utility.REQUEST_BUNDLE_MAX_SIZE) {
-            clientContext = utility.getClientContext(contextUrl);
-            clientContexts[contextUrl].push(clientContext);
-            totalElements = 0;
-          }
-          const spObject = await spObjectGetter(this._getSPObject(clientContext, listUrl, folderUrl), listUrl, element);
-          !!spObject.getEnumerator && isArrayCounter++;
-          const folderUrls = folderUrl.split('/');
-          const cachePaths = [...contextUrls, listUrl, ...folderUrls, this._name, spObject.cachePath];
-          utility.ACTION_TYPES_TO_UNSET[actionType] && cache.unset(cachePaths.slice(0, -folderUrls.length));
-          if (actionType === 'delete' || actionType === 'recycle') {
-            needToQuery = true;
-          } else {
-            const spObjectCached = cached ? cache.get(cachePaths) : null;
-            if (cached && spObjectCached) {
-              return spObjectCached;
-            } else {
-              needToQuery = true;
-              const currentSPObjects = utility.load(clientContext, spObject, opts);
-              spObjectsToCache.set(cachePaths, currentSPObjects)
-              return currentSPObjects;
-            }
-          }
-        })), []))
-    }, []))
-
-    if (needToQuery) {
-      await Promise.all(parallelized ?
-        this._contextUrls.reduce((contextAcc, contextUrl) =>
-          contextAcc.concat(clientContexts[contextUrl].map(clientContext => utility.executeQueryAsync(clientContext, opts))), []) :
-        this._contextUrls.map(async (contextUrl) => {
-          for (let clientContext of clientContexts[contextUrl]) await utility.executeQueryAsync(clientContext, opts);
-        }));
-      spObjectsToCache.forEach((value, key) => cache.set(key, value))
-    };
-
-    this._log(actionType, opts);
-    opts.isArray = isArrayCounter || this._contextUrlIsArray || this._listUrlIsArray || this._elementUrlIsArray;
-    return utility.prepareResponseJSOM(elements, opts);
-  }
-
-  _getSPObject(clientContext, listUrl, elementUrl) {
-    if (clientContext) {
-      if (elementUrl) {
-        const folders = utility.getSPFolderByUrl(this._parent._getSPObject(clientContext, listUrl).get_rootFolder(), elementUrl);;
-        return /\/$/.test(elementUrl) ? folders.get_folders() : folders
-      } else {
-        return this._parent._getSPObject(clientContext, listUrl)
-      }
-    } else {
-      throw new Error('ClientContext is missed')
-    }
-  }
-
-  get _fieldsInfo() { return _fieldsInfo }
-
-  _liftElementUrlType(elementUrl) {
-    switch (typeOf(elementUrl)) {
-      case 'object':
-        if (!elementUrl.Url) elementUrl.Url = elementUrl.Title;
-        if (!elementUrl.Title) elementUrl.Title = utility.getLastPath(elementUrl.Url);
-        return elementUrl;
-      case 'string':
-        elementUrl = elementUrl.replace(/\/$/, '');
-        return {
-          Url: elementUrl,
-          Title: utility.getLastPath(elementUrl)
-        }
-      default:
-        return { Url: '/' }
-    }
-  }
-
-  _log(actionType, opts = {}) {
-    !opts.silent && actionType &&
-      console.log(`${
-        utility.ACTION_TYPES[actionType]} ${
-        this._contextUrls.length * this._listUrls.length * this._elementUrls.length} ${
-        this._name}(s) at ${
-        this._contextUrls.join(', ')} in ${
-        this._listUrls.join(', ')}`);
+    delete: (opts = {}) => executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
+      overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts)
   }
 }

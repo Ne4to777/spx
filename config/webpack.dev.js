@@ -1,4 +1,3 @@
-const config = require('./private.json');
 const webpack = require('webpack');
 const path = require('path');
 const proxyPathConfig = {
@@ -8,7 +7,13 @@ const proxyPathConfig = {
 module.exports = {
 	mode: 'development',
 	devtool: 'inline-source-map',
-	entry: ['./src/index.js'],
+	entry: [/* 'babel-polyfill',  */'./src/index.js'],
+	// module: {
+	// 	rules: [{
+	// 		test: /\.js$/,
+	// 		loader: 'babel-loader'
+	// 	}]
+	// },
 	output: {
 		filename: 'index.js',
 		path: path.resolve(__dirname, 'dist'),
@@ -29,10 +34,6 @@ module.exports = {
 	},
 	plugins: [
 		new webpack.HotModuleReplacementPlugin(),
-		new webpack.ProvidePlugin({
-			typeOf: [path.resolve(__dirname, '../lib/util.js'), 'typeOf'],
-			log: [path.resolve(__dirname, '../lib/util.js'), 'log']
-		})
 	],
 	performance: {
 		hints: false

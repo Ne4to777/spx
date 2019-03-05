@@ -1,13 +1,7 @@
-import spx from './../modules/site';
+import web from './../modules/web';
 
-export default async () => {
-  let site;
-  site = await spx.get();
-  console.log('get()');
-  console.log(site);
-
-  site = await spx.getCustomListTemplates();
-  console.log('getCustomListTemplates()');
-  console.log(site);
-
+const test = _ => {
+  web.get().then(console.log)
+  web.getWebTemplates().then(console.log)
+  web.getCustomListTemplates().then(console.log)
 }

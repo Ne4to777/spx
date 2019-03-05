@@ -1,6 +1,7 @@
+import { chunkArray, stringMatch, isArray, isObject, getArray } from './../utility'
 const IN_CHUNK_SIZE = 500;
-const IN_CUSTOM_DELIMETER = '8^)';
-const GROUP_REGEXP_STR = '\\s(\&\&|\|\|)\\s';
+const IN_CUSTOM_DELIMETER = '_DELIMITER_';
+const GROUP_REGEXP_STR = '\\s(\&\&|\|\||and|or)\\s';
 const GROUP_REGEXP = new RegExp(GROUP_REGEXP_STR, 'i');
 const GROUP_BRACES_REGEXP = new RegExp('\\((.*' + GROUP_REGEXP_STR + '.*)\\)', 'i');
 const TIME_STAMP_ISO_REGEXP = /^\d\d\d\d-\d\d-\d\dT\d\d\:\d\d\:\d\d(\.\d\d\d)?Z$/;
@@ -107,100 +108,22 @@ const OPERATORS_MAPPED = {
 	search: 'Search',
 	in: 'In'
 }
-const GROUP_OPERATORS_MAPPED = { '&&': 'And', '||': 'Or' }
 
-export const getCamlQuery = str => {
-	if (!str) return '';
-	if (typeOf(str) === 'object') {
-		return getCamlQuery(str);
-	} else {
-		const sanitaizedStr = trimBraces(str.replace(/^\s+/, ''));
-		if (/^\<|\>$/.test(sanitaizedStr)) return str;
-		return GROUP_REGEXP.test(sanitaizedStr) ? convertGroupR(sanitaizedStr) : convertExpression(sanitaizedStr)
-	}
-}
 
-export const getCamlView = (str, opts = {}) => {
-	let itemSplits, orderBys;
-	let orderByStr = '';
-	let queryStr = '';
-	let limitStr = '';
-	let scopeStr = '';
-	const { orderBy, scope, limit } = opts;
-	if (orderBy) {
-		if (typeOf(orderBy) !== 'array') orderBys = [orderBy];
-		for (let item of orderBys) {
-			itemSplits = item.split('>');
-			orderByStr += `<FieldRef Name="${itemSplits[0]}"${/\>/.test(item) ? ' Ascending="FALSE"' : ''}/>`
-		}
-		orderByStr = `<OrderBy>${orderByStr}</OrderBy>`;
-	}
-	if (scope) {
-		if (/allItems/i.test(scope)) {
-			scopeStr = ' Scope="Recursive"';
-		} else if (/^items$/i.test(scope)) {
-			scopeStr = ' Scope="FilesOnly"';
-		} else if (/^all$/i.test(scope)) {
-			scopeStr = ' Scope="RecursiveAll"';
-		}
-	}
-	if (orderByStr) {
-		queryStr = `<Query>${(str ? `<Where>${getCamlQuery(str)}</Where>${orderByStr}` : `${orderByStr}`)}</Query>`;
-	} else if (str) {
-		queryStr = `<Query><Where>${getCamlQuery(str)}</Where></Query>`;
-	}
-	if (limit) limitStr = `<RowLimit>${limit}</RowLimit>`;
-	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
-}
-
-export const joinQuery = (items, joiner = '||', operator, value) => {
-	let item;
-	let query = joiner === '&&' ? 'ID isnotnull' : 'ID isnull';
-	if (!operator) operator = value === void 0 ? 'isnotnull' : 'eq';
-	if (typeOf(value) === 'array') {
-		const valueLastIndex = value.length - 1;
-		for (let i = items.length - 1; i >= 0; i--) {
-			item = items[i];
-			query = `(${item} ${/null/i.test(operator) ? operator : `${operator} ${value[i] || value[valueLastIndex]}`} ${joiner} ${query})`
-		}
-	} else {
-		for (let i = items.length - 1; i >= 0; i--) {
-			item = items[i];
-			query = `(${item} ${/null/i.test(operator) ? operator : `${operator} ${value}`} ${joiner} ${query})`
-		}
-	}
-	query = trimBraces(query);
-	return query;
-}
-
-export const concatQuery = (query1, query2 = '', joiner = '||') => {
-	const trimmed1 = trimBraces(query1);
-	const trimmed2 = trimBraces(query2);
-	if (!trimmed1) return query2;
-	if (!trimmed2) return '';
-
-	return GROUP_REGEXP.test(trimmed1) ?
-		(GROUP_REGEXP.test(trimmed2) ? `(${trimmed1}) ${joiner} (${trimmed2})` : `(${trimmed1}) ${joiner} ${trimmed2}`) :
-		(GROUP_REGEXP.test(trimmed2) ? `${trimmed1} ${joiner} (${trimmed2})` : `${trimmed1} ${joiner} ${trimmed2}`)
-}
-
-export const camlLog = str => console.log(str && DOMParser ? new DOMParser().parseFromString(str, 'text/xml') : str);
+const getStringFromOuterBraces = str => {
+	const founds = str.match(new RegExp('^[^\\(]*\\((.*' + (GROUP_REGEXP.test(str) ? GROUP_REGEXP_STR + '.*' : '') + ')\\)[^\\)]*$', 'i'));
+	return founds && founds[1] ? founds[1] : str
+};
 
 const trimBraces = (str = '') => {
-	if (str[0] === '(' && str[str.length - 1] === ')') {
-		const openBracesCount = str.match(/\(/g).length;
-		const closeBracesCount = str.match(/\)/g).length;
-		if (openBracesCount !== closeBracesCount) throw new Error('query has wrong braces');
-		const joinerMatches = str.match(new RegExp(GROUP_REGEXP_STR, 'ig'));
-		const joinersCount = joinerMatches ? joinerMatches.length : 0;
-		if (openBracesCount >= joinersCount) {
-			return getStringFromOuterBraces(str);
-		} else {
-			return str
-		}
-	} else {
-		return str
+	if (str[0] === '(' && str.substr(-1) === ')') {
+		const openBracesCount = stringMatch(/\(/g)(str).length;
+		if (openBracesCount !== stringMatch(/\)/g)(str).length) throw new Error('query has wrong braces');
+		return openBracesCount >= stringMatch(new RegExp(GROUP_REGEXP_STR, 'ig'))(str).length
+			? getStringFromOuterBraces(str)
+			: str
 	}
+	return str
 };
 
 const convertExpression = str => {
@@ -227,7 +150,7 @@ const convertExpression = str => {
 		type = COLUMN_TYPES[name] || 'text';
 	}
 	let value = strSplits[1];
-	if (/\^$/.test(name)) {
+	if (/\#$/.test(name)) {
 		name = name.substring(0, name.length - 1);
 		fieldOption = 'LookupId="True"';
 	}
@@ -262,7 +185,7 @@ const convertExpression = str => {
 	if (operator === 'in') {
 		for (let valueItem of value) valueStrings.push(`<Value Type="${typeNorm}"${valueOpts}>${valueItem}</Value>`);
 		if (value.length > IN_CHUNK_SIZE) {
-			chunks = chunkItems(valueStrings, IN_CHUNK_SIZE);
+			chunks = chunkArray(IN_CHUNK_SIZE)(valueStrings);
 			for (let i = chunks.length - 1; i >= 0; i--) valueChunks.push(`<In><Values>${chunks[i].join('')}</Values></In>`);
 			let itemsStr = '<IsNull><FieldRef Name="ID"/></IsNull>';
 			for (let valueChunk of valueChunks) itemsStr = `<Or>${valueChunk}${itemsStr}</Or>`
@@ -338,22 +261,79 @@ const convertGroupR = str => {
 			}
 		}
 	}
-	const operatorNorm = GROUP_OPERATORS_MAPPED[operator];
+	const operatorNorm = normalizeOperator(operator);
 	return `<${operatorNorm}>${convertGroupR(firstExpr)}${convertGroupR(secondExpr)}</${operatorNorm}>`;
 };
 
-const chunkItems = (items, size) => {
-	let startIndex = 0;
-	const chunked = [];
-	const chunksCount = Math.ceil(items.length / size);
-	for (let chunkIndex = 1; chunkIndex <= chunksCount; chunkIndex++) {
-		chunked.push(items.slice(startIndex, startIndex + size))
-		startIndex += size;
+export const getCamlQuery = str => {
+	if (!str) return '';
+	if (isObject(str)) {
+		return getCamlQuery(str);
+	} else {
+		const sanitaizedStr = trimBraces(str.replace(/^\s+/, ''));
+		if (/^\<|\>$/.test(sanitaizedStr)) return str;
+		return GROUP_REGEXP.test(sanitaizedStr) ? convertGroupR(sanitaizedStr) : convertExpression(sanitaizedStr)
 	}
-	return chunked;
-};
+}
 
-const getStringFromOuterBraces = str => {
-	const founds = str.match(new RegExp('^[^\\(]*\\((.*' + (GROUP_REGEXP.test(str) ? GROUP_REGEXP_STR + '.*' : '') + ')\\)[^\\)]*$', 'i'));
-	return founds && founds[1] ? founds[1] : str
-};
+export const getCamlView = (opts = {}) => str => {
+	let orderBys;
+	let orderByStr = '';
+	let limitStr = '';
+	let scopeStr = '';
+	const { OrderBy, Scope, Limit } = opts;
+	if (OrderBy) {
+		orderBys = getArray(OrderBy);
+		for (let item of orderBys) {
+			orderByStr += `<FieldRef Name="${item.split('>')[0]}"${/\>/.test(item) ? ' Ascending="FALSE"' : ''}/>`
+		}
+		orderByStr = `<OrderBy>${orderByStr}</OrderBy>`;
+	}
+	if (Scope) scopeStr = /allItems/i.test(Scope)
+		? ' Scope="Recursive"' : /^items$/i.test(Scope)
+			? ' Scope="FilesOnly"' : /^all$/i.test(Scope)
+				? ' Scope="RecursiveAll"' : ''
+
+	const queryStr = orderByStr
+		? `<Query>${(str ? `<Where>${getCamlQuery(str)}</Where>${orderByStr}` : `${orderByStr}`)}</Query>` : str
+			? `<Query><Where>${getCamlQuery(str)}</Where></Query>` : ''
+	if (Limit) limitStr = `<RowLimit>${Limit}</RowLimit>`;
+	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
+}
+
+export const joinQuery = (joiner = '||') => operator => value => items => {
+	let query = normalizeOperator(joiner) === 'And' ? 'ID isnotnull' : 'ID isnull';
+	if (!operator) operator = value === void 0 ? 'isnotnull' : 'eq';
+	if (isArray(value)) {
+		const valueLastIndex = value.length - 1;
+		for (let i = items.length - 1; i >= 0; i--) {
+			query = `(${items[i]} ${/null/i.test(operator) ? operator : `${operator} ${value[i] || value[valueLastIndex]}`} ${joiner} ${query})`
+		}
+	} else {
+		for (let i = items.length - 1; i >= 0; i--) {
+			query = `(${items[i]} ${/null/i.test(operator) ? operator : `${operator} ${value}`} ${joiner} ${query})`
+		}
+	}
+	return trimBraces(query);
+}
+
+export const concatQuery = (joiner = '||') => ([query1, query2 = '']) => {
+	const trimmed1 = trimBraces(query1);
+	const trimmed2 = trimBraces(query2);
+	if (!trimmed1) return query2;
+	if (!trimmed2) return '';
+
+	return GROUP_REGEXP.test(trimmed1) ?
+		(GROUP_REGEXP.test(trimmed2) ? `(${trimmed1}) ${joiner} (${trimmed2})` : `(${trimmed1}) ${joiner} ${trimmed2}`) :
+		(GROUP_REGEXP.test(trimmed2) ? `${trimmed1} ${joiner} (${trimmed2})` : `${trimmed1} ${joiner} ${trimmed2}`)
+}
+
+export const camlLog = str => console.log(str && DOMParser ? new DOMParser().parseFromString(str, 'text/xml') : str);
+
+const normalizeOperator = operator => {
+	const GROUP_OPERATORS_MAPPED = {
+		'&&': 'And',
+		'||': 'Or'
+	}
+	return GROUP_OPERATORS_MAPPED[operator] || (/^and$/i.test(operator) ? 'And' : 'Or');
+}

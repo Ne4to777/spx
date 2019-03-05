@@ -1,35 +1,73 @@
-import * as utility from './../utility';
+import {
+  Box,
+  load,
+  getClientContext,
+  getInstance,
+  prepareResponseJSOM,
+  executorJSOM,
+  isString
+} from './../utility'
 
-export default class Tag {
-  constructor(parent, elementUrl) {
-    this._parent = parent;
-    this._elementUrl = elementUrl;
-    this._elementUrlIsArray = typeOf(this._elementUrl) === 'array';
+// Interface
+
+// const sessionTermSPObject = sessionSPObject.getTerm('c80b4506-8930-47c5-962b-4f371f9d9698');
+// const termSPObject = termsSPObject.getByName('Авиация');
+
+export default elements => {
+  const instance = {
+    box: getInstance(Box)(elements)
   }
-  async get() {
-    const clientContext = utility.getClientContext('/');
-    const session = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext);
-    const store = session.getDefaultKeywordsTermStore();
-    const termSet = store.get_keywordsTermSet();
-    const terms = termSet.getAllTerms();
-    const term = terms.getByName('CMS');
+  return {
+    get: async opts => {
+      const clientContext = getClientContext('/');
+      const sessionSPObject = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext);
+      const keywordsStoreSPObject = sessionSPObject.getDefaultKeywordsTermStore();
+      const termSetSPObject = keywordsStoreSPObject.get_keywordsTermSet();
+      const termsSPObject = termSetSPObject.getAllTerms();
+      const elements = instance.box.chain(element => load(clientContext)(termsSPObject.getByName(element.Url))(opts))
+      await executorJSOM(clientContext)(opts);
+      return prepareResponseJSOM(opts)(elements);
+    },
+    search: (instance => async (opts = {}) => {
+      const clientContext = getClientContext('/');
+      const elements = instance.box.chain(element => {
+        const lmi = SP.Taxonomy.LabelMatchInformation.newObject(clientContext);
+        lmi.set_termLabel(element.Url);
+        lmi.set_defaultLabelOnly(true);
+        lmi.set_trimUnavailable(true);
+        lmi.set_stringMatchOption(SP.Taxonomy.StringMatchOption[opts.exact ? 'exactMatch' : 'startsWith']);
+        lmi.set_resultCollectionSize(opts.limit || 10);
 
-    utility.load(clientContext, session);
-    utility.load(clientContext, store);
-    utility.load(clientContext, termSet);
-    utility.load(clientContext, terms);
-    utility.load(clientContext, term);
-    await utility.executeQueryAsync(clientContext);
-    console.log(session);
-    console.log(utility.prepareResponseJSOM(session));
-    console.log(store);
-    console.log(utility.prepareResponseJSOM(store));
-    console.log(termSet);
-    console.log(utility.prepareResponseJSOM(termSet));
-    console.log(terms);
-    console.log(utility.prepareResponseJSOM(terms));
-    console.log(term);
-    console.log(utility.prepareResponseJSOM(term));
+        const spObject = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext).getDefaultKeywordsTermStore().get_keywordsTermSet().getTerms(lmi);
+        return load(clientContext)(spObject)(opts);
+      })
+      await executorJSOM(clientContext)(opts);
+      return prepareResponseJSOM(opts)(elements)
+    })(instance),
+    update: opts => {
+      var keyword;
+      var keywordsMerged = [];
+      const elements = instance.box.chain(element => {
 
+      })
+      isString(listData) && (listData = this.getListData(listData));
+      var clientContext = new SP.ClientContext(listData.path);
+      for (var i = 0; i < keywords.length; i++) {
+        keyword = keywords[i];
+        keywordsMerged.push('-1;#' + keyword.value + '|' + keyword.id);
+      }
+      var list = clientContext.get_web().get_lists().getByTitle(listData.title);
+      var listItem = list.getItemById(id);
+      var field = list.get_fields().getByInternalNameOrTitle(columnName);
+      var txField = clientContext.castTo(field, SP.Taxonomy.TaxonomyField);
+      var termValues = new SP.Taxonomy.TaxonomyFieldValueCollection(clientContext, keywordsMerged.join(';#'), txField);
+      txField.setFieldValueByValueCollection(listItem, termValues);
+      listItem.update();
+      clientContext.load(listItem);
+      this.execute(clientContext, function () {
+        console.log('updated keywords: ' + id);
+        cb && cb(listItem);
+      }, this.onQueryFailed);
+    }
   }
 }

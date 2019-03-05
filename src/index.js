@@ -1,9 +1,9 @@
 import $ from 'jquery';
-import siteTest from './test/site'
+// import siteTest from './test/site'
+// import S from 'sanctuary'
 
-// import * as R from "ramda";
-import axios from 'axios';
-import * as utility from './utility';
+// import axios from 'axios';
+// import * as utility from './utility';
 // import {
 // 	webBundle,
 // 	folderBundle,
@@ -15,10 +15,11 @@ import {
 	getCamlView,
 	camlLog,
 	joinQuery,
-	concatQuery
+	concatQuery,
 } from './query_parser';
-window.axios = axios;
-window.spx = spx;
+import { log } from './utility';
+import * as cache from './cache';
+// window.axios = axios;
 window.log = log;
 window.getCamlView = getCamlView;
 window.getCamlQuery = getCamlQuery;
@@ -26,324 +27,173 @@ window.joinQuery = joinQuery;
 window.concatQuery = concatQuery;
 window.camlLog = camlLog;
 
-// siteTest()
 
-// let files = [];
-// if (false) {
-// 	for (let i = 0; i < 255; i++) {
-// 		files.push({
-// 			Url: `test${i}.txt`,
-// 			Content: 'hi',
-// 			Overwrite: true
+window.cache = cache;
+
+
+// const uid = Math.round(Math.random() * 10000);
+// log(uid);
+
+// const renderData_ = uid => {
+// 	spx.user(uid).get().then(user => {
+// 		log(user);
+// 		spx('/Alekseev').list('Test').item(`Title Eq ${user.Gender === 'М' ? 'avay' : 'avya'}`).get().then(items => {
+// 			log(items)
+// 			$('body').html(`<div><div>${user.Title}</div><div>${items[0].Title}</div></div>`);
 // 		})
-// 	}
-// 	spx('/test/spx/testFolder').list('files').file(files).create().then(log);
+// 	})
 // }
+
+
+// const renderData = uid => {
+// 	$('body').html('');
+// 	spx.user(uid).get()
+// 		.then(user => ($('body').append(`<div>${user.Title}</div>`), user))
+// 		.then(log)
+// 		.then(user => `Title Eq ${user.Gender === 'М' ? 'avay' : 'avya'}`)
+// 		.then(log)
+// 		.then(spx('/Alekseev').list('Test').item)
+// 		.then(log)
+// 		.then(S.prop('get'))
+// 		.then(log)
+// 		.then(async fn => await fn())
+// 		.then(log)
+// 		.then(items => $('body').append(`<div>${items[0].Title}</div>`))
+// }
+
+// renderData(uid);
+
+// let web = spx(['Alekseev', 'Intellect']);
+// let site = spx.getCustomListTemplates().then(log)
+// console.log(web);
+// web.get().then(log)
+// spx().recycleBin.get().then(log)
+// console.log(cache.set(1)(['a', 'b']));
+// console.log(cache.get(['a', '', 'b']));
+// console.log(cache.unset(['a', '', 'b']));
+
+
+// let clientContext = new SP.ClientContext('/')
+// let site = clientContext.get_site();
+// clientContext.load(site);
+// clientContext.executeQueryAsync(_ => log(site))
+
+// console.log(spx(['/a', '/b']));
+// spx('Intellect/').get({ groupBy: 'Title' }).then(log)
+// spx('test/spx').get().then(log)
+// spx('test/spx1').get().then(log)
+
+
+// spx('/test/spx').list('caml').get().then(log)
+
+// function getCurrentUserPermission() {
+// 	var web, clientContext, currentUser, oList, perMask;
+
+// 	clientContext = new SP.ClientContext('/test/spx');
+// 	web = clientContext.get_web();
+// 	currentUser = web.get_currentUser();
+// 	oList = web.get_lists().getByTitle('caml');
+// 	clientContext.load(oList, 'EffectiveBasePermissions');
+// 	clientContext.load(currentUser);
+// 	clientContext.load(web);
+
+// 	clientContext.executeQueryAsync(function () {
+// 		if (oList.get_effectiveBasePermissions().has(SP.PermissionKind.editListItems)) {
+// 			console.log("user has edit permission");
+// 		} else {
+// 			console.log("user doesn't have edit permission");
+// 		}
+// 	}, function (sender, args) {
+// 		console.log('request failed ' + args.get_message() + '\n' + args.get_stackTrace());
+// 	});
+// }
+
+// getCurrentUserPermission()
+
+// spx('/test/spx').list('caml').column(['Title', 'Author']).get().then(log)
+
+// spx('/test/spx').list('Test').item({ folder: 'a' }).get().then(log)
+
+// spx('/test/spx').file('Files/a/test.txt').get({ asBlob: true }).then(log)
+// spx('/test/spx').file('/test.txt').create().then(log)
 
 $('#send').click(e => {
 	e.preventDefault();
-	const file = $('#file').get(0).files[0];
-	// console.log(file);
-	const list = spx('/test/spx/testMulti1').list('src');
-	list.file('fox.jpg').get({ blob: true }).then(blob => {
-		console.log(blob);
-		showFile(blob, 'downloaded.jpg', 'image/jpeg')
-		list.file({ Url: '/a/fox1.jpg', Content: blob }).create()
-	})
-	// spx('/test/spx/testMulti1').list('src').file({ Url: 'test.jpg', Content: file, OnProgress: console.log }).create({
-	// 	file: true
-	// }).then(data => {
-	// 	showFile(file, 'downloaded.jpg', 'image/jpeg')
-	// });
-})
+	spx('/test/spx').list('Files').file({ Content: $('#file').get(0).files[0], OnProgress: console.log, Folder: 'a' }).create().then(log);
+});
 
-
-function showFile(data, filename, mime) {
-	// let blob = new Blob([data], {
-	// 	type: mime || 'application/octet-stream'
-	// })
-	// if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-	// 	window.navigator.msSaveOrOpenBlob(blob);
-	// 	return;
-	// } else {
-	// 	const data = window.URL.createObjectURL(blob);
-	// 	let link = document.createElement('a');
-	// 	link.href = data;
-	// 	link.download = filename;
-	// 	link.click();
-	// 	setTimeout(() => {
-	// 		window.URL.revokeObjectURL(data);
-	// 	}, 100);
-	// }
-	let img = document.querySelector("#photo");
-	img.src = window.URL.createObjectURL(data);
-};
-
-
-function loadQuery() {
-	const clientContext = new SP.ClientContext('/');
-	const web = clientContext.get_web();
-	const webs = web.get_webs();
-	const lists = web.get_lists();
-	const webCollection = clientContext.loadQuery(webs);
-	const listsCollection = clientContext.loadQuery(lists);
-	clientContext.executeQueryAsync(() => {
-		const webs = clientContext.get_web().get_webs();
-		const lists = clientContext.get_web().get_lists();
-		const webCollection = clientContext.loadQuery(webs);
-		const listsCollection = clientContext.loadQuery(lists);
-		clientContext.executeQueryAsync(() => {
-			console.log(webs);
-			console.log(webCollection);
-			console.log(lists);
-			console.log(listsCollection);
-		})
-	})
-}
-
-// loadQuery()
-
-
-// spx(['/a', '/b']).list(['c', 'd']).item('Title eq test').get()
-
-const contexts = ['contextA', 'contextB', 'contextC'];
-
-const lists = ['listA', 'listB', 'listC'];
-
-const folders = ['a', 'b', 'c'];
-
-const getSPObjectAsync = a => new Promise((resolve, reject) => setTimeout(() => resolve(`spObject${a}`), 100));
-
-const mapContexts = fn => contexts => Promise.all(contexts.map(fn));
-
-const mapLists = fn => lists => Promise.all(lists.map(fn));
-
-const mapFolders = fn => folders => Promise.all(folders.map(fn));
-
-
-const groupper = (by, array) => {
-	const groupBys = typeOf(by) === 'array' ? by : [by];
-	const groupFlat = by => array => {
-		const groupped = {};
-		array.map(el => {
-			const elValue = el[by];
-			const groupValue = groupped[elValue];
-			groupped[elValue] = groupValue ? (typeOf(groupValue) === 'array' ? groupValue.concat(el) : [groupValue, el]) : el;
-		})
-		return groupped
-	}
-
-	const mapper = (array, fn) => {
-		const result = {};
-		const mapperR = (acc, el, prop) => {
-			if (prop) {
-				const childEl = el[prop];
-				if (typeOf(childEl) === 'array') {
-					acc[prop] = fn(childEl);
-					return acc;
-				} else {
-					acc[prop] = childEl;
-					if (typeOf(childEl) === 'object') {
-						for (let childProp in childEl) {
-							acc[prop] = childEl;
-							mapperR(acc[prop], childEl, childProp);
-						}
-					}
-					return acc;
-				}
-			} else {
-				if (typeOf(el) === 'array') {
-					return fn(el)
-				} else {
-					for (let prop in el) mapperR(acc, el, prop);
-					return acc;
-				}
-			}
-		}
-		return mapperR(result, array);
-	}
-
-	const merger = (obj, fn) => groupBys.reduce((acc, el) => mapper(acc, fn(el)), Object.assign(obj));
-
-	return merger(array, groupFlat);
-}
-
-// console.log(groupper(['a', 'b', 'c'], [{
-// 	a: 1, b: 1, c: 1
-// }, {
-// 	a: 1, b: 1, c: 2
-// }, {
-// 	a: 1, b: 2, c: 1
-// }, {
-// 	a: 1, b: 2, c: 2
-// }, {
-// 	a: 2, b: 1, c: 1
-// }, {
-// 	a: 2, b: 1, c: 2
-// }, {
-// 	a: 2, b: 2, c: 1
-// }, {
-// 	a: 2, b: 2, c: 2
-// }]));
-
-window.deleteFolders = () => {
-	const list = spx('/test/spx/testFolder16').list('test2');
-	list.item().get().then(items => {
-		console.time('item');
-		list.item(items.map(item => item.ID)).delete({ noRecycle: true }).then((items) => {
-			console.timeEnd('item');
-			log(items);
-		})
-	})
-}
-
-window.createFolders = (serial) => {
-	const foldersToCreate = [];
-	for (let i = 0; i < 504; i++) {
-		foldersToCreate.push({ Title: 'test' + i })
-	}
-	console.time('item');
-	spx('/test/spx/testFolder16').list('test2').folder(foldersToCreate).create({ serial }).then((items) => {
-		console.timeEnd('item');
-		log(items);
-	});
-}
-
-window.deleteWebFolders = () => {
-	const web = spx('/test/spx/testFolder16');
-	web.folder('Lists/test2/').get().then(folders => {
-		console.log(folders);
-		console.time('folders');
-		web.folder(folders.map(folder => folder.ServerRelativeUrl)).delete({ noRecycle: true }).then((folders) => {
-			console.timeEnd('folders');
-			log(folders);
-		})
-	})
-}
-
-window.createWebFolders = (serial) => {
-	const foldersToCreate = [];
-	for (let i = 0; i < 1; i++) {
-		foldersToCreate.push('Lists/test2/test' + i);
-	}
-	console.time('folders');
-	spx('/test/spx/testFolder16').folder(foldersToCreate).create({ serial }).then((folders) => {
-		console.timeEnd('folders');
-		log(folders);
-	});
-}
-
-window.createItems = (serial) => {
-	const itemsToCreate = [];
-	for (let i = 0; i < 504; i++) {
-		itemsToCreate.push({ Title: 'test' + i })
-	}
-	console.time('item');
-	spx('/test/spx/testFolder16').list('test2').item(itemsToCreate).create({ serial }).then((items) => {
-		console.timeEnd('item');
-		log(items);
-	});
-}
-
-window.deleteItems = () => {
-	const list = spx('/test/spx/testFolder16').list('test2');
-	list.item().get().then(items => {
-		console.time('item');
-		list.item(items.map(item => item.ID)).delete({ noRecycle: true }).then((items) => {
-			console.timeEnd('item');
-			log(items);
-		})
-	})
-}
-
-window.update = function update() {
-	const list = spx('/test/spx/testFolder16').list('test2');
-	list.item().get().then(items => {
-		console.time('item');
-		list.item(items.map(item => {
-			return item.ID;
-			return {
-				ID: item.ID,
-				Title: 'l'
-			}
-		})).delete().then((items) => {
-			console.timeEnd('item');
-			log(items);
-		})
-	})
-}
-
-// update()
-
-const exec = () => {
-	let context = new SP.ClientContext('/test/spx/testMulti1');
-	let list = context.get_web().get_lists().getByTitle('test1');
-	let items = list.getItems('');
-	items.removeFromParentCollection();
-	context.load(items);
-
-	context.executeQueryAsync(() => {
-		console.log(items);
-		let enumerator = items.getEnumerator()
-		while (enumerator.moveNext()) {
-			console.log(enumerator.get_current());
-		}
-	}, (sender, args) => console.log(args.get_message()))
-}
-
-// exec()
-
-const gen = () => {
-	const encryptors = [];
-	for (let i = 2; i < 102; i++) {
-		encryptors.push({
-			encryptor: `function (x){return (x+${i})*${i}+${i}}`,
-			decryptor: `function (x){return (x-${i})/${i}-${i}}`
-		})
-	}
-	console.log(encryptors);
-	// spx('/app-core').list('Encryptors').item(encryptors).create();
-}
-
-
-// gen();
-
-const getFile = () => {
-	let clientContext = new SP.ClientContext('/test/spx/testMulti1');
-	let file = clientContext.get_web().getFileByServerRelativeUrl('/test/spx/testMulti1/src/fox.jpg');
-	clientContext.load(file, 'ListItemAllFields');
+const getFile = _ => {
+	const clientContext = new SP.ClientContext('/test/spx');
+	const list = clientContext.get_web().get_lists().getByTitle('Files');
+	const file = list.get_rootFolder().get_folders().getByUrl('a').get_files().getByUrl('test.txt');
+	clientContext.load(file);
 	clientContext.executeQueryAsync(_ => {
-		console.log(file.get_listItemAllFields().get_fieldValues());
-	})
+		console.log(file);
+
+	}, log)
 }
 
 // getFile()
 
-const getFolder = () => {
-	let clientContext = new SP.ClientContext('/test/spx/testMulti1');
-	let folder = clientContext.get_web().getFolderByServerRelativeUrl('/test/spx/testMulti1/src/j');
-	clientContext.load(folder, 'ListItemAllFields');
-	clientContext.executeQueryAsync(_ => {
-		console.log(folder.get_listItemAllFields().get_fieldValues());
-	}, log)
+const asyncF = _ => new Promise((resolve, reject) => {
+	setTimeout(() => {
+		resolve()
+	}, 1000);
+})
+
+const iterAsync = async _ => {
+	const array = [1, 2, 3]
+	// for (const el of array) {
+	// 	await asyncF()
+	// 	console.log(el);
+	// }
+	array.map(async el => {
+		await asyncF()
+		console.log(el);
+	})
+}
+// iterAsync()
+
+const itemsToCreate = [];
+for (let i = 0; i < 10; i++) {
+	itemsToCreate.push({ Title: i });
 }
 
-// getFolder()
 
-const getAllUsers = () => {
-	console.log(1);
-	const clientContext = new SP.ClientContext('/');
-	const web = clientContext.get_web();
-	const userInfoList = web.get_siteUserInfoList();
-	const collListItem = userInfoList.getItems();
-	clientContext.load(collListItem);
-	clientContext.executeQueryAsync(_ => {
-		console.log(2);
-		const item = collListItem.itemAt(0);
-		const profileNotes = item.get_item('Notes');
-		console.log(profileNotes);
-	}, console.log);
-}
+// spx('test/spx').list('Test2').folder(['c', 'd']).create().then(log)
+// spx('test/spx').list('Test').item(itemsToCreate).create().then(log)
+// spx('test/spx').list('Test').item({ Query: '', Columns: { Title: null } }).updateByQuery().then(log)
+// spx('test/spx').list('Test').item(['Title']).deleteEmpties().then(log)
+
+// spx('test/spx').list('Test').item(['Title']).getDuplicates().then(log)
+// spx('test/spx').list('Test').item(['Title']).deleteDuplicates().then(log)
+// spx('test/spx').list('Test').item({ Query: 'ID Geq 128', Columns: ['Title'] }).erase().then(log)
+// spx('test/spx').list('Test').item({ Key: 'ID', Forced: true, Target: { Column: 'Title1' }, Source: { Column: 'Title' }, Mediator: col => value => col + value }).merge({ expanded: true }).then(log)
+// spx('test/spx').list('Posts').item({ ID: 4, Title: 'hi' }).createReply().then(log)
+// spx('test/spx').list('Test').item({ Title: 'yvayva', Folder: 'a' }).create().then(log)
+
+// spx('test/spx').list('Test').item([{
+// 	Title: 'pvyay',
+// 	Title1: 'pvp yvavy',
+// 	lookup: [3, 4]
+// }]).create().then(log)
+// spx('test/spx').list('Test2').delete().then(log).catch(_ => _)
+
+// new Promise(resolve => resolve(spx('test/spx').list))
+// 	.then(list => list('Test').folder('avyayva').get())
+// 	.then(log)
+
+// pipe([methodEmpty('get'), method('then')(log)])(spx('test/spx').list('Test').item())
+
+// spx('test/spx').list('Test').item().get().then(log)
 
 
-// getAllUsers();
+// spx.tag('test').get().then(log)
+// spx('Intellect').search('Search')().then(log)
+
+// spx('test/spx/').get().then(webs => {
+// 	log(webs)
+// 	const webUrls = webs.map(web => web.ServerRelativeUrl);
+// 	console.log(webUrls);
+// 	spx(webUrls).delete()
+// })

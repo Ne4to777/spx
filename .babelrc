@@ -1,4 +1,12 @@
 {
-	"presets": ["env"],
-	"plugins": ["babel-polyfill","syntax-async-functions","transform-regenerator","transform-object-rest-spread"]
+	"presets": [
+		"env"
+	],
+	"plugins": [
+		"babel-polyfill",
+		"syntax-async-functions",
+		"transform-regenerator",
+		"transform-object-rest-spread",
+		"transform-es2015-arrow-functions"
+	]
 }
