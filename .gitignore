@@ -2,3 +2,4 @@ node_modules
 cypress
 .git
 gitProxySettings.txt
+config/private.json
