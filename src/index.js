@@ -214,11 +214,11 @@ for (let i = 0; i < 10; i++) {
 
 
 const getWebPermission = _ => {
-	const clientContext = new SP.ClientContext('/test/spx/permission');
+	const clientContext = new SP.ClientContext('/common');
 	const web = clientContext.get_web();
 	const ob = new SP.BasePermissions();
-	ob.set(SP.PermissionKind.addListItems)
-	const per = web.doesUserHavePermissions(ob)
+	ob.set(SP.PermissionKind.fullMask);
+	const per = web.doesUserHavePermissions(ob);
 	clientContext.executeQueryAsync(_ => console.log(per.get_value()));
 }
 
@@ -268,27 +268,16 @@ const perms = {
 
 const getListPermission = _ => {
 
-	const clientContext = new SP.ClientContext('/test/spx');
+	const clientContext = new SP.ClientContext('/common');
 	const web = clientContext.get_web();
-	const currentUser = web.get_currentUser();
-	const oList = web.get_lists().getByTitle('Test');
+	const oList = web.get_lists().getByTitle('Administrators');
 	clientContext.load(oList, 'EffectiveBasePermissions');
-	clientContext.load(currentUser);
-	clientContext.load(web);
-
 	clientContext.executeQueryAsync(_ => {
-		console.log(oList.get_effectiveBasePermissions());
-		if (oList.get_effectiveBasePermissions().has(SP.PermissionKind.editListItems)) {
-			console.log("user has edit permission");
-		} else {
-			console.log("user doesn't have edit permission");
-		}
-	}, (sender, args) => {
-		console.log('request failed ' + args.get_message() + '\n' + args.get_stackTrace());
-	});
+		console.log(oList.get_effectiveBasePermissions().has(SP.PermissionKind.manageWeb));
+	}, log);
 }
 
-// getListPermission();
+getListPermission();
 
 
 const removeUserFromGroup = async _ => {
@@ -328,4 +317,4 @@ const retrieveAllUsersInGroup = async _ => {
 	console.log(userInfo);
 }
 
-retrieveAllUsersInGroup()
+// retrieveAllUsersInGroup()

@@ -8,6 +8,7 @@ import {
 	popSlash,
 	pipe,
 	slice,
+	method,
 	methodEmpty,
 	getInstance,
 	overstep,
@@ -154,5 +155,13 @@ export default urls => {
 			try { spContextObject.deleteObject() } catch (err) { new Error('Context url is wrong') }
 			return spContextObject;
 		})(opts),
+		doesUserHavePermissions: (instance => (type = 'fullMask') => instance.box.chainAsync(async element => {
+			const clientContext = getClientContext(element.Url);
+			const ob = getInstanceEmpty(SP.BasePermissions);
+			ob.set(SP.PermissionKind[type]);
+			const spObject = getSPObject(clientContext).doesUserHavePermissions(ob);
+			await executorJSOM(clientContext)();
+			return spObject.get_value()
+		}))(instance),
 	}
 }

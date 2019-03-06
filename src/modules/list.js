@@ -26,7 +26,8 @@ import {
 	identity,
 	isExists,
 	isStringEmpty,
-	slice
+	slice,
+	executeJSOM
 } from './../utility';
 import * as cache from './../cache';
 import site from './../modules/site';
@@ -374,6 +375,15 @@ export default (parent, urls) => {
 					}
 					return aggregations;
 				})
-			}))(instance)
+			}))(instance),
+
+		doesUserHavePermissions: (instance => (type = 'manageWeb') =>
+			instance.parent.box.chainAsync(context => instance.box.chainAsync(async element => {
+				const clientContext = getClientContext(context.Url);
+				const web = clientContext.get_web();
+				const oList = web.get_lists().getByTitle(element.Url);
+				await executeJSOM(clientContext)(oList)({ view: 'EffectiveBasePermissions' });
+				return oList.get_effectiveBasePermissions().has(SP.PermissionKind[type])
+			})))(instance),
 	}
 }
