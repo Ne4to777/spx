@@ -35,6 +35,8 @@ import {
 import axios from 'axios';
 import * as cache from './../cache';
 
+import site from './../modules/site';
+
 //Internal
 
 const NAME = 'file';
@@ -176,7 +178,7 @@ const createWithJSOM = async ({ spParentObject, listUrl, element }) => {
   } = element
   const folder = getFolderFromUrl(Url);
   const contextUrl = spParentObject.get_context().get_url();
-  if (folder) await spx(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+  if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
   const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation);
   setFields({
     set_url: `${contextUrl}/${listUrl}/${Url}`,
@@ -204,7 +206,7 @@ const createWithRESTFromFile = async ({ contextUrl, listUrl, element }) => {
   const { Url = '', Content = '', Overwrite, OnProgress = identity, Folder = '' } = element;
   const folder = Folder || getFolderFromUrl(Url);
   const filename = Url ? getFilenameFromUrl(Url) : Content.name;
-  if (folder) await spx(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+  if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
   const requiredInputs = {
     __REQUESTDIGEST: true,
     __VIEWSTATE: true,
@@ -213,7 +215,7 @@ const createWithRESTFromFile = async ({ contextUrl, listUrl, element }) => {
     ctl00_PlaceHolderMain_ctl04_ctl01_uploadLocation: true,
     ctl00_PlaceHolderMain_UploadDocumentSection_ctl05_OverwriteSingle: true,
   }
-  const listGUID = (await spx(contextUrl).list(listUrl).get({ cached: true, view: 'Id' })).Id.toString();
+  const listGUID = (await site(contextUrl).list(listUrl).get({ cached: true, view: 'Id' })).Id.toString();
   const res = await axios.get(`${contextUrl}/_layouts/15/Upload.aspx?List={${listGUID}}`);
   const formMatches = res.data.match(/<form(\w|\W)*<\/form>/);
   const inputRE = /<input[^<]*\/>/g;
@@ -315,9 +317,9 @@ export default (parent, elements) => {
             if (!targetListUrl) throw new Error('Target ListUrl is missed');
             if (!Url) throw new Error('Source file Url is missed');
 
-            const spxSourceList = spx(contextUrl).list(listUrl);
+            const spxSourceList = site(contextUrl).list(listUrl);
             const spxSourceFile = spxSourceList.file(Url);
-            const spxTargetList = spx(targetWebUrl).list(targetListUrl);
+            const spxTargetList = site(targetWebUrl).list(targetListUrl);
             const sourceFileData = await spxSourceFile.get({ asItem: true });
             const fullTargetFileUrl = /\./.test(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
             if (sourceFileData) {
@@ -385,9 +387,9 @@ export default (parent, elements) => {
             if (!targetListUrl) throw new Error('Target ListUrl is missed');
             if (!Url) throw new Error('Source file Url is missed');
 
-            const spxSourceList = spx(contextUrl).list(listUrl);
+            const spxSourceList = site(contextUrl).list(listUrl);
             const spxSourceFile = spxSourceList.file(Url);
-            const spxTargetList = spx(targetWebUrl).list(targetListUrl);
+            const spxTargetList = site(targetWebUrl).list(targetListUrl);
             const sourceFileData = await spxSourceFile.get({ asItem: true });
             const fullTargetFileUrl = /\./.test(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
             if (sourceFileData) {

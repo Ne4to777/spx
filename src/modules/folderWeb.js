@@ -25,7 +25,7 @@ import {
   hasUrlTailSlash
 } from './../utility';
 import * as cache from './../cache';
-import spx from './../modules/site';
+import site from './../modules/site';
 
 //Internal
 
@@ -117,7 +117,7 @@ export default (parent, elements) => {
     create: (instance => executeBinded('create')(async ({ spParentObject, elementUrl }) => {
       const clientContext = getContext(spParentObject);
       const parentFolderUrl = getParentUrl(elementUrl);
-      if (parentFolderUrl) await spx(clientContext.get_url()).folder(parentFolderUrl).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+      if (parentFolderUrl) await site(clientContext.get_url()).folder(parentFolderUrl).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
       return getSPObjectCollection(`${parentFolderUrl}/`)(instance.parent.getSPObject(clientContext)).add(getTitleFromUrl(elementUrl));
     }))(instance),
 

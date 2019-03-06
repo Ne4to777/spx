@@ -28,6 +28,8 @@ import {
 } from './../utility';
 import * as cache from './../cache';
 
+import site from './../modules/site';
+
 //Internal
 
 const NAME = 'file';
@@ -169,7 +171,7 @@ export default (parent, elements) => {
         Overwrite = true
       } = element
       const folder = getFolderFromUrl(Url);
-      if (folder) await spx(spParentObject.get_context().get_url()).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+      if (folder) await site(spParentObject.get_context().get_url()).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
       const fileCreationInfo = new SP.FileCreationInformation;
       setFields({
         set_url: getFilenameFromUrl(Url),

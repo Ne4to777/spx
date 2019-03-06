@@ -17,7 +17,7 @@ import {
 	joinQuery,
 	concatQuery,
 } from './query_parser';
-import { log } from './utility';
+import { log, executeJSOM, methodEmpty, prop, getClientContext, executorJSOM } from './utility';
 import * as cache from './cache';
 // window.axios = axios;
 window.log = log;
@@ -197,3 +197,135 @@ for (let i = 0; i < 10; i++) {
 // 	console.log(webUrls);
 // 	spx(webUrls).delete()
 // })
+
+// spx('test/spx').get({ expanded: true }).then(web => {
+// 	console.log(web);
+// 	const props = web.get_allProperties();
+// 	const clientContext = web.get_context();
+// 	executeJSOM(clientContext)(props)()
+// 		.then(log)
+// 		.then(methodEmpty('get_objectData'))
+// 		.then(log)
+// 		.then(methodEmpty('get_methodReturnObjects'))
+// 		.then(log)
+// 		.then(prop('$m_dict'))
+// 		.then(log)
+// })
+
+
+const getWebPermission = _ => {
+	const clientContext = new SP.ClientContext('/test/spx/permission');
+	const web = clientContext.get_web();
+	const ob = new SP.BasePermissions();
+	ob.set(SP.PermissionKind.addListItems)
+	const per = web.doesUserHavePermissions(ob)
+	clientContext.executeQueryAsync(_ => console.log(per.get_value()));
+}
+
+// getWebPermission()
+
+
+const perms = {
+	emptyMask: 0,
+	viewListItems: 1,
+	addListItems: 2,
+	editListItems: 3,
+	deleteListItems: 4,
+	approveItems: 5,
+	openItems: 6,
+	viewVersions: 7,
+	deleteVersions: 8,
+	cancelCheckout: 9,
+	managePersonalViews: 10,
+	manageLists: 12,
+	viewFormPages: 13,
+	anonymousSearchAccessList: 14,
+	open: 17,
+	viewPages: 18,
+	addAndCustomizePages: 19,
+	applyThemeAndBorder: 20,
+	applyStyleSheets: 21,
+	viewUsageData: 22,
+	createSSCSite: 23,
+	manageSubwebs: 24,
+	createGroups: 25,
+	managePermissions: 26,
+	browseDirectories: 27,
+	browseUserInfo: 28,
+	addDelPrivateWebParts: 29,
+	updatePersonalWebParts: 30,
+	manageWeb: 31,
+	anonymousSearchAccessWebLists: 32,
+	useClientIntegration: 37,
+	useRemoteAPIs: 38,
+	manageAlerts: 39,
+	createAlerts: 40,
+	editMyUserInfo: 41,
+	enumeratePermissions: 63,
+	fullMask: 65
+}
+
+
+const getListPermission = _ => {
+
+	const clientContext = new SP.ClientContext('/test/spx');
+	const web = clientContext.get_web();
+	const currentUser = web.get_currentUser();
+	const oList = web.get_lists().getByTitle('Test');
+	clientContext.load(oList, 'EffectiveBasePermissions');
+	clientContext.load(currentUser);
+	clientContext.load(web);
+
+	clientContext.executeQueryAsync(_ => {
+		console.log(oList.get_effectiveBasePermissions());
+		if (oList.get_effectiveBasePermissions().has(SP.PermissionKind.editListItems)) {
+			console.log("user has edit permission");
+		} else {
+			console.log("user doesn't have edit permission");
+		}
+	}, (sender, args) => {
+		console.log('request failed ' + args.get_message() + '\n' + args.get_stackTrace());
+	});
+}
+
+// getListPermission();
+
+
+const removeUserFromGroup = async _ => {
+	const ctx = getClientContext('/');
+	const web = ctx.get_web();
+
+	const group = web.get_siteGroups().getByName('Everyone');
+	// group.get_users().removeByLoginName(userLoginName);
+	await executeJSOM(ctx)(group)()
+	console.log(group);
+}
+
+// removeUserFromGroup()
+
+
+
+const retrieveAllUsersInGroup = async _ => {
+
+	const clientContext = getClientContext('/');
+	console.log(clientContext.get_web());
+	const collGroup = clientContext.get_web().get_siteGroups();
+	const oGroup = collGroup.getByName('pps_administrators');
+	const collUser = oGroup.get_users();
+	clientContext.load(collUser);
+	await executorJSOM(clientContext)()
+	console.log(collUser);
+	let userInfo = '';
+
+	const userEnumerator = collUser.getEnumerator();
+	while (userEnumerator.moveNext()) {
+		const oUser = userEnumerator.get_current();
+		userInfo += '\nUser: ' + oUser.get_title() +
+			'\nID: ' + oUser.get_id() +
+			'\nEmail: ' + oUser.get_email() +
+			'\nLogin Name: ' + oUser.get_loginName();
+	}
+	console.log(userInfo);
+}
+
+retrieveAllUsersInGroup()

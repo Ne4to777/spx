@@ -28,6 +28,8 @@ import {
 } from './../utility';
 import * as cache from './../cache';
 
+import site from './../modules/site';
+
 // Internal
 
 const NAME = 'folder';
@@ -131,7 +133,7 @@ export default (parent, elements) => {
       const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
       const parentFolderUrl = getParentUrl(element.Url);
       const elementNew = Object.assign({}, element);
-      parentFolderUrl && await spx(contextUrl).list(listUrl).folder(parentFolderUrl).create({
+      parentFolderUrl && await site(contextUrl).list(listUrl).folder(parentFolderUrl).create({
         view: ['FileLeafRef'],
         silent: true,
         expanded: true,

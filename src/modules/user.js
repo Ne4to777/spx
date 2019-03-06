@@ -8,9 +8,12 @@ import {
 	isNumber
 } from './../utility'
 
+import site from './../modules/site';
+
 const USER_WEB = '/AM';
 const USER_LIST = 'UsersAD';
 const USER_LIST_GUID = '/b327d30a-b9bf-4728-a3c1-a6b4f0253ff2';
+
 
 
 const NAME = 'user';
@@ -29,7 +32,7 @@ const getByUid = isUsersArray => items => async opts => {
 				uid && userIds.push(uid);
 		}
 	}
-	const elements = await spx(USER_WEB).list(USER_LIST).item(`Number uid In ${userIds}`).get(opts);
+	const elements = await site(USER_WEB).list(USER_LIST).item(`Number uid In ${userIds}`).get(opts);
 	return isUsersArray ? elements : elements[0];
 }
 

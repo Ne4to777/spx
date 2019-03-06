@@ -29,6 +29,7 @@ import {
 	slice
 } from './../utility';
 import * as cache from './../cache';
+import site from './../modules/site';
 import column from './../modules/column';
 import folder from './../modules/folderList';
 import file from './../modules/fileList';
@@ -214,8 +215,8 @@ export default (parent, urls) => {
 					if (!Title) throw new Error('Source list Title is missed');
 					const targetTitle = getTitleFromUrl(targetListUrl);
 
-					const targetSPX = spx(targetWebUrl);
-					const sourceSPX = spx(contextUrl);
+					const targetSPX = site(targetWebUrl);
+					const sourceSPX = site(contextUrl);
 					const targetSPXList = targetSPX.list(targetListUrl);
 					const sourceSPXList = sourceSPX.list(Title);
 
@@ -269,8 +270,8 @@ export default (parent, urls) => {
 
 					const targetTitle = To.Title || getTitleFromUrl(targetListUrl);
 
-					const targetSPX = spx(targetWebUrl);
-					const sourceSPX = spx(contextUrl);
+					const targetSPX = site(targetWebUrl);
+					const sourceSPX = site(contextUrl);
 					const targetSPXList = targetSPX.list(targetTitle);
 					const sourceSPXList = sourceSPX.list(Title);
 
@@ -335,7 +336,7 @@ export default (parent, urls) => {
 			console.log('clearing in progress...');
 			await instance.parent.box.chainAsync(context =>
 				instance.box.chainAsync(element =>
-					spx(context.Url).list(element.Title).item({ Query: '' }).deleteByQuery(opts)))
+					site(context.Url).list(element.Title).item({ Query: '' }).deleteByQuery(opts)))
 			console.log('clearing is complete!');
 		})(instance),
 

@@ -33,6 +33,7 @@ import {
 	camlLog,
 	concatQuery
 } from './../query_parser';
+import site from './../modules/site';
 
 // Internal
 
@@ -70,26 +71,18 @@ const getSPObject = element => parentElement => {
 	return spObject
 }
 
-const listIterator = it => f => it.parent.parent.box.chainAsync(contextElement => {
-	const web = spx(contextElement.Url);
-	return it.parent.box.chainAsync(async listElement => {
-		const list = web.list(listElement.Url);
-		return await f(web)(list);
-	})
-})
+const listIterator = it => f => it.parent.parent.box.chainAsync(contextElement =>
+	it.parent.box.chainAsync(listElement => f(contextElement.Url)(listElement.Url))
+)
 
-const itemIterator = it => f => it.parent.parent.box.chainAsync(contextElement => {
-	const web = spx(contextElement.Url);
-	return it.parent.box.chainAsync(listElement => {
-		const list = web.list(listElement.Url);
-		return it.box.chainAsync(async element => {
-			return await f(web)(list)(element);
-		})
-	})
-})
+const itemIterator = it => f => it.parent.parent.box.chainAsync(contextElement =>
+	it.parent.box.chainAsync(listElement =>
+		it.box.chainAsync(f(contextElement.Url)(listElement.Url))
+	)
+)
 
-const operateDuplicates = it => (opts = {}) => listIterator(it)(web => async list => {
-	const items = await list.item().get({
+const operateDuplicates = it => (opts = {}) => listIterator(it)(webUrl => async listUrl => {
+	const items = await site(webUrl).list(listUrl).item().get({
 		view: ['ID', 'FSObjType', 'Modified', ...it.box.getValues().map(prop('ID'))],
 		scope: 'allItems',
 		limit: MAX_ITEMS_LIMIT,
@@ -210,7 +203,7 @@ export default (parent, elements) => {
 		get: executeBinded(null)(prop('spParentObject')),
 
 		create: (instance => async opts => {
-			await listIterator(instance)(web => async list => getColumns(web.box.getHead())(list.box.getHead()));
+			await listIterator(instance)(getColumns);
 			return executeBinded('create')(async ({ spParentObject, element }) => {
 				const contextUrl = spParentObject.get_context().get_url();
 				const listUrl = spParentObject.listUrl;
@@ -220,7 +213,7 @@ export default (parent, elements) => {
 				if (elementNew.Folder) {
 					const folder = elementNew.Folder;
 					delete elementNew.Folder;
-					const spxFolder = spx(contextUrl).list(listUrl).folder(folder);
+					const spxFolder = site(contextUrl).list(listUrl).folder(folder);
 					const folderOpts = { cached: true, silent: true };
 					const folderData = await spxFolder
 						.get({ ...folderOpts, asItem: true })
@@ -233,7 +226,7 @@ export default (parent, elements) => {
 		})(instance),
 
 		update: (instance => async opts => {
-			await listIterator(instance)(web => async list => getColumns(web.box.getHead())(list.box.getHead()))
+			await listIterator(instance)(getColumns)
 			return executeBinded('update')(async ({ spParentObject, element }) => {
 				const contextUrl = spParentObject.get_context().get_url();
 				const listUrl = spParentObject.listUrl;
@@ -243,10 +236,11 @@ export default (parent, elements) => {
 			})(opts)
 		})(instance),
 
-		updateByQuery: (instance => async opts => {
-			return itemIterator(instance)(web => list => async element => {
+		updateByQuery: (instance => async opts =>
+			itemIterator(instance)(webUrl => listUrl => async element => {
 				const { Query, Columns = {} } = element;
 				if (Query === void 0) throw new Error('Query is missed');
+				const list = site(webUrl).list(listUrl);
 				const items = await list.item(Query).get({ ...opts, expanded: false });
 				if (items.length) {
 					const itemsToUpdate = items.map(item => {
@@ -256,49 +250,48 @@ export default (parent, elements) => {
 					});
 					return list.item(itemsToUpdate).update(opts);
 				}
-			})
-		})(instance),
+			}))(instance),
 
-		delete: (opts = {}) => {
-			return executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
+		delete: (opts = {}) =>
+			executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
 				overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts)
-		},
+		,
 
-		deleteByQuery: (instance => async opts => {
-			return itemIterator(instance)(web => list => async element => {
+		deleteByQuery: (instance => async opts =>
+			itemIterator(instance)(webUrl => listUrl => async element => {
 				if (element === void 0) throw new Error('Query is missed');
+				const list = site(webUrl).list(listUrl);
 				const items = await list.item(element).get(opts);
 				if (items.length) {
 					await list.item(items.map(prop('ID'))).delete();
 					return items
 				}
-			})
-		})(instance),
+			}))(instance),
 
 		getDuplicates: operateDuplicates(instance),
 		deleteDuplicates: (opts = {}) => operateDuplicates(instance)({ ...opts, delete: true }),
 
 		getEmpties: (instance => (opts = {}) => {
 			const columns = instance.box.getValues().map(prop('ID'));
-			return listIterator(instance)(web => list => list.item(`${joinQuery('or')('isnull')()(columns)}`).get({
+			return listIterator(instance)(webUrl => listUrl => site(webUrl).list(listUrl).item(`${joinQuery('or')('isnull')()(columns)}`).get({
 				...opts,
 				scope: 'allItems',
 				limit: MAX_ITEMS_LIMIT
 			}))
 		})(instance),
 
-		deleteEmpties: (instance => opts => {
-			return listIterator(instance)(web => async list =>
-				list.item((await instance.getEmpties(opts)).map(prop('ID'))).delete())
-		})(instance),
+		deleteEmpties: (instance => opts =>
+			listIterator(instance)(webUrl => async listUrl => site(webUrl).list(listUrl).item((await instance.getEmpties(opts)).map(prop('ID'))).delete())
+		)(instance),
 
-		merge: (instance => async (opts = {}) => {
-			return itemIterator(instance)(web => list => async element => {
+		merge: (instance => async (opts = {}) =>
+			itemIterator(instance)(webUrl => listUrl => async element => {
 				const { Key, Forced, Target, Source, Mediator = _ => identity } = element;
 				const sourceColumn = Source.Column;
 				const targetColumn = Target.Column;
+				const list = site(webUrl).list(listUrl);
 				const [sourceItems, targetItems] = await Promise.all([
-					spx(Source.Web || web.box.getHead()).list(Source.List || list.box.getHead()).item(concatQuery()([`${Key} IsNotNull`, Source.Query || ''])).get({
+					site(Source.Web || webUrl).list(Source.List || listUrl).item(concatQuery()([`${Key} IsNotNull`, Source.Query || ''])).get({
 						view: ['ID', Key, sourceColumn],
 						scope: 'allItems',
 						limit: MAX_ITEMS_LIMIT,
@@ -323,14 +316,14 @@ export default (parent, elements) => {
 				}))
 				return list.item(itemsToMerge).update(opts);
 			})
-		})(instance),
+		)(instance),
 
-		erase: (instance => async opts => {
-			return itemIterator(instance)(web => list => async element => {
+		erase: (instance => async opts =>
+			itemIterator(instance)(webUrl => listUrl => async element => {
 				const { Query = '', Columns = [] } = element;
-				return list.item({ Query, Columns: Columns.reduce((acc, el) => (acc[el] = null, acc), {}) }).updateByQuery(opts);
+				return site(webUrl).list(listUrl).item({ Query, Columns: Columns.reduce((acc, el) => (acc[el] = null, acc), {}) }).updateByQuery(opts);
 			})
-		})(instance),
+		)(instance),
 
 		createDiscussion: execute(instance.parent)(instance.box)('discussion')('create')(({ spParentObject, element }) => {
 			const spObject = SP.Utilities.Utility.createNewDiscussion(spParentObject.get_context(), spParentObject, element.Title);
