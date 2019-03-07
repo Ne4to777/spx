@@ -14,17 +14,17 @@ import {
 	getCamlQuery,
 	getCamlView,
 	camlLog,
-	joinQuery,
-	concatQuery,
+	joinQueries,
+	concatQueries,
 } from './query_parser';
-import { log, executeJSOM, methodEmpty, prop, getClientContext, executorJSOM } from './utility';
+import { log, executeJSOM, prepareResponseJSOM, load, getClientContext, executorJSOM } from './utility';
 import * as cache from './cache';
 // window.axios = axios;
 window.log = log;
 window.getCamlView = getCamlView;
 window.getCamlQuery = getCamlQuery;
-window.joinQuery = joinQuery;
-window.concatQuery = concatQuery;
+window.joinQueries = joinQueries;
+window.concatQueries = concatQueries;
 window.camlLog = camlLog;
 
 
@@ -277,7 +277,7 @@ const getListPermission = _ => {
 	}, log);
 }
 
-getListPermission();
+// getListPermission();
 
 
 const removeUserFromGroup = async _ => {
@@ -318,3 +318,79 @@ const retrieveAllUsersInGroup = async _ => {
 }
 
 // retrieveAllUsersInGroup()
+
+const getAllGroups = async _ => {
+	const clientContext = getClientContext('/');
+	const siteGroups = clientContext.get_web().get_siteGroups();
+	load(clientContext)(siteGroups);
+	const groups = await executeJSOM(clientContext)(siteGroups)()
+	return prepareResponseJSOM()(groups);
+}
+
+const getGroupById = async id => {
+	const clientContext = getClientContext('/');
+	const siteGroups = clientContext.get_web().get_siteGroups();
+	const group = siteGroups.getById(id)
+	executorJSOM(clientContext)();
+	return group
+}
+// getGroupById(5926).then(log);
+// getAllGroups()
+
+const setGroupOwnerById = async id => {
+	const clientContext = getClientContext('/');
+	const siteGroups = clientContext.get_web().get_siteGroups();
+	const group = siteGroups.getById(id);
+	const groupOwner = siteGroups.getById(18359)
+	const owner = groupOwner.get_owner();
+	group.set_owner(owner);
+	executorJSOM(clientContext)();
+}
+
+
+
+const getGroupOwnerById = async id => {
+	const clientContext = getClientContext('/');
+	const siteGroups = clientContext.get_web().get_siteGroups();
+	const group = siteGroups.getById(id)
+	const owner = group.get_owner();
+	return executeJSOM(clientContext)(owner)();
+}
+
+// setGroupOwnerById(5926)
+
+// getGroupOwnerById(5926).then(log)
+
+const removeGroupById = async id => {
+	const clientContext = getClientContext('/');
+	const siteGroups = clientContext.get_web().get_siteGroups();
+	siteGroups.removeById(id)
+	await executorJSOM(clientContext)();
+}
+
+// removeGroupById(16220)
+
+const removeGroupsByIds = async ids => {
+	for (const id of ids) {
+		await removeGroupById(id)
+		// console.log(id);
+	}
+	console.log('done');
+}
+
+
+const removeGroups = async _ => {
+	const groupsToExclude = {
+		Administrators: true,
+		Developers: true,
+		Everyone: true
+	}
+	const groups = await getAllGroups();
+	console.log(groups);
+	const filtereds = groups.filter(el => !groupsToExclude[el.LoginName])
+	console.log(filtereds);
+	const ids = filtereds.map(el => el.Id);
+	console.log(ids);
+	// removeGroupsByIds(ids)
+}
+// removeGroups()

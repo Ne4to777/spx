@@ -1,4 +1,4 @@
-import { chunkArray, stringMatch, isArray, isObject, getArray } from './../utility'
+import { chunkArray, stringMatch, arrayTail, arrayHead, isObject, getArray, reduce, map, pipe, stringReplace, stringTrim, stringSplit } from './../utility'
 const IN_CHUNK_SIZE = 500;
 const IN_CUSTOM_DELIMETER = '_DELIMITER_';
 const GROUP_REGEXP_STR = '\\s(\&\&|\|\||and|or)\\s';
@@ -64,7 +64,7 @@ const COLUMN_TYPES = {
 	_UIVersionString: 'text'
 }
 const COLUMN_TYPES_REGEXP = /(Text|Note|Number|Integer|Counter|Boolean|Lookup|User|DateTime|Date|Time|Computed|Currency|ModStat|Guid|File|Attachments|LookupMulti|UserMulti)\s/i;
-const OPERATORS_REGEXP = /\s(eq|neq|geq|leq|gt|lt|isnull|isnotnull|contains|beginsWith|includes|notincludes|search|in)(\s|$)/i;
+const OPERATORS_REGEXP = /\s(eq|neq|geq|leq|gt|lt|isnull|isnotnull|contains|beginsWith|includes|notincludes|search|in|membership)(\s|$)/i;
 const COLUMN_TYPES_MAPPED = {
 	text: 'Text',
 	note: 'Text',
@@ -99,16 +99,24 @@ const OPERATORS_MAPPED = {
 	contains: 'Contains',
 	includes: 'Includes',
 	notincludes: 'NotIncludes',
+	in: 'In',
+	membership: 'Membership',
 	search: 'Search',
-	guid: 'Guid',
-	file: 'File',
-	attachments: 'Attachments',
-	lookupmulti: 'LookupMulti',
-	usermulti: 'UserMulti',
-	search: 'Search',
-	in: 'In'
 }
 
+const MEMBERSHIP_VALUES = {
+	user: 'SPWeb.Users',// field with users includes current user
+	users: 'SPWeb.AllUsers',// field with any user(s)
+	group: 'CurrentUserGroups',// field with groups includes current user
+	groups: 'SPWeb.Groups'// field with any group(s)
+	// SPGroup - field with groups includes current group ???
+}
+
+const GROUP_OPERATORS_MAPPED = {
+	'&&': 'And',
+	'||': 'Or'
+}
+const normalizeOperator = operator => GROUP_OPERATORS_MAPPED[operator] || (/^and$/i.test(operator) ? 'And' : 'Or');
 
 const getStringFromOuterBraces = str => {
 	const founds = str.match(new RegExp('^[^\\(]*\\((.*' + (GROUP_REGEXP.test(str) ? GROUP_REGEXP_STR + '.*' : '') + ')\\)[^\\)]*$', 'i'));
@@ -127,11 +135,7 @@ const trimBraces = (str = '') => {
 };
 
 const convertExpression = str => {
-	let operator, columnSplits, operatorMatch, fieldOption, includeTimeValue, type;
-	let chunks = [];
-	const valueStrings = [];
-	let values = [];
-	const valueChunks = [];
+	let operator, operatorMatch, fieldOption = '', type, valueOpts = '';
 	const operatorMatches = str.match(OPERATORS_REGEXP);
 	if (operatorMatches) {
 		operatorMatch = operatorMatches[0];
@@ -139,64 +143,65 @@ const convertExpression = str => {
 	} else {
 		throw new SyntaxError(`Wrong operator in "${str}"`);
 	}
+	const operatorNorm = OPERATORS_MAPPED[operator];
 	const strSplits = str.split(new RegExp(operatorMatch, 'i'));
 	const columnStr = strSplits[0].replace(/\s\s+/g, ' ').trim();
 	let name = columnStr;
 	if (COLUMN_TYPES_REGEXP.test(columnStr)) {
-		columnSplits = columnStr.split(' ');
+		const columnSplits = columnStr.split(' ');
 		type = columnSplits.shift().toLowerCase();
 		name = columnSplits.join(' ');
 	} else {
 		type = COLUMN_TYPES[name] || 'text';
 	}
+
 	let value = strSplits[1];
 	if (/\#$/.test(name)) {
 		name = name.substring(0, name.length - 1);
-		fieldOption = 'LookupId="True"';
+		fieldOption = ' LookupId="True"';
 	}
+
 	switch (type) {
 		case 'datetime':
 		case 'time':
 		case 'date':
-			includeTimeValue = 'StorageTZ="True"';
-			if (type !== 'date') includeTimeValue += ' IncludeTimeValue="True"';
-			type = 'datetime';
+			valueOpts = 'StorageTZ="True"';
+			if (type !== 'date') valueOpts += ' IncludeTimeValue="True"';
 			value = new Date(value).toISOString()
 			break;
 		case 'text':
-			if (TIME_STAMP_ISO_REGEXP.test(value)) includeTimeValue = 'StorageTZ="True"';
+			if (TIME_STAMP_ISO_REGEXP.test(value)) valueOpts = 'StorageTZ="True"';
 			break;
 	}
+	const typeNorm = COLUMN_TYPES_MAPPED[type];
 	if (type !== 'text') value = value.trim();
+
 	switch (operator) {
 		case 'in':
+			const valueStrings = [];
+			const valueChunks = [];
 			value = value.split(value.indexOf(IN_CUSTOM_DELIMETER) >= 0 ? IN_CUSTOM_DELIMETER : ',');
-			break;
+			for (const valueItem of value) valueStrings.push(`<Value Type="${typeNorm}"${valueOpts}>${valueItem}</Value>`);
+			if (value.length > IN_CHUNK_SIZE) {
+				const chunks = chunkArray(IN_CHUNK_SIZE)(valueStrings);
+				for (const i = chunks.length - 1; i >= 0; i--) valueChunks.push(`<In><Values>${chunks[i].join('')}</Values></In>`);
+				let itemsStr = '<IsNull><FieldRef Name="ID"/></IsNull>';
+				for (const valueChunk of valueChunks) itemsStr = `<Or>${valueChunk}${itemsStr}</Or>`
+			}
+			return `<${operatorNorm}><FieldRef Name="${name}"${fieldOption}/><Values>${valueStrings.join('')}</Values></${operatorNorm}>`;
 		case 'search':
-			let searchQuery = 'ID isnull';
-			const valueSplits = value.replace(/\s+/g, ' ').trim().split(' ');
-			for (let split of valueSplits) searchQuery = `(${type} ${name} contains ${split} || ${searchQuery})`
-			return convertGroupR(trimBraces(searchQuery));
+			return pipe([
+				stringReplace(/\s+/g)(' '),
+				stringTrim,
+				stringSplit(' '),
+				map(el => `${type} ${name} contains ${el}`),
+				concatQueries(),
+				convertGroupR
+			])(value)
+		case 'membership':
+			return `<${operatorNorm} Type="${MEMBERSHIP_VALUES[value.toLowerCase()]}"><FieldRef Name="${name}"/></${operatorNorm}>`;
 	}
-	const operatorNorm = OPERATORS_MAPPED[operator];
-	const typeNorm = COLUMN_TYPES_MAPPED[type];
-	const fieldOpts = fieldOption !== void 0 ? ` ${fieldOption}` : '';
-	const valueOpts = includeTimeValue !== void 0 ? ` ${includeTimeValue}` : '';
-	if (operator === 'in') {
-		for (let valueItem of value) valueStrings.push(`<Value Type="${typeNorm}"${valueOpts}>${valueItem}</Value>`);
-		if (value.length > IN_CHUNK_SIZE) {
-			chunks = chunkArray(IN_CHUNK_SIZE)(valueStrings);
-			for (let i = chunks.length - 1; i >= 0; i--) valueChunks.push(`<In><Values>${chunks[i].join('')}</Values></In>`);
-			let itemsStr = '<IsNull><FieldRef Name="ID"/></IsNull>';
-			for (let valueChunk of valueChunks) itemsStr = `<Or>${valueChunk}${itemsStr}</Or>`
-			return values;
-		} else {
-			values = valueStrings.join('');
-			return `<${operatorNorm}><FieldRef Name="${name}"${fieldOpts}/><Values>${values}</Values></${operatorNorm}>`;
-		}
-	} else {
-		return `<${operatorNorm}><FieldRef Name="${name}"${fieldOpts}/>${/null/.test(operator) ? '' : `<Value Type="${typeNorm}"${valueOpts}>${value}</Value>`}</${operatorNorm}>`
-	}
+	return `<${operatorNorm}><FieldRef Name="${name}"${fieldOption}/>${/null/.test(operator) ? '' : `<Value Type="${typeNorm}"${valueOpts}>${value}</Value>`}</${operatorNorm}>`
 };
 
 const convertGroupR = str => {
@@ -301,39 +306,55 @@ export const getCamlView = (opts = {}) => str => {
 	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
 }
 
-export const joinQuery = (joiner = '||') => operator => value => items => {
-	let query = normalizeOperator(joiner) === 'And' ? 'ID isnotnull' : 'ID isnull';
-	if (!operator) operator = value === void 0 ? 'isnotnull' : 'eq';
-	if (isArray(value)) {
-		const valueLastIndex = value.length - 1;
-		for (let i = items.length - 1; i >= 0; i--) {
-			query = `(${items[i]} ${/null/i.test(operator) ? operator : `${operator} ${value[i] || value[valueLastIndex]}`} ${joiner} ${query})`
+export const joinQueries = (joiner = '||') => operator => columns => values => {
+	const normalizedJoiner = normalizeOperator(joiner);
+	const columnsArray = getArray(columns);
+	const valuesArray = getArray(values);
+	let query = normalizedJoiner === 'And' ? `ID ${OPERATORS_MAPPED.isnotnull}` : `ID ${OPERATORS_MAPPED.isnull}`;
+	if (!operator) operator = values === void 0 ? 'isnotnull' : 'eq';
+	if (valuesArray.length) {
+		for (let i = columnsArray.length - 1; i >= 0; i--) {
+			for (let j = valuesArray.length - 1; j >= 0; j--) {
+				query = `(${columnsArray[i]} ${`${operator} ${valuesArray[j]}`} ${normalizedJoiner} ${query})`
+			}
 		}
 	} else {
-		for (let i = items.length - 1; i >= 0; i--) {
-			query = `(${items[i]} ${/null/i.test(operator) ? operator : `${operator} ${value}`} ${joiner} ${query})`
+		for (let i = columnsArray.length - 1; i >= 0; i--) {
+			query = `(${columnsArray[i]} ${operator} ${normalizedJoiner} ${query})`
 		}
 	}
 	return trimBraces(query);
 }
 
-export const concatQuery = (joiner = '||') => ([query1, query2 = '']) => {
-	const trimmed1 = trimBraces(query1);
-	const trimmed2 = trimBraces(query2);
-	if (!trimmed1) return query2;
-	if (!trimmed2) return '';
+const concat2Queries = (joiner = '||') => query1 => query2 => {
+	const normalizedJoiner = normalizeOperator(joiner);
+	const dummy = normalizedJoiner === 'And' ? `ID ${OPERATORS_MAPPED.isnotnull}` : `ID ${OPERATORS_MAPPED.isnull}`;
+	if (query1) {
+		const trimmed1 = trimBraces(query1);
+		if (query2) {
+			const trimmed2 = trimBraces(query2);
+			return GROUP_REGEXP.test(trimmed1) ?
+				(GROUP_REGEXP.test(trimmed2) ? `(${trimmed1}) ${normalizedJoiner} (${trimmed2})` : `(${trimmed1}) ${normalizedJoiner} ${trimmed2}`) :
+				(GROUP_REGEXP.test(trimmed2) ? `${trimmed1} ${normalizedJoiner} (${trimmed2})` : `${trimmed1} ${normalizedJoiner} ${trimmed2}`)
+		} else {
+			return GROUP_REGEXP.test(trimmed1) ? `(${trimmed1}) ${normalizedJoiner} ${dummy}` : `${trimmed1} ${normalizedJoiner} ${dummy}`
+		}
+	} else {
+		if (query2) {
+			const trimmed2 = trimBraces(query2);
+			return GROUP_REGEXP.test(trimmed2) ? `${dummy} ${normalizedJoiner} (${trimmed2})` : `${dummy} ${normalizedJoiner} ${trimmed2}`
+		} else {
+			return `(${dummy}) ${normalizedJoiner} ${dummy}`
+		}
+	}
+}
 
-	return GROUP_REGEXP.test(trimmed1) ?
-		(GROUP_REGEXP.test(trimmed2) ? `(${trimmed1}) ${joiner} (${trimmed2})` : `(${trimmed1}) ${joiner} ${trimmed2}`) :
-		(GROUP_REGEXP.test(trimmed2) ? `${trimmed1} ${joiner} (${trimmed2})` : `${trimmed1} ${joiner} ${trimmed2}`)
+export const concatQueries = (joiner = '||') => (queries = []) => {
+	const concater = concat2Queries(joiner);
+	const head = arrayHead(queries);
+	const tail = arrayTail(queries);
+	return reduce(concater)(head)(tail);
 }
 
 export const camlLog = str => console.log(str && DOMParser ? new DOMParser().parseFromString(str, 'text/xml') : str);
 
-const normalizeOperator = operator => {
-	const GROUP_OPERATORS_MAPPED = {
-		'&&': 'And',
-		'||': 'Or'
-	}
-	return GROUP_OPERATORS_MAPPED[operator] || (/^and$/i.test(operator) ? 'And' : 'Or');
-}

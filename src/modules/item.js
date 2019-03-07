@@ -29,9 +29,9 @@ import {
 } from 'crypto-js';
 import {
 	getCamlView,
-	joinQuery,
+	joinQueries,
 	camlLog,
-	concatQuery
+	concatQueries
 } from './../query_parser';
 import site from './../modules/site';
 
@@ -254,8 +254,7 @@ export default (parent, elements) => {
 
 		delete: (opts = {}) =>
 			executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
-				overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts)
-		,
+				overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts),
 
 		deleteByQuery: (instance => async opts =>
 			itemIterator(instance)(webUrl => listUrl => async element => {
@@ -273,7 +272,7 @@ export default (parent, elements) => {
 
 		getEmpties: (instance => (opts = {}) => {
 			const columns = instance.box.getValues().map(prop('ID'));
-			return listIterator(instance)(webUrl => listUrl => site(webUrl).list(listUrl).item(`${joinQuery('or')('isnull')()(columns)}`).get({
+			return listIterator(instance)(webUrl => listUrl => site(webUrl).list(listUrl).item(`${joinQueries('or')('isnull')(columns)()}`).get({
 				...opts,
 				scope: 'allItems',
 				limit: MAX_ITEMS_LIMIT
@@ -291,12 +290,12 @@ export default (parent, elements) => {
 				const targetColumn = Target.Column;
 				const list = site(webUrl).list(listUrl);
 				const [sourceItems, targetItems] = await Promise.all([
-					site(Source.Web || webUrl).list(Source.List || listUrl).item(concatQuery()([`${Key} IsNotNull`, Source.Query || ''])).get({
+					site(Source.Web || webUrl).list(Source.List || listUrl).item(concatQueries()([`${Key} IsNotNull`, Source.Query])).get({
 						view: ['ID', Key, sourceColumn],
 						scope: 'allItems',
 						limit: MAX_ITEMS_LIMIT,
 					}),
-					list.item(concatQuery()([`${Key} IsNotNull`, Target.Query || ''])).get({
+					list.item(concatQueries()([`${Key} IsNotNull`, Target.Query])).get({
 						view: ['ID', Key, targetColumn],
 						scope: 'allItems',
 						limit: MAX_ITEMS_LIMIT,

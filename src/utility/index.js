@@ -339,6 +339,7 @@ export const stringReplace = re => to => str => str.replace(re, to);
 export const stringMatch = re => str => str.match(re) || [];
 export const stringCut = re => stringReplace(re)('');
 export const stringSplit = re => str => str.split(re);
+export const stringTrim = str => str.trim();
 
 //  =================================================================
 //  ==============  =====       ===       ======  =====  ====  ======
