@@ -8,8 +8,6 @@
 		"build": "webpack --config config/webpack.build.js",
 		"commit": "webpack --config config/webpack.commit.js",
 		"copy": "webpack --config config/webpack.copy.js",
-		"test": "mocha --require babel-core/register src/test/*.js",
-		"testSite": "mocha --require babel-core/register src/test/site.js"
 	},
 	"sideEffects": false,
 	"devDependencies": {
