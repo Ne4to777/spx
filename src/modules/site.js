@@ -50,5 +50,4 @@ site.get = execute('properties')(identity);
 site.getCustomListTemplates = execute('customListTemplates')(substitutionI(pipe([getContext, getWeb]))(getListTemplates));
 site.getWebTemplates = execute('webTemplates')(spParentObject => spParentObject.getWebTemplates(1033, 0));
 
-window.spx = site;
 export default site;
