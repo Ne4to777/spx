@@ -1,6 +1,8 @@
 {
-	"name": "ne4to777",
-	"version": "0.0.0",
+	"author": "ne4to777",
+	"name": "spx",
+	"version": "1.0.0",
+	"description": "Object model for Sharepoint 2013",
 	"private": false,
 	"scripts": {
 		"dev": "node lib/init.js && concurrently --kill-others \"node lib/proxy.js\" \"webpack-dev-server --open  --config config/webpack.dev.js\"",
