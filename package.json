@@ -7,6 +7,7 @@
 		"prod": "webpack --config config/webpack.prod.js",
 		"build": "webpack --config config/webpack.build.js",
 		"commit": "webpack --config config/webpack.commit.js",
+		"copy": "webpack --config config/webpack.copy.js",
 		"test": "mocha --require babel-core/register src/test/*.js",
 		"testSite": "mocha --require babel-core/register src/test/site.js"
 	},
@@ -22,6 +23,7 @@
 		"babel-polyfill": "^6.1.4",
 		"babel-preset-env": "^1.7.0",
 		"concurrently": "^3.6.1",
+		"copy-webpack-plugin": "^5.0.0",
 		"cpass": "^2.0.4",
 		"crypto-js": "^3.1.9-1",
 		"sp-rest-proxy": "^2.7.1"
