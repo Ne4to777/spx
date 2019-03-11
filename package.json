@@ -1,8 +1,8 @@
 {
 	"author": "Alekseev Aleksey",
-	"name": "spx-om",
+	"name": "spx-com",
 	"version": "1.0.0",
-	"description": "Object model for Sharepoint 2013",
+	"description": "Client Object model for Sharepoint 2013",
 	"private": false,
 	"scripts": {
 		"dev": "node lib/init.js && concurrently --kill-others \"node lib/proxy.js\" \"webpack-dev-server --open  --config config/webpack.dev.js\"",
