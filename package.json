@@ -1,7 +1,7 @@
 {
 	"name": "spx",
 	"version": "0.0.0",
-	"private": true,
+	"private": false,
 	"scripts": {
 		"dev": "node lib/init.js && concurrently --kill-others \"node lib/proxy.js\" \"webpack-dev-server --open  --config config/webpack.dev.js\"",
 		"prod": "webpack --config config/webpack.prod.js",
