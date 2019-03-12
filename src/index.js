@@ -26,6 +26,7 @@ window.getCamlQuery = getCamlQuery;
 window.joinQueries = joinQueries;
 window.concatQueries = concatQueries;
 window.camlLog = camlLog;
+window.spx = spx;
 
 
 window.cache = cache;

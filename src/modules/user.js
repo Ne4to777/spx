@@ -85,6 +85,18 @@ const user = users => {
 				return list.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`).get(opts);
 			}
 		})(isUsersArray)(elements),
+		getSP: (isUsersArray => elements => opts => {
+			const list = spx().list(USER_LIST_GUID);
+			if (elements.length) {
+				const el = elements[0];
+				const values = elements;
+				return isNumber(el) || ~~el == el
+					? getByUid(isUsersArray)(values)(opts) : /\s/.test(el)
+						? getByName(values)(opts) : getByLogin(isUsersArray)(values)(opts);
+			} else {
+				return list.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`).get(opts);
+			}
+		})(isUsersArray)(elements),
 		create: (elements => opts => {
 			const usersToCreate = elements.filter(el => el.uid && el.Title);
 			return usersToCreate.length
