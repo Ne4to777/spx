@@ -3,3 +3,4 @@ cypress
 .git
 gitProxySettings.txt
 config/private.json
+publish
