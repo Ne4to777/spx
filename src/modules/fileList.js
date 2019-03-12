@@ -153,6 +153,7 @@ const executeREST = parent => box => cacheLeaf => actionType => restObjectGetter
         });
         const { request, params = {} } = restObject;
         const httpProvider = params.httpProvider || executorREST(contextUrl);
+        const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
         const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
         ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePath));
         if (cached && spObjectCached) {
