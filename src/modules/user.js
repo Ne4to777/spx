@@ -48,7 +48,7 @@ const getByLogin = isUsersArray => items => async opts => {
 				login && userLogins.push(login);
 		}
 	}
-	const elements = await spx(USER_WEB).list(USER_LIST).item(`Login In ${userLogins}`).get(opts);
+	const elements = await site(USER_WEB).list(USER_LIST).item(`Login In ${userLogins}`).get(opts);
 	return isUsersArray ? elements : elements[0];
 }
 
@@ -64,7 +64,7 @@ const getByName = items => opts => {
 				title && userNames.push(title);
 		}
 	}
-	return spx(USER_WEB).list(USER_LIST).item(`Title In ${userNames}`).get(opts);
+	return site(USER_WEB).list(USER_LIST).item(`Title In ${userNames}`).get(opts);
 }
 
 // Interface
@@ -74,7 +74,7 @@ const user = users => {
 	const elements = isUsersArray ? flatten(users) : [users];
 	return {
 		get: (isUsersArray => elements => opts => {
-			const list = spx(USER_WEB).list(USER_LIST);
+			const list = site(USER_WEB).list(USER_LIST);
 			if (elements.length) {
 				const el = elements[0];
 				const values = elements;
@@ -86,7 +86,7 @@ const user = users => {
 			}
 		})(isUsersArray)(elements),
 		getSP: (isUsersArray => elements => opts => {
-			const list = spx().list(USER_LIST_GUID);
+			const list = site().list(USER_LIST_GUID);
 			if (elements.length) {
 				const el = elements[0];
 				const values = elements;
@@ -100,7 +100,7 @@ const user = users => {
 		create: (elements => opts => {
 			const usersToCreate = elements.filter(el => el.uid && el.Title);
 			return usersToCreate.length
-				? spx(USER_WEB).list(USER_LIST).item(elements).create(opts)
+				? site(USER_WEB).list(USER_LIST).item(elements).create(opts)
 				: new Promise((resolve, reject) => reject(new Error('missing uid or Title')));
 		})(elements),
 		getByUid: getByUid(isUsersArray)(elements),
@@ -110,7 +110,7 @@ const user = users => {
 		update: (elements => async opts => {
 			const ids = elements.filter(el => !!el.uid);
 			if (ids.length) {
-				const users = await spx.user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' });
+				const users = await site.user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' });
 				const usersToUpdate = elements.reduce((acc, el) => {
 					const userID = users[el.uid] ? users[el.uid].ID : void 0;
 					if (userID) {
@@ -120,7 +120,7 @@ const user = users => {
 					}
 					return acc
 				}, [])
-				return spx(USER_WEB).list(USER_LIST).item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] });
+				return site(USER_WEB).list(USER_LIST).item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] });
 			} else {
 				return new Promise((resolve, reject) => { reject(new Error('missing uid')) });
 			}
@@ -135,12 +135,12 @@ const user = users => {
 				}
 				return acc;
 			}, [])
-			return spx('/').list(USER_LIST_GUID).item(usersToUpdate).update(opts);
+			return site('/').list(USER_LIST_GUID).item(usersToUpdate).update(opts);
 		})(elements),
 
 		deleteWithMissedUid: async opts => {
-			const users = await spx(USER_WEB).list(USER_LIST).item('Number uid IsNull').get(opts);
-			return spx(USER_WEB).list(USER_LIST).item(users.map(prop('ID'))).delete(opts);
+			const users = await site(USER_WEB).list(USER_LIST).item('Number uid IsNull').get(opts);
+			return site(USER_WEB).list(USER_LIST).item(users.map(prop('ID'))).delete(opts);
 		}
 	}
 }
@@ -153,7 +153,7 @@ user.getSP = async opts => {
 
 user.get = async opts => {
 	const uid = window._spPageContextInfo ? window._spPageContextInfo.userId : (await user.getSP({ view: 'Id' })).Id;
-	return (await spx(USER_WEB).list(USER_LIST).item(`Number uid Eq ${uid}`).get(opts))[0];
+	return (await site(USER_WEB).list(USER_LIST).item(`Number uid Eq ${uid}`).get(opts))[0];
 }
 
 export default user
