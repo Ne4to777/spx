@@ -1045,20 +1045,19 @@ export const getSPFolderByUrl = url => ifThen(constant(url))([
 		(pipe([
 			stringReplace(/\/\/+/)('/'),
 			stringSplit('/')
-		]
-		)(url)),
+		])(url)),
 	identity
 ])
 
 
 export const setItem = fieldsInfo => fields => spObject => {
-	for (let prop in fields) {
+	for (const prop in fields) {
 		const fieldValues = fields[prop];
 		const fieldInfo = fieldsInfo[prop];
 		if (fieldInfo) {
 			const set = setItemSP(fieldInfo.InternalName)(spObject);
 			const setLookupAndUser = f => constructor => pipe([f(constructor), set]);
-			if (!fieldInfo.ReadOnlyField) {
+			if (!fieldInfo.Sealed) {
 				switch (fieldInfo.TypeAsString) {
 					case 'Lookup': setLookupAndUser(setLookup)(SP.FieldLookupValue)(fieldValues); break;
 					case 'LookupMulti': setLookupAndUser(setLookupMulti)(SP.FieldLookupValue)(getArray(fieldValues)); break;
@@ -1125,7 +1124,7 @@ export const getContext = methodEmpty('get_context');
 export const getWeb = methodEmpty('get_web');
 
 export const getColumns = webUrl => listUrl => spx(webUrl).list(listUrl).column().get({
-	view: ['TypeAsString', 'InternalName', 'Title', 'ReadOnlyField'],
+	view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
 	groupBy: 'InternalName',
 	cached: true
 })

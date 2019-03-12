@@ -8,7 +8,6 @@ import {
 	popSlash,
 	pipe,
 	slice,
-	method,
 	methodEmpty,
 	getInstance,
 	overstep,

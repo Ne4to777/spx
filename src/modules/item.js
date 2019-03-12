@@ -148,9 +148,10 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
 					clientContexts[contextUrl].push(clientContext);
 					totalElements = 0;
 				}
-				listSPObject.listUrl = listUrl;
+				const spParentObject = actionType === 'create' ? listSPObject : getSPObject(element)(listSPObject);
+				spParentObject.listUrl = listUrl;
 				const spObject = await spObjectGetter({
-					spParentObject: actionType === 'create' ? listSPObject : getSPObject(element)(listSPObject),
+					spParentObject,
 					element
 				});
 				const isID = isNumber(element.ID);
@@ -226,7 +227,7 @@ export default (parent, elements) => {
 		})(instance),
 
 		update: (instance => async opts => {
-			await listIterator(instance)(getColumns)
+			await listIterator(instance)(getColumns);
 			return executeBinded('update')(async ({ spParentObject, element }) => {
 				const contextUrl = spParentObject.get_context().get_url();
 				const listUrl = spParentObject.listUrl;
