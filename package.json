@@ -25,15 +25,10 @@
 		"concurrently": "^3.6.1",
 		"copy-webpack-plugin": "^5.0.0",
 		"cpass": "^2.0.4",
-		"crypto-js": "^3.1.9-1",
-		"sp-rest-proxy": "^2.7.1"
+		"crypto-js": "^3.1.9-1"
 	},
 	"dependencies": {
-		"chai": "^4.2.0",
 		"jquery": "^3.3.1",
-		"jsdoc-babel": "^0.5.0",
-		"jsdoc-webpack-plugin": "0.0.2",
-		"ramda": "^0.25.0",
-		"sanctuary": "^0.15.0"
+		"sp-rest-proxy": "^2.7.7"
 	}
 }
