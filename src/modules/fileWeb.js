@@ -24,7 +24,8 @@ import {
   getFolderFromUrl,
   getFilenameFromUrl,
   executorREST,
-  prepareResponseREST
+  prepareResponseREST,
+  slice
 } from './../utility';
 import * as cache from './../cache';
 

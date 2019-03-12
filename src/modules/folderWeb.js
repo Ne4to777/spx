@@ -22,7 +22,8 @@ import {
   ifThen,
   constant,
   pipe,
-  hasUrlTailSlash
+  hasUrlTailSlash,
+  slice
 } from './../utility';
 import * as cache from './../cache';
 import site from './../modules/site';
