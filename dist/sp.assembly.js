@@ -14113,8 +14113,6 @@ SP.ResourceStrings = function() {};
 SP.RuntimeRes = function() {};
 SP.ParseJSONUtil = function() {};
 SP.ParseJSONUtil.$2X = function(a) {
-	console.log(a);
-	console.log(SP.ParseJSONUtil.$2d.test(SP.ParseJSONUtil.$2d));
 	ULSnd3:;
 	a = a.replace(SP.ParseJSONUtil.$2d, '$1new SP.Guid("$2")');
 	a = a.replace(SP.ParseJSONUtil.$2c, "$1SP.DataConvert.createUtcDateTime($2)");
