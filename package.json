@@ -1,7 +1,7 @@
 {
 	"author": "Alekseev Aleksey",
 	"name": "spx-com",
-	"version": "1.1.1",
+	"version": "1.1.2",
 	"description": "Client Object model for Sharepoint 2013",
 	"private": false,
 	"scripts": {
