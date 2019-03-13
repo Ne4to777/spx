@@ -29,7 +29,6 @@
 		"crypto-js": "^3.1.9-1"
 	},
 	"dependencies": {
-		"jquery": "^3.3.1",
 		"sp-rest-proxy": "^2.7.7"
 	}
 }
