@@ -136,11 +136,7 @@ const getFile = _ => {
 
 // getFile()
 
-const asyncF = _ => new Promise((resolve, reject) => {
-	setTimeout(() => {
-		resolve()
-	}, 1000);
-})
+const asyncF = _ => new Promise(resolve => setTimeout(_ => resolve, 1000))
 
 const iterAsync = async _ => {
 	const array = [1, 2, 3]

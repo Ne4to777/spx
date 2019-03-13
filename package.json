@@ -3,6 +3,7 @@
 	"name": "spx-com",
 	"version": "1.1.2",
 	"description": "Client Object model for Sharepoint 2013",
+	"main": "publish/index.js",
 	"private": false,
 	"scripts": {
 		"dev": "node lib/init.js && concurrently --kill-others \"node lib/proxy.js\" \"webpack-dev-server --open  --config config/webpack.dev.js\"",
