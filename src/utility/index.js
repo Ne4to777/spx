@@ -1,5 +1,3 @@
-import spx from './../modules/site';
-
 //  ===============================================================================================================
 //  =============     =====    ====  =======  ===      ===        =====  =====  =======  ==        ===      =======
 //  ============  ===  ===  ==  ===   ======  ==  ====  =====  =======    ====   ======  =====  =====  ====  ======
@@ -112,7 +110,6 @@ export const LIBRARY_STANDART_COLUMN_NAMES = {
 	SortBehavior: true,
 	SyncClientId: true,
 	TemplateUrl: true,
-	Title: true,
 	UniqueId: true,
 	VirusStatus: true,
 	WorkflowInstanceID: true,
@@ -611,8 +608,8 @@ export const urlSplit = stringSplit('/');
 export const getTitleFromUrl = pipe([popSlash, urlSplit, arrayLast])
 export const urlJoin = join('/');
 export const getParentUrl = pipe([popSlash, urlSplit, arrayInit, urlJoin]);
-export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl]);
-export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl]);
+export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash]);
+export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL]);
 export const hasUrlTailSlash = stringTest(/\/$/);
 
 
@@ -658,7 +655,7 @@ const liftUrlType = switchCase(typeOf)({
 const liftListType = switchCase(typeOf)({
 	object: list => {
 		const newList = Object.assign({}, list);
-		if (!list.Title) newList.Title = list.EntityPropertyName || list.InternalName || list.StaticName;
+		if (!list.Title) newList.Title = list.EntityTypeName || list.Url;
 		return newList
 	},
 	string: list => ({
@@ -871,10 +868,17 @@ const getSPObjectValues = asItem => ifThen(isExists)([
 ])
 
 const getRESTValues = pipe([
-	prop('body'),
-	ifThen(isString)([
+	ifThen(hasProp('body'))([
 		pipe([
-			JSON.parse,
+			prop('body'),
+			ifThen(isString)([
+				JSON.parse,
+			])
+		]),
+		prop('data'),
+	]),
+	ifThen(hasProp('d'))([
+		pipe([
 			prop('d'),
 			ifThen(hasProp('results'))([
 				prop('results')
@@ -969,8 +973,8 @@ export const load = clientContext => spObject => (opts = {}) =>
 //  ===============================================================================================
 
 export const executorJSOM = clientContext => (opts = {}) => new Promise((resolve, reject) => {
-	const { silent, silentErrors } = opts;
 	clientContext.executeQueryAsync(_ => resolve(), (sender, args) => {
+		const { silent, silentErrors } = opts;
 		if (!silent && !silentErrors) {
 			console.error(`\nMessage: ${
 				args.get_message().replace(/\n{1,}/g, ' ')}\nValue: ${
@@ -997,7 +1001,23 @@ export const executorREST = contextUrl => (opts = {}) => pipe([
 		...opts,
 		method: pipe([prop('method'), ifThen(stringTest(/post/i))([constant('POST'), constant('GET')])])(opts),
 		success: resolve,
-		error: reject
+		error: res => {
+			const { silent, silentErrors } = opts;
+			if (!silent && !silentErrors) {
+				const body = res.body;
+				let msg = body;
+				if (typeOf(res.body) === 'string') {
+					try {
+						msg = JSON.parse(res.body).error.message.value
+					} catch (err) { }
+				}
+				console.error(`\nMessage: ${
+					res.statusText}\nCode: ${
+					res.statusCode}\nValue: ${
+					msg}`)
+			}
+			reject(res)
+		}
 	}))
 ])(contextUrl)
 
@@ -1057,14 +1077,12 @@ export const setItem = fieldsInfo => fields => spObject => {
 		if (fieldInfo) {
 			const set = setItemSP(fieldInfo.InternalName)(spObject);
 			const setLookupAndUser = f => constructor => pipe([f(constructor), set]);
-			if (!fieldInfo.Sealed) {
-				switch (fieldInfo.TypeAsString) {
-					case 'Lookup': setLookupAndUser(setLookup)(SP.FieldLookupValue)(fieldValues); break;
-					case 'LookupMulti': setLookupAndUser(setLookupMulti)(SP.FieldLookupValue)(getArray(fieldValues)); break;
-					case 'User': setLookupAndUser(setLookup)(SP.FieldUserValue)(fieldValues); break;
-					case 'UserMulti': setLookupAndUser(setLookupMulti)(SP.FieldUserValue)(getArray(fieldValues)); break;
-					default: set(fieldValues);
-				}
+			switch (fieldInfo.TypeAsString) {
+				case 'Lookup': setLookupAndUser(setLookup)(SP.FieldLookupValue)(fieldValues); break;
+				case 'LookupMulti': setLookupAndUser(setLookupMulti)(SP.FieldLookupValue)(getArray(fieldValues)); break;
+				case 'User': setLookupAndUser(setLookup)(SP.FieldUserValue)(fieldValues); break;
+				case 'UserMulti': setLookupAndUser(setLookupMulti)(SP.FieldUserValue)(getArray(fieldValues)); break;
+				default: set(fieldValues);
 			}
 		}
 	}
@@ -1123,8 +1141,43 @@ export const getContext = methodEmpty('get_context');
 
 export const getWeb = methodEmpty('get_web');
 
-export const getColumns = webUrl => listUrl => spx(webUrl).list(listUrl).column().get({
-	view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
-	groupBy: 'InternalName',
-	cached: true
-})
+
+//  =======================================================
+//  ===========        ==        ===      ===        ======
+//  ==============  =====  ========  ====  =====  =========
+//  ==============  =====  ========  ====  =====  =========
+//  ==============  =====  =========  ==========  =========
+//  ==============  =====      =======  ========  =========
+//  ==============  =====  =============  ======  =========
+//  ==============  =====  ========  ====  =====  =========
+//  ==============  =====  ========  ====  =====  =========
+//  ==============  =====        ===      ======  =========
+//  =======================================================
+
+export const assert = msg => bool => console.assert(bool === true, msg);
+
+export const assertProp = prop => o => assert(`object has no property "${prop}"`)(hasOwnProp(prop)(o))
+
+export const assertProps = props => o => {
+	for (const prop of props) assertProp(prop)(o)
+	return o
+}
+
+export const assertObject = props => name => async promise => {
+	const el = await promise;
+	assert(`${name} is not an object`)(isObject(el));
+	assert(`${name} is empty object`)(isObjectFilled(el));
+	assertProps(props)(el);
+	return el
+}
+
+export const assertCollection = props => name => async promise => {
+	const el = await promise;
+	assert(`${name} collection is not an array`)(isArray(el));
+	assert(`${name} collection is an empty array`)(isArrayFilled(el));
+	map(pipe([isObjectFilled, assert(`${name} collection element is empty`)]))(el);
+	assertProps(props)(el[0]);
+	return el
+}
+
+export const testIsOk = name => _ => console.log(`${name} is OK`);

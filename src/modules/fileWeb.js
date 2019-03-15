@@ -25,7 +25,8 @@ import {
   getFilenameFromUrl,
   executorREST,
   prepareResponseREST,
-  slice
+  slice,
+  identity
 } from './../utility';
 import * as cache from './../cache';
 
@@ -129,14 +130,14 @@ const executeREST = parent => box => cacheLeaf => actionType => restObjectGetter
         element
       });
       const { request, params = {} } = restObject;
-      const httpProvider = params.httpProvider || executorREST(request);
+      const httpProvider = params.httpProvider || executorREST(contextUrl);
       const cachePath = [...contextUrls, elementUrl || '/', NAME, cacheLeaf];
       ACTION_TYPES_TO_UNSET[actionType] && cache.unset(arrayInit(cachePath));
       const spObjectCached = cached ? cache.get(cachePath) : null;
       if (cached && spObjectCached) {
         return spObjectCached;
       } else {
-        const currentSPObjects = await httpProvider(contextUrl);
+        const currentSPObjects = await httpProvider(request);
         cache.set(currentSPObjects)(cachePath)
         return currentSPObjects;
       }
@@ -155,6 +156,7 @@ export default (parent, elements) => {
   };
   const executeBinded = execute(parent)(instance.box)('properties');
   return {
+
     get: (instance => (opts = {}) => opts.asBlob
       ? executeREST(instance.parent)(instance.box)('properties')(null)(({ spParentObject }) => ({
         request: {

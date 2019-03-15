@@ -16,7 +16,7 @@ import * as cache from './../cache'
 import site from './../modules/web'
 import recycleBin from './../modules/recycleBin'
 import user from './../modules/user'
-import tag from './../modules/tag'
+// import tag from './../modules/tag'
 
 // Internal
 
@@ -25,8 +25,7 @@ const NAME = 'site';
 const getSPObject = methodEmpty('get_site');
 const getListTemplates = methodI('getCustomListTemplates');
 
-site.box = getInstance(ContextUrlBox)('/');
-site.getSPObject = getSPObject;
+const box = getInstance(ContextUrlBox)('/');
 
 const execute = cacheLeaf => spObjectGetter => async (opts = {}) => {
   const { cached } = opts;
@@ -42,9 +41,9 @@ const execute = cacheLeaf => spObjectGetter => async (opts = {}) => {
 
 // Interface
 
+// site.tag = tag;
 site.user = user;
-site.tag = tag;
-site.recycleBin = recycleBin(site);
+site.recycleBin = recycleBin({ box, getSPObject });
 
 site.get = execute('properties')(identity);
 site.getCustomListTemplates = execute('customListTemplates')(substitutionI(pipe([getContext, getWeb]))(getListTemplates));

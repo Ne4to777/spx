@@ -113,6 +113,7 @@ export default (parent, elements) => {
   };
   const executeBinded = execute(parent)(instance.box)('properties');
   return {
+
     get: executeBinded(null)(prop('spParentObject')),
 
     create: (instance => executeBinded('create')(async ({ spParentObject, elementUrl }) => {

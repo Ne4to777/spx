@@ -1,0 +1,25 @@
+import cache from '../test/cache';
+import site from '../test/site';
+import web from '../test/web';
+import column from '../test/column';
+import fileList from '../test/fileList';
+import fileWeb from '../test/fileWeb';
+import folderList from '../test/folderList';
+import folderWeb from '../test/folderWeb';
+import item from '../test/item';
+import list from '../test/list';
+import user from '../test/user';
+import { testIsOk } from './../utility'
+
+export default async _ => {
+  await cache();
+  await site();
+  await web();
+  await folderWeb();
+  await fileWeb();
+  await list();
+  await folderList();
+  await column();
+  await fileList();
+  testIsOk('whole test')()
+}

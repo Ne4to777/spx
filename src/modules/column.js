@@ -22,7 +22,8 @@ import {
 	switchCase,
 	prop,
 	isStringEmpty,
-	slice
+	slice,
+	hasUrlTailSlash
 } from './../utility';
 import * as cache from './../cache';
 
@@ -61,11 +62,12 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => (o
 				const columnTitle = element.Title;
 				const listUrl = listElement.Title;
 				const listSPObject = parent.getSPObject(listUrl)(contextSPObject);
+				const isCollection = !columnTitle || hasUrlTailSlash(columnTitle);
 				const spObject = spObjectGetter({
-					spParentObject: actionType === 'create' || !columnTitle ? getSPObjectCollection(listSPObject) : getSPObject(columnTitle)(listSPObject),
+					spParentObject: actionType === 'create' || isCollection ? getSPObjectCollection(listSPObject) : getSPObject(columnTitle)(listSPObject),
 					element
 				});
-				const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isStringEmpty(columnTitle) ? cacheLeaf + 'Collection' : cacheLeaf, columnTitle];
+				const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, columnTitle];
 				ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePaths));
 				const spObjectCached = cached ? cache.get(cachePaths) : null;
 				if (actionType === 'delete' || actionType === 'recycle') return;
@@ -97,6 +99,7 @@ export default (parent, elements) => {
 	};
 	const executeBinded = execute(parent)(instance.box)('properties');
 	return {
+
 		get: executeBinded(null)(prop('spParentObject')),
 
 		create: executeBinded('create')(({ spParentObject, element }) => {
@@ -131,7 +134,7 @@ export default (parent, elements) => {
 					set_enforceUniqueValues: element.EnforceUniqueValues,
 					set_fieldTypeKind: element.FieldTypeKind,
 					set_group: element.Group,
-					// set_hidden: element.Hidden ,
+					set_hidden: element.Hidden || void 0,
 					set_indexed: element.Indexed,
 					set_jsLink: element.JsLink,
 					set_objectVersion: element.ObjectVersion,

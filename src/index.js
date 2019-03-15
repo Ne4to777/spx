@@ -1,8 +1,7 @@
-import $ from 'jquery';
-// import siteTest from './test/site'
+import test from './test/index.js'
+import axios from 'axios'
 // import S from 'sanctuary'
 
-// import axios from 'axios';
 // import * as utility from './utility';
 // import {
 // 	webBundle,
@@ -17,9 +16,9 @@ import {
 	joinQueries,
 	concatQueries,
 } from './query_parser';
-import { log, executeJSOM, prepareResponseJSOM, load, getClientContext, executorJSOM } from './utility';
+import { log, executeJSOM, prepareResponseJSOM, prepareResponseREST, getClientContext, executorJSOM } from './utility';
 import * as cache from './cache';
-// window.axios = axios;
+window.axios = axios;
 window.log = log;
 window.getCamlView = getCamlView;
 window.getCamlQuery = getCamlQuery;
@@ -30,6 +29,18 @@ window.spx = spx;
 
 
 window.cache = cache;
+
+// test()
+
+// axios({
+// 	url: `/test/spx/_api/web/lists/getbytitle('Files')/rootfolder/folders/getbyurl('a')/files/getbyurl('add.png')`,
+// 	headers: {
+// 		'accept': 'application/json;odata=verbose',
+// 		'content-type': 'application/json;odata=verbose'
+// 	}
+// }).then(res => {
+// 	console.log(res.data.d);
+// })
 
 
 // const uid = Math.round(Math.random() * 10000);
@@ -118,10 +129,10 @@ window.cache = cache;
 // spx('/test/spx').file('Files/a/test.txt').get({ asBlob: true }).then(log)
 // spx('/test/spx').file('/test.txt').create().then(log)
 
-$('#send').click(e => {
-	e.preventDefault();
-	spx('/test/spx').list('Files').file({ Content: $('#file').get(0).files[0], OnProgress: console.log, Folder: 'a' }).create().then(log);
-});
+// $('#send').click(e => {
+// 	e.preventDefault();
+// 	spx('/test/spx').list('Files').file({ Content: $('#file').get(0).files[0], OnProgress: console.log, Folder: 'a' }).create().then(log);
+// });
 
 const getFile = _ => {
 	const clientContext = new SP.ClientContext('/test/spx');
@@ -319,7 +330,6 @@ const retrieveAllUsersInGroup = async _ => {
 const getAllGroups = async _ => {
 	const clientContext = getClientContext('/');
 	const siteGroups = clientContext.get_web().get_siteGroups();
-	load(clientContext)(siteGroups);
 	const groups = await executeJSOM(clientContext)(siteGroups)()
 	return prepareResponseJSOM()(groups);
 }
@@ -327,36 +337,40 @@ const getAllGroups = async _ => {
 const getGroupById = async id => {
 	const clientContext = getClientContext('/');
 	const siteGroups = clientContext.get_web().get_siteGroups();
-	const group = siteGroups.getById(id)
-	executorJSOM(clientContext)();
-	return group
-}
-// getGroupById(5926).then(log);
-// getAllGroups()
-
-const setGroupOwnerById = async id => {
-	const clientContext = getClientContext('/');
-	const siteGroups = clientContext.get_web().get_siteGroups();
 	const group = siteGroups.getById(id);
-	const groupOwner = siteGroups.getById(18359)
-	const owner = groupOwner.get_owner();
-	group.set_owner(owner);
-	executorJSOM(clientContext)();
+	await executeJSOM(clientContext)(group)();
+	return prepareResponseJSOM()(group);
 }
-
+// getGroupById(36).then(log);
+// getAllGroups().then(log)
 
 
 const getGroupOwnerById = async id => {
 	const clientContext = getClientContext('/');
 	const siteGroups = clientContext.get_web().get_siteGroups();
-	const group = siteGroups.getById(id)
+	const group = siteGroups.getById(id);
 	const owner = group.get_owner();
-	return executeJSOM(clientContext)(owner)();
+	await executorJSOM(clientContext)();
+	console.log(owner);
+	return prepareResponseJSOM()(owner);
 }
 
-// setGroupOwnerById(5926)
+// getGroupOwnerById(36).then(log)
 
-// getGroupOwnerById(5926).then(log)
+const setGroupOwnerById = async id => {
+	const clientContext = getClientContext('/');
+	const siteGroups = clientContext.get_web().get_siteGroups();
+	const group = siteGroups.getById(id);
+	const owner = group.get_owner();
+	group.set_owner(owner);
+	executorJSOM(clientContext)();
+}
+
+
+// setGroupOwnerById(36).then(log)
+
+
+
 
 const removeGroupById = async id => {
 	const clientContext = getClientContext('/');
@@ -391,3 +405,75 @@ const removeGroups = async _ => {
 	// removeGroupsByIds(ids)
 }
 // removeGroups()
+
+
+const uploadFileJSOM = content => {
+	const webUrl = '/test/spx';
+	const listUrl = 'Files';
+	const filename = 'add1.png';
+	const clientContext = new SP.ClientContext(webUrl);
+	const list = clientContext.get_web().get_lists().getByTitle(listUrl);
+	const files = list.get_rootFolder().get_files();
+	const fileCreationInfo = new SP.FileCreationInformation;
+
+	fileCreationInfo.set_url(`${webUrl}/${listUrl}/${filename}`);
+	fileCreationInfo.set_content(content)
+
+	const file = files.add(fileCreationInfo);
+	clientContext.load(file);
+	clientContext.executeQueryAsync(console.log, console.error);
+}
+
+const uploadFile = async ({ webUrl = '/test/spx', listGUID = '8f0fca61-640a-422d-885e-71e7109dce18', filename = 'add1.png', blob }) => {
+	let founds;
+	const inputs = [];
+	const requiredInputs = {
+		__REQUESTDIGEST: true,
+		__VIEWSTATE: true,
+		__EVENTTARGET: true,
+		__EVENTVALIDATION: true,
+	}
+	const res = await axios(`${webUrl}/_layouts/15/Upload.aspx?List={${listGUID}}`);
+	const formMatches = res.data.match(/<form(\w|\W)*<\/form>/);
+	const inputRE = /<input[^<]*\/>/g;
+	while (founds = inputRE.exec(formMatches)) {
+		let item = founds[0];
+		const id = item.match(/id=\"([^\"]+)\"/)[1];
+		if (requiredInputs[id]) {
+			if (id === '__EVENTTARGET') item = item.replace(/value="[^\"]*"/, 'value="ctl00$PlaceHolderMain$ctl03$RptControls$btnOK"');
+			inputs.push(item);
+		}
+	}
+	const form = window.document.createElement('form');
+	form.innerHTML = inputs.join('');
+	const formData = new FormData(form);
+	formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$InputFile', blob, filename);
+	await axios({
+		url: `${webUrl}/_layouts/15/UploadEx.aspx?List={${listGUID}}`,
+		method: 'POST',
+		data: formData,
+	}).catch(res => {
+		if (/ctl00_PlaceHolderMain_LabelMessage/i.test(res.data)) throw new Error(res.data.match(/ctl00_PlaceHolderMain_LabelMessage">([^<]+)<\/span>/)[1])
+	})
+	console.log('done')
+}
+
+const upload = async _ => {
+	const blob = await spx('test/spx').file('Files/add.png').get({ asBlob: true });
+	uploadFile({ blob });
+}
+
+// upload()
+
+const getFileBase64 = async _ => {
+	const newFile = await spx('test/spx').list('Files').file('add.png').get({ asBlob: true });
+	console.log(newFile);
+	const content = await new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = e => resolve(e.srcElement.result);
+		reader.readAsText(newFile);
+	})
+	console.log(content);
+}
+
+// getFileBase64()

@@ -30,7 +30,9 @@ import {
   identity,
   getInstanceEmpty,
   executeJSOM,
-  isObject
+  isObject,
+  typeOf,
+  setItem,
 } from './../utility';
 import axios from 'axios';
 import * as cache from './../cache';
@@ -40,6 +42,12 @@ import site from './../modules/site';
 //Internal
 
 const NAME = 'file';
+
+export const getColumns = webUrl => listUrl => site(webUrl).list(listUrl).column().get({
+  view: ['TypeAsString', 'InternalName', 'Title', 'Hidden'],
+  groupBy: 'InternalName',
+  cached: true
+})
 
 const getSPObject = elementUrl => spObject => {
   const filename = getFilenameFromUrl(elementUrl);
@@ -56,10 +64,12 @@ const getSPObjectCollection = elementUrl => spObject => {
     : spObject.get_rootFolder().get_files();
 }
 
-const getRESTObject = elementUrl => contextUrl => {
-  const filename = getFilenameFromUrl(elementUrl);
+const getRESTObject = elementUrl => listUrl => contextUrl =>
+  mergeSlashes(`${getRESTObjectCollection(elementUrl)(listUrl)(contextUrl)}/getbyurl('${getFilenameFromUrl(elementUrl)}')`)
+
+const getRESTObjectCollection = elementUrl => listUrl => contextUrl => {
   const folder = getFolderFromUrl(elementUrl);
-  return mergeSlashes(`/_api/web/getfilebyserverrelativeurl('${prependSlash(folder ? `${contextUrl}/${folder}` : contextUrl)}/${filename}')`)
+  return mergeSlashes(`${contextUrl}/_api/web/lists/getbytitle('${listUrl}')/rootfolder${folder ? `/folders/getbyurl('${folder}')` : ''}/files`)
 }
 
 const report = ({ silent, actionType }) => contextBox => parentBox => box => spObjects => (
@@ -73,8 +83,8 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
   let needToQuery;
   const clientContexts = {};
   const spObjectsToCache = new Map;
-  const { cached, parallelized = actionType !== 'create' } = opts;
-  if (opts.asItem) opts.view = ['ListItemAllFields'];
+  const { cached, parallelized = actionType !== 'create', asItem } = opts;
+  if (asItem && !actionType) opts.view = ['ListItemAllFields'];
   const elements = await parent.parent.box.chainAsync(async contextElement => {
     let totalElements = 0;
     const contextUrl = contextElement.Url;
@@ -92,16 +102,15 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
           clientContexts[contextUrl].push(clientContext);
           totalElements = 0;
         }
-        listSPObject.ListUrl = listUrl;
-        listSPObject.isLibrary = opts.isLibrary;
         const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
-        const spObject = await spObjectGetter({
-          spParentObject: actionType === 'create'
+        const spParentObject = actionType === 'create'
+          ? getSPObjectCollection(elementUrl)(listSPObject)
+          : isCollection
             ? getSPObjectCollection(elementUrl)(listSPObject)
-            : isCollection
-              ? getSPObjectCollection(elementUrl)(listSPObject)
-              : getSPObject(elementUrl)(listSPObject),
-          listUrl,
+            : getSPObject(elementUrl)(listSPObject)
+        spParentObject.listUrl = listUrl;
+        const spObject = await spObjectGetter({
+          spParentObject,
           element
         });
         const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
@@ -114,7 +123,7 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
             return spObjectCached;
           } else {
             needToQuery = true;
-            const currentSPObjects = load(clientContext)(spObject)(opts);
+            const currentSPObjects = load(clientContext)((actionType === 'create' || actionType === 'update') && !asItem ? spObject.get_file() : spObject)(opts);
             spObjectsToCache.set(cachePath, currentSPObjects)
             return currentSPObjects;
           }
@@ -137,7 +146,7 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
 }
 
 const executeREST = parent => box => cacheLeaf => actionType => restObjectGetter => async (opts = {}) => {
-  const { cached, } = opts;
+  const { cached, asItem } = opts;
   const elements = await parent.parent.box.chainAsync(contextElement => {
     const contextUrl = prependSlash(contextElement.Url);
     const contextUrls = urlSplit(contextUrl);
@@ -145,8 +154,9 @@ const executeREST = parent => box => cacheLeaf => actionType => restObjectGetter
       const listUrl = listElement.Url;
       return box.chainAsync(async element => {
         const elementUrl = element.Url;
+        const fileUrl = getRESTObject(elementUrl)(listUrl)(contextUrl);
         const restObject = await restObjectGetter({
-          fileUrl: getRESTObject(elementUrl)(contextUrl + '/' + listUrl),
+          fileUrl,
           contextUrl,
           listUrl,
           element
@@ -159,7 +169,30 @@ const executeREST = parent => box => cacheLeaf => actionType => restObjectGetter
         if (cached && spObjectCached) {
           return spObjectCached;
         } else {
-          const currentSPObjects = await httpProvider(request);
+          let currentSPObjects = await httpProvider(request);
+          if (actionType === 'create' && element.Columns) {
+            await axios({
+              url: `${fileUrl}/ListItemAllFields`,
+              headers: {
+                'accept': 'application/json;odata=verbose',
+                'content-type': 'application/json;odata=verbose',
+                'If-Match': '*',
+                'X-Http-Method': 'MERGE'
+              },
+              method: 'POST',
+              data: JSON.stringify({
+                __metadata: { type: `SP.Data.${listUrl}Item` },
+                ...element.Columns
+              })
+            });
+            currentSPObjects = await axios({
+              url: `${fileUrl}${asItem ? '/ListItemAllFields' : ''}`,
+              headers: {
+                'accept': 'application/json;odata=verbose',
+                'content-type': 'application/json;odata=verbose',
+              }
+            })
+          }
           cache.set(currentSPObjects)(cachePath)
           return currentSPObjects;
         }
@@ -170,7 +203,7 @@ const executeREST = parent => box => cacheLeaf => actionType => restObjectGetter
   return prepareResponseREST(opts)(elements);
 }
 
-const createWithJSOM = async ({ spParentObject, listUrl, element }) => {
+const createWithJSOM = async ({ spParentObject, element }) => {
   const {
     Url,
     Content = '',
@@ -178,11 +211,12 @@ const createWithJSOM = async ({ spParentObject, listUrl, element }) => {
     Overwrite = true
   } = element
   const folder = getFolderFromUrl(Url);
+  const listUrl = spParentObject.listUrl;
   const contextUrl = spParentObject.get_context().get_url();
   if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
   const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation);
   setFields({
-    set_url: `${contextUrl}/${listUrl}/${Url}`,
+    set_url: `${contextUrl}/${spParentObject, listUrl}/${Url}`,
     set_content: convertFileContent(Content),
     set_overwrite: Overwrite
   })(fileCreationInfo)
@@ -198,10 +232,33 @@ const createWithJSOM = async ({ spParentObject, listUrl, element }) => {
   })(binaryInfo);
   const spObject = spParentObject.add(fileCreationInfo);
   spObject.saveBinary(binaryInfo);
-  return spObject
+  return spObject.get_listItemAllFields()
 }
 
-const createWithRESTFromFile = async ({ contextUrl, listUrl, element }) => {
+const createWithRESTFromString = async ({ contextUrl, listUrl, element }) => {
+  const { Url = '', Content = '', Overwrite = true, OnProgress = identity, Folder = '' } = element;
+  const folder = Folder || getFolderFromUrl(Url);
+  const filename = getFilenameFromUrl(Url);
+  const filesUrl = getRESTObjectCollection(folder ? `${folder}/${filename}` : filename)(listUrl)(contextUrl);
+  if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+  return {
+    request: {
+      url: `${filesUrl}/add(url='${filename}',overwrite=${Overwrite})`,
+      headers: {
+        'accept': 'application/json;odata=verbose',
+        'content-type': 'application/json;odata=verbose'
+      },
+      method: 'POST',
+      data: Content,
+      onUploadProgress: e => OnProgress(Math.floor((e.loaded * 100) / e.total))
+    },
+    params: {
+      httpProvider: axios
+    }
+  }
+}
+
+const createWithRESTFromBlob = async ({ contextUrl, listUrl, element }) => {
   let founds;
   const inputs = [];
   const { Url = '', Content = '', Overwrite, OnProgress = identity, Folder = '' } = element;
@@ -252,6 +309,73 @@ const createWithRESTFromFile = async ({ contextUrl, listUrl, element }) => {
   }
 }
 
+const copyOrMove = isMove => instance => async (opts = {}) => {
+  const elements = await instance.parent.parent.box.chainAsync(context => {
+    const contextUrl = context.Url;
+    return instance.parent.box.chainAsync(list => {
+      const listUrl = list.Url;
+      return instance.box.chainAsync(async element => {
+        const { Url, To } = element;
+        let targetWebUrl, targetListUrl, targetFileUrl;
+        if (isObject(To)) {
+          targetWebUrl = To.Web;
+          targetListUrl = To.List;
+          targetFileUrl = To.File || '';
+        } else {
+          targetWebUrl = contextUrl;
+          targetListUrl = listUrl;
+          targetFileUrl = To;
+        }
+
+        if (!targetWebUrl) throw new Error('Target WebUrl is missed');
+        if (!targetListUrl) throw new Error('Target ListUrl is missed');
+        if (!Url) throw new Error('Source file Url is missed');
+
+        const spxSourceList = site(contextUrl).list(listUrl);
+        const spxSourceFile = spxSourceList.file(Url);
+        const spxTargetList = site(targetWebUrl).list(targetListUrl);
+        const sourceFileData = await spxSourceFile.get({ asItem: true });
+        const fullTargetFileUrl = /\./.test(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
+        const columnsToUpdate = {};
+        for (let columnName in sourceFileData) {
+          if (!LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
+        }
+
+        const existedColumnsToUpdate = {};
+        if (Object.keys(columnsToUpdate).length) {
+          for (let columnName in columnsToUpdate) {
+            existedColumnsToUpdate[columnName] = sourceFileData[columnName];
+          }
+        }
+        if (!opts.forced && contextUrl === targetWebUrl) {
+          const clientContext = getClientContext(contextUrl);
+          const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
+          const spObject = getSPObject(Url)(listSPObject);
+          const folder = getFolderFromUrl(targetFileUrl);
+          if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+          spObject[isMove ? 'moveTo' : 'copyTo'](mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`));
+          await executeJSOM(clientContext)(spObject)(opts);
+          await spxTargetList.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate }).update({ silent: true })
+        } else {
+          await spxTargetList.file({
+            Url: fullTargetFileUrl,
+            Content: await spxSourceList.file(Url).get({ asBlob: true }),
+            OnProgress: element.OnProgress,
+            Overwrite: element.Overwrite,
+            Columns: existedColumnsToUpdate
+          }).create({ silent: true });
+        }
+        isMove && await spxSourceFile.delete()
+      })
+    })
+  })
+  console.log(`${
+    ACTION_TYPES[isMove ? 'move' : 'copy']} ${
+    instance.parent.parent.box.getLength() * instance.box.getLength()} ${
+    NAME}(s)`);
+  return prepareResponseJSOM(opts)(elements);
+}
+
 
 // Inteface
 
@@ -263,6 +387,7 @@ export default (parent, elements) => {
   const executeBinded = execute(parent)(instance.box)('properties');
   const executeBindedREST = executeREST(parent)(instance.box)('properties');
   return {
+
     get: (instance => (opts = {}) => opts.asBlob
       ? executeREST(instance.parent)(instance.box)('properties')(null)(({ fileUrl }) => ({
         request: {
@@ -273,168 +398,41 @@ export default (parent, elements) => {
       : executeBinded(null)(prop('spParentObject'))(opts)
     )(instance),
 
-    create: (opts = {}) => opts.fromContent ?
+    create: (opts = {}) => opts.fromString ?
       executeBinded('create')(createWithJSOM)(opts) :
-      executeBindedREST('create')(createWithRESTFromFile)(opts),
+      executeBindedREST('create')(({ contextUrl, listUrl, element }) =>
+        element.Content === void 0 || typeOf(element.Content) === 'string'
+          ? createWithRESTFromString({ contextUrl, listUrl, element })
+          : createWithRESTFromBlob({ contextUrl, listUrl, element }))(opts),
 
-    update: executeBinded('update')(({ spParentObject, element }) => {
+    update: executeBinded('update')(async ({ spParentObject, element }) => {
       const { Content, Columns } = element;
-      const fieldsToUpdate = {};
-      for (const fieldName in Columns) {
-        const field = Columns[fieldName];
-        fieldsToUpdate[fieldName] = isArray(field) ? field.join(';#;#') : field;
+      if (Content === void 0) {
+        const listUrl = spParentObject.listUrl;
+        const contextUrl = spParentObject.get_context().get_url();
+        const elementNew = Object.assign({}, Columns);
+        return setItem(await getColumns(contextUrl)(listUrl))(elementNew)((spParentObject.get_listItemAllFields()));
+      } else {
+        const fieldsToUpdate = {};
+        for (const fieldName in Columns) {
+          const field = Columns[fieldName];
+          fieldsToUpdate[fieldName] = isArray(field) ? field.join(';#;#') : field;
+        }
+        const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
+        setFields({
+          set_content: Content === void 0 ? void 0 : convertFileContent(Content),
+          set_fieldValues: fieldsToUpdate
+        })(binaryInfo);
+        spParentObject.saveBinary(binaryInfo);
+        return spParentObject.get_listItemAllFields()
       }
-      const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
-      setFields({
-        set_content: Content === void 0 ? void 0 : convertFileContent(Content),
-        set_fieldValues: fieldsToUpdate
-      })(binaryInfo);
-      spParentObject.saveBinary(binaryInfo);
-      return spParentObject
     }),
 
     delete: (opts = {}) => executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
       overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts),
 
-    copy: (instance => async (opts = {}) => {
-      const elements = await instance.parent.parent.box.chainAsync(context => {
-        const contextUrl = context.Url;
-        return instance.parent.box.chainAsync(list => {
-          const listUrl = list.Url;
-          return instance.box.chainAsync(async element => {
-            const { Url, To } = element;
-            let targetWebUrl, targetListUrl, targetFileUrl;
-            if (isObject(To)) {
-              targetWebUrl = To.Web;
-              targetListUrl = To.List;
-              targetFileUrl = To.File || '';
-            } else {
-              targetWebUrl = contextUrl;
-              targetListUrl = listUrl;
-              targetFileUrl = To;
-            }
+    copy: copyOrMove(false)(instance),
 
-            if (!targetWebUrl) throw new Error('Target WebUrl is missed');
-            if (!targetListUrl) throw new Error('Target ListUrl is missed');
-            if (!Url) throw new Error('Source file Url is missed');
-
-            const spxSourceList = site(contextUrl).list(listUrl);
-            const spxSourceFile = spxSourceList.file(Url);
-            const spxTargetList = site(targetWebUrl).list(targetListUrl);
-            const sourceFileData = await spxSourceFile.get({ asItem: true });
-            const fullTargetFileUrl = /\./.test(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
-            if (sourceFileData) {
-              if (!opts.forced && contextUrl === targetWebUrl) {
-                const clientContext = getClientContext(contextUrl);
-                const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
-                const spObject = getSPObject(Url)(listSPObject);
-                spObject.copyTo(mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`));
-                await executeJSOM(clientContext)(spObject)(opts);
-              } else {
-                await spxTargetList.file({
-                  Url: fullTargetFileUrl,
-                  Content: await spxSourceList.file(Url).get({ asBlob: true }),
-                  OnProgress: element.OnProgress,
-                  Overwrite: element.Overwrite
-                }).create({ silent: true });
-              }
-              const columnsToUpdate = {};
-              for (let columnName in sourceFileData) {
-                if (!LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
-              }
-              if (Object.keys(columnsToUpdate).length) {
-                const targetFileData = await spxTargetList.file(targetFileUrl).get({ asItem: true });
-                const existedColumnsToUpdate = {};
-                for (let columnName in columnsToUpdate) {
-                  if (!targetFileData.hasOwnProperty(columnName)) continue;
-                  existedColumnsToUpdate[columnName] = sourceFileData[columnName];
-                }
-                if (Object.keys(existedColumnsToUpdate).length) {
-                  existedColumnsToUpdate.ID = targetFileData.ID;
-                  await spxTargetList.item(existedColumnsToUpdate).update({ silent: true })
-                }
-              }
-            }
-          })
-        })
-      })
-      console.log(`${
-        ACTION_TYPES.copy} ${
-        instance.parent.parent.box.getLength() * instance.box.getLength()} ${
-        NAME}(s)`);
-
-      return prepareResponseJSOM(opts)(elements);
-    })(instance),
-
-    move: (instance => async (opts = {}) => {
-      const elements = await instance.parent.parent.box.chainAsync(context => {
-        const contextUrl = context.Url;
-        return instance.parent.box.chainAsync(list => {
-          const listUrl = list.Url;
-          return instance.box.chainAsync(async element => {
-            const { Url, To } = element;
-            let targetWebUrl, targetListUrl, targetFileUrl;
-            if (isObject(To)) {
-              targetWebUrl = To.Web;
-              targetListUrl = To.List;
-              targetFileUrl = To.File || '';
-            } else {
-              targetWebUrl = contextUrl;
-              targetListUrl = listUrl;
-              targetFileUrl = To;
-            }
-
-            if (!targetWebUrl) throw new Error('Target WebUrl is missed');
-            if (!targetListUrl) throw new Error('Target ListUrl is missed');
-            if (!Url) throw new Error('Source file Url is missed');
-
-            const spxSourceList = site(contextUrl).list(listUrl);
-            const spxSourceFile = spxSourceList.file(Url);
-            const spxTargetList = site(targetWebUrl).list(targetListUrl);
-            const sourceFileData = await spxSourceFile.get({ asItem: true });
-            const fullTargetFileUrl = /\./.test(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
-            if (sourceFileData) {
-              if (!opts.forced && contextUrl === targetWebUrl) {
-                const clientContext = getClientContext(contextUrl);
-                const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
-                const spObject = getSPObject(Url)(listSPObject);
-                spObject.moveTo(mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`));
-                await executeJSOM(clientContext)(spObject)(opts);
-              } else {
-                await spxTargetList.file({
-                  Url: fullTargetFileUrl,
-                  Content: await spxSourceList.file(Url).get({ asBlob: true }),
-                  OnProgress: element.OnProgress,
-                  Overwrite: element.Overwrite
-                }).create({ silent: true });
-              }
-              const columnsToUpdate = {};
-              for (let columnName in sourceFileData) {
-                if (!LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
-              }
-              if (Object.keys(columnsToUpdate).length) {
-                const targetFileData = await spxTargetList.file(targetFileUrl).get({ asItem: true });
-                const existedColumnsToUpdate = {};
-                for (let columnName in columnsToUpdate) {
-                  if (!targetFileData.hasOwnProperty(columnName)) continue;
-                  existedColumnsToUpdate[columnName] = sourceFileData[columnName];
-                }
-                if (Object.keys(existedColumnsToUpdate).length) {
-                  existedColumnsToUpdate.ID = targetFileData.ID;
-                  await spxTargetList.item(existedColumnsToUpdate).update({ silent: true })
-                }
-              }
-              await spxSourceFile.delete()
-            }
-          })
-        })
-      })
-      console.log(`${
-        ACTION_TYPES.move} ${
-        instance.parent.parent.box.getLength() * instance.box.getLength()} ${
-        NAME}(s)`);
-
-      return prepareResponseJSOM(opts)(elements);
-    })(instance)
+    move: copyOrMove(true)(instance),
   }
 }

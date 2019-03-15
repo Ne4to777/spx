@@ -27,7 +27,8 @@ import {
 	isExists,
 	isStringEmpty,
 	slice,
-	executeJSOM
+	executeJSOM,
+	isString
 } from './../utility';
 import * as cache from './../cache';
 import site from './../modules/site';

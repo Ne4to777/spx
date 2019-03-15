@@ -14,7 +14,6 @@ import {
 	getInstanceEmpty,
 	slice,
 	setItem,
-	getColumns,
 	prop,
 	overstep,
 	methodEmpty,
@@ -38,6 +37,12 @@ import site from './../modules/site';
 // Internal
 
 const NAME = 'item';
+
+export const getColumns = webUrl => listUrl => site(webUrl).list(listUrl).column().get({
+	view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
+	groupBy: 'InternalName',
+	cached: true
+})
 
 const getSPObject = element => parentElement => {
 	let camlQuery = new SP.CamlQuery();

@@ -13,7 +13,6 @@ import {
   getInstanceEmpty,
   slice,
   setItem,
-  getColumns,
   hasUrlTailSlash,
   ifThen,
   constant,
@@ -34,6 +33,12 @@ import site from './../modules/site';
 
 const NAME = 'folder';
 
+export const getColumns = webUrl => listUrl => site(webUrl).list(listUrl).column().get({
+  view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
+  groupBy: 'InternalName',
+  cached: true
+})
+
 const getSPObject = elementUrl => ifThen(constant(elementUrl))([
   spObject => getSPFolderByUrl(elementUrl)(spObject.get_rootFolder()),
   methodEmpty('get_rootFolder')
@@ -53,8 +58,8 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
   let needToQuery;
   const clientContexts = {};
   const spObjectsToCache = new Map;
-  const { cached, parallelized = actionType !== 'create' } = opts;
-  if (opts.asItem) opts.view = ['ListItemAllFields'];
+  const { cached, parallelized = actionType !== 'create', asItem } = opts;
+  if (asItem && !actionType) opts.view = ['ListItemAllFields'];
   const elements = await parent.parent.box.chainAsync(async contextElement => {
     let totalElements = 0;
     const contextUrl = contextElement.Url;
@@ -72,15 +77,18 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
           clientContexts[contextUrl].push(clientContext);
           totalElements = 0;
         }
-        listSPObject.listUrl = listUrl;
-        listSPObject.isLibrary = opts.isLibrary;
+
         const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
+        const spParentObject = actionType === 'create'
+          ? listSPObject
+          : isCollection
+            ? getSPObjectCollection(elementUrl)(listSPObject)
+            : getSPObject(elementUrl)(listSPObject);
+        spParentObject.listUrl = listUrl;
+        spParentObject.isLibrary = opts.isLibrary;
+
         const spObject = await spObjectGetter({
-          spParentObject: actionType === 'create'
-            ? listSPObject
-            : isCollection
-              ? getSPObjectCollection(elementUrl)(listSPObject)
-              : getSPObject(elementUrl)(listSPObject),
+          spParentObject,
           element
         });
         const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
@@ -93,7 +101,7 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
             return spObjectCached;
           } else {
             needToQuery = true;
-            const currentSPObjects = load(clientContext)(spObject)(opts);
+            const currentSPObjects = load(clientContext)((actionType === 'create' || actionType === 'update') && !asItem ? spObject.get_folder() : spObject)(opts)
             spObjectsToCache.set(cachePath, currentSPObjects)
             return currentSPObjects;
           }
@@ -101,6 +109,7 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
       })
     })
   });
+
   if (needToQuery) {
     parallelized ?
       await parent.parent.box.chain(el => {
@@ -112,9 +121,11 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
     !actionType && spObjectsToCache.forEach((value, key) => cache.set(value)(key))
   };
   const items = prepareResponseJSOM(opts)(elements);
-  report({ ...opts, actionType })(parent.parent.box)(parent.box)(actionType === 'create' ? getInstance(Box)(items, 'item') : box)();
+  report({ ...opts, actionType })(parent.parent.box)(parent.box)(asItem ? getInstance(Box)(items, 'item') : box)();
   return items;
 }
+
+
 
 // Inteface
 
@@ -125,6 +136,7 @@ export default (parent, elements) => {
   };
   const executeBinded = execute(parent)(instance.box)('properties');
   return {
+
     get: executeBinded(null)(prop('spParentObject')),
 
     create: executeBinded('create')(async ({ spParentObject, element }) => {
@@ -134,7 +146,7 @@ export default (parent, elements) => {
       const parentFolderUrl = getParentUrl(element.Url);
       const elementNew = Object.assign({}, element);
       parentFolderUrl && await site(contextUrl).list(listUrl).folder(parentFolderUrl).create({
-        view: ['FileLeafRef'],
+        view: ['ServerRelativeUrl'],
         silent: true,
         expanded: true,
       }).catch(identity);
@@ -142,6 +154,13 @@ export default (parent, elements) => {
       itemCreationInfo.set_leafName(element.Url);
       const spObject = spParentObject.addItem(itemCreationInfo);
       return setItem(await getColumns(contextUrl)(listUrl))(elementNew)((spObject));
+    }),
+
+    update: executeBinded('update')(async ({ spParentObject, element }) => {
+      const listUrl = spParentObject.listUrl;
+      const contextUrl = spParentObject.get_context().get_url();
+      const elementNew = Object.assign({}, element);
+      return setItem(await getColumns(contextUrl)(listUrl))(elementNew)((spParentObject.get_listItemAllFields()));
     }),
 
     delete: (opts = {}) => executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
