@@ -20,8 +20,8 @@ import {
 	prop,
 	isStringEmpty,
 	hasUrlTailSlash
-} from './../utility'
-import * as cache from './../cache'
+} from './../lib/utility'
+import * as cache from './../lib/cache'
 
 // import search from './../modules/search'
 import list from './../modules/list'

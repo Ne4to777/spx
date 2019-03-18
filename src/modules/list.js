@@ -29,8 +29,8 @@ import {
 	slice,
 	executeJSOM,
 	isString
-} from './../utility';
-import * as cache from './../cache';
+} from './../lib/utility';
+import * as cache from './../lib/cache';
 import site from './../modules/site';
 import column from './../modules/column';
 import folder from './../modules/folderList';

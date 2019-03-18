@@ -563,10 +563,10 @@ export const log = (...args) => {
 
 const groupSimple = by => reduce(acc => el => {
 	const elValue = el[by];
-	const trueValue = elValue ? (elValue.get_lookupId ? elValue.get_lookupId() : elValue) : '';
+	const trueValue = elValue === void 0 ? '' : elValue.get_lookupId ? elValue.get_lookupId() : elValue;
 	const groupValue = acc[trueValue];
 	acc[trueValue] = groupValue === void 0
-		? el : isArray(groupValue)
+		? [el] : isArray(groupValue)
 			? concat(groupValue)(el) : [groupValue, el];
 	return acc
 })({})
@@ -612,6 +612,19 @@ export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash
 export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL]);
 export const hasUrlTailSlash = stringTest(/\/$/);
 
+export const getListRelativeFolder = webUrl => listUrl => elementUrl => {
+	if (elementUrl) {
+		if (elementUrl === '/') return '/'
+		return shiftSlash(arrayLast(stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl)))))
+	}
+}
+
+export const getWebRelativeFolder = webUrl => elementUrl => {
+	if (elementUrl) {
+		if (elementUrl === '/') return '/'
+		return shiftSlash(arrayLast(stringSplit('@web@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl))))
+	}
+}
 
 const liftContextUrlType = switchCase(typeOf)({
 	object: contextUrl => {
@@ -947,18 +960,16 @@ const getViewOption = ifThen(isObjectFilled)([
 	EMPTY_ARRAY
 ])
 
-export const load = clientContext => spObject => (opts = {}) =>
-	ifThen(hasProp('getEnumerator'))([
-		pipe([
-			data => pipe([constant(getViewOption(opts)), ifThen(isArrayFilled)([view => [data, `Include(${view})`], constant([data])])])(data),
-			apply('loadQuery')(clientContext),
-		]),
-		overstep(pipe([
-			data => pipe([constant(getViewOption(opts)), ifThen(isArrayFilled)([view => [data, view], constant([data])])])(data),
-			apply('load')(clientContext)
-		]))
-	]
-	)(spObject)
+export const load = clientContext => spObject => (opts = {}) => ifThen(hasProp('getEnumerator'))([
+	pipe([
+		data => pipe([constant(getViewOption(opts)), ifThen(isArrayFilled)([view => [data, `Include(${view})`], constant([data])])])(data),
+		apply('loadQuery')(clientContext),
+	]),
+	overstep(pipe([
+		data => pipe([constant(getViewOption(opts)), ifThen(isArrayFilled)([view => [data, view], constant([data])])])(data),
+		apply('load')(clientContext)
+	]))
+])(spObject)
 
 //  ===============================================================================================
 //  ===========        ==   ==   ==        ====     ===  ====  ==        ====    ====       =======
@@ -1073,8 +1084,9 @@ export const getSPFolderByUrl = url => ifThen(constant(url))([
 export const setItem = fieldsInfo => fields => spObject => {
 	for (const prop in fields) {
 		const fieldValues = fields[prop];
-		const fieldInfo = fieldsInfo[prop];
-		if (fieldInfo) {
+		const fieldInfoArray = fieldsInfo[prop];
+		if (isArray(fieldInfoArray)) {
+			const fieldInfo = fieldInfoArray[0];
 			const set = setItemSP(fieldInfo.InternalName)(spObject);
 			const setLookupAndUser = f => constructor => pipe([f(constructor), set]);
 			switch (fieldInfo.TypeAsString) {

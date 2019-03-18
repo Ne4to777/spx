@@ -20,9 +20,10 @@ import {
 	identity,
 	arrayInit,
 	isNumber,
-	typeOf
-} from './../utility';
-import * as cache from './../cache';
+	typeOf,
+	arrayLast
+} from './../lib/utility';
+import * as cache from './../lib/cache';
 import {
 	MD5
 } from 'crypto-js';
@@ -31,7 +32,7 @@ import {
 	joinQueries,
 	camlLog,
 	concatQueries
-} from './../query_parser';
+} from './../lib/query-parser';
 import site from './../modules/site';
 
 // Internal
@@ -48,13 +49,19 @@ const getSPObject = element => parentElement => {
 	let camlQuery = new SP.CamlQuery();
 	const ID = element.ID;
 	switch (typeOf(ID)) {
-		case 'number': return parentElement.getItemById(ID);
+		case 'number': {
+			const spObject = parentElement.getItemById(ID);
+			spObject.listUrl = parentElement.listUrl;
+			return spObject
+		}
 		case 'string': camlQuery.set_viewXml(getCamlView()(ID)); break;
 		default:
 			if (element.set_viewXml) {
 				camlQuery = element;
 			} else if (element.get_lookupId) {
-				return parentElement.getItemById(element.get_lookupId());
+				const spObject = parentElement.getItemById(element.get_lookupId());
+				spObject.listUrl = parentElement.listUrl;
+				return spObject
 			} else {
 				const { Folder, Query, Page, IsLibrary } = element;
 				if (Folder) {
@@ -87,10 +94,11 @@ const itemIterator = it => f => it.parent.parent.box.chainAsync(contextElement =
 )
 
 const operateDuplicates = it => (opts = {}) => listIterator(it)(webUrl => async listUrl => {
-	const items = await site(webUrl).list(listUrl).item().get({
-		view: ['ID', 'FSObjType', 'Modified', ...it.box.getValues().map(prop('ID'))],
-		scope: 'allItems',
-		limit: MAX_ITEMS_LIMIT,
+	const items = await site(webUrl).list(listUrl).item({
+		Scope: 'allItems',
+		Limit: MAX_ITEMS_LIMIT
+	}).get({
+		view: ['ID', 'FSObjType', 'Modified', ...it.box.getValues().map(prop('ID'))]
 	});
 	const itemsMap = new Map;
 	const getHashedColumnName = itemData => {
@@ -137,51 +145,47 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
 	const spObjectsToCache = new Map;
 	const { cached, showCaml, parallelized = actionType !== 'create' } = opts;
 	if (!opts.view && actionType) opts.view = ['ID'];
-	const elements = await parent.parent.box.chainAsync(async contextElement => {
+	const elements = await parent.parent.box.chainAsync(contextElement => {
 		let totalElements = 0;
 		const contextUrl = contextElement.Url;
 		const contextUrls = urlSplit(contextUrl);
-		let clientContext = getClientContext(contextUrl);
-		clientContexts[contextUrl] = [clientContext];
-		return parent.box.chainAsync(listElement => {
+		clientContexts[contextUrl] = [getClientContext(contextUrl)];
+		return parent.box.chainAsync(listElement => box.chainAsync(async element => {
+			let clientContext = arrayLast(clientContexts[contextUrl]);
 			const listUrl = listElement.Url;
-			let listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-			return box.chainAsync(async element => {
-				if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
-					clientContext = getClientContext(contextUrl);
-					listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-					clientContexts[contextUrl].push(clientContext);
-					totalElements = 0;
-				}
-				const spParentObject = actionType === 'create' ? listSPObject : getSPObject(element)(listSPObject);
-				spParentObject.listUrl = listUrl;
-				const spObject = await spObjectGetter({
-					spParentObject,
-					element
-				});
-				const isID = isNumber(element.ID);
-				showCaml && spObject.camlQuery && camlLog(spObject.camlQuery.get_viewXml());
-				const cachePath = isID ?
-					element.ID :
-					MD5(spObject.get_path().$1_1.toString().match(/<Parameters>.*<\/Parameters>/) + (opts.view || '')).toString();
-				const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isID ? cacheLeaf : cacheLeaf + 'Collection', cachePath];
-				ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePaths));
-				if (IS_DELETE_ACTION[actionType]) {
-					needToQuery = true;
-					return spObject;
+			if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
+				clientContext = getClientContext(contextUrl);
+				clientContexts[contextUrl].push(clientContext);
+				totalElements = 0;
+			}
+			const listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
+			listSPObject.listUrl = listUrl;
+			const spObject = await spObjectGetter({
+				spParentObject: actionType === 'create' ? listSPObject : getSPObject(element)(listSPObject),
+				element
+			});
+			const isID = isNumber(element.ID);
+			showCaml && spObject.camlQuery && camlLog(spObject.camlQuery.get_viewXml());
+			const cachePath = isID ?
+				element.ID :
+				MD5(spObject.get_path().$1_1.toString().match(/<Parameters>.*<\/Parameters>/) + (opts.view || '')).toString();
+			const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isID ? cacheLeaf : cacheLeaf + 'Collection', cachePath];
+			ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePaths));
+			if (IS_DELETE_ACTION[actionType]) {
+				needToQuery = true;
+				return spObject;
+			} else {
+				const spObjectCached = cached ? cache.get(cachePaths) : null;
+				if (cached && spObjectCached) {
+					return spObjectCached;
 				} else {
-					const spObjectCached = cached ? cache.get(cachePaths) : null;
-					if (cached && spObjectCached) {
-						return spObjectCached;
-					} else {
-						needToQuery = true;
-						const currentSPObjects = load(clientContext)(spObject)(opts);
-						spObjectsToCache.set(cachePaths, currentSPObjects)
-						return currentSPObjects;
-					}
+					needToQuery = true;
+					const currentSPObjects = load(clientContext)(spObject)(opts);
+					spObjectsToCache.set(cachePaths, currentSPObjects)
+					return currentSPObjects;
 				}
-			})
-		})
+			}
+		}))
 	});
 	if (needToQuery) {
 		parallelized ?
@@ -214,12 +218,9 @@ export default (parent, elements) => {
 				const contextUrl = spParentObject.get_context().get_url();
 				const listUrl = spParentObject.listUrl;
 				const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
-				const elementNew = Object.assign({}, element);
-				delete elementNew.ID;
-				if (elementNew.Folder) {
-					const folder = elementNew.Folder;
-					delete elementNew.Folder;
-					const spxFolder = site(contextUrl).list(listUrl).folder(folder);
+				const { Folder, Columns } = element;
+				if (Folder) {
+					const spxFolder = site(contextUrl).list(listUrl).folder(Folder);
 					const folderOpts = { cached: true, silent: true };
 					const folderData = await spxFolder
 						.get({ ...folderOpts, asItem: true })
@@ -227,7 +228,7 @@ export default (parent, elements) => {
 					folderData.FileRef.split(listUrl)[1] && itemCreationInfo.set_folderUrl(folderData.FileRef);
 				}
 				const spObject = spParentObject.addItem(itemCreationInfo);
-				return setItem(await getColumns(contextUrl)(listUrl))(elementNew)((spObject));
+				return setItem(await getColumns(contextUrl)(listUrl))(Columns || element)((spObject));
 			})(opts)
 		})(instance),
 
@@ -278,11 +279,11 @@ export default (parent, elements) => {
 
 		getEmpties: (instance => (opts = {}) => {
 			const columns = instance.box.getValues().map(prop('ID'));
-			return listIterator(instance)(webUrl => listUrl => site(webUrl).list(listUrl).item(`${joinQueries('or')('isnull')(columns)()}`).get({
-				...opts,
-				scope: 'allItems',
-				limit: MAX_ITEMS_LIMIT
-			}))
+			return listIterator(instance)(webUrl => listUrl => site(webUrl).list(listUrl).item({
+				Query: `${joinQueries('or')('isnull')(columns)()}`,
+				Scope: 'allItems',
+				Limit: MAX_ITEMS_LIMIT
+			}).get(opts))
 		})(instance),
 
 		deleteEmpties: (instance => opts =>
@@ -296,16 +297,20 @@ export default (parent, elements) => {
 				const targetColumn = Target.Column;
 				const list = site(webUrl).list(listUrl);
 				const [sourceItems, targetItems] = await Promise.all([
-					site(Source.Web || webUrl).list(Source.List || listUrl).item(concatQueries()([`${Key} IsNotNull`, Source.Query])).get({
-						view: ['ID', Key, sourceColumn],
-						scope: 'allItems',
-						limit: MAX_ITEMS_LIMIT,
+					site(Source.Web || webUrl).list(Source.List || listUrl).item({
+						Query: concatQueries()([`${Key} IsNotNull`, Source.Query]),
+						Scope: 'allItems',
+						Limit: MAX_ITEMS_LIMIT
+					}).get({
+						view: ['ID', Key, sourceColumn]
 					}),
-					list.item(concatQueries()([`${Key} IsNotNull`, Target.Query])).get({
+					list.item({
+						Query: concatQueries()([`${Key} IsNotNull`, Target.Query]),
+						Scope: 'allItems',
+						Limit: MAX_ITEMS_LIMIT,
+					}).get({
 						view: ['ID', Key, targetColumn],
-						scope: 'allItems',
-						limit: MAX_ITEMS_LIMIT,
-						groupBy: Key,
+						groupBy: Key
 					})
 				])
 				const itemsToMerge = [];
@@ -325,7 +330,7 @@ export default (parent, elements) => {
 
 		erase: (instance => async opts =>
 			itemIterator(instance)(webUrl => listUrl => async element => {
-				const { Query = '', Columns = [] } = element;
+				const { Query = '', Columns = ['Title'] } = element;
 				return site(webUrl).list(listUrl).item({ Query, Columns: Columns.reduce((acc, el) => (acc[el] = null, acc), {}) }).updateByQuery(opts);
 			})
 		)(instance),

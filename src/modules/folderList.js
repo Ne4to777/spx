@@ -23,9 +23,11 @@ import {
   isExists,
   getParentUrl,
   identity,
-  overstep
-} from './../utility';
-import * as cache from './../cache';
+  overstep,
+  arrayLast,
+  getListRelativeFolder
+} from './../lib/utility';
+import * as cache from './../lib/cache';
 
 import site from './../modules/site';
 
@@ -64,50 +66,46 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
     let totalElements = 0;
     const contextUrl = contextElement.Url;
     const contextUrls = urlSplit(contextUrl);
-    let clientContext = getClientContext(contextUrl);
-    clientContexts[contextUrl] = [clientContext];
-    return parent.box.chainAsync(listElement => {
+    clientContexts[contextUrl] = [getClientContext(contextUrl)];
+    return parent.box.chainAsync(listElement => box.chainAsync(async element => {
       const listUrl = listElement.Url;
-      let listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-      return box.chainAsync(async element => {
-        const elementUrl = element.Url;
-        if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
-          clientContext = getClientContext(contextUrl);
-          listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-          clientContexts[contextUrl].push(clientContext);
-          totalElements = 0;
-        }
+      const elementUrl = getListRelativeFolder(contextUrl)(listUrl)(element.Url);
+      let clientContext = arrayLast(clientContexts[contextUrl]);
+      if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
+        clientContext = getClientContext(contextUrl);
+        clientContexts[contextUrl].push(clientContext);
+        totalElements = 0;
+      }
+      const listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
+      const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
+      const spParentObject = actionType === 'create'
+        ? listSPObject
+        : isCollection
+          ? getSPObjectCollection(elementUrl)(listSPObject)
+          : getSPObject(elementUrl)(listSPObject);
+      spParentObject.listUrl = listUrl;
+      spParentObject.isLibrary = opts.isLibrary;
 
-        const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
-        const spParentObject = actionType === 'create'
-          ? listSPObject
-          : isCollection
-            ? getSPObjectCollection(elementUrl)(listSPObject)
-            : getSPObject(elementUrl)(listSPObject);
-        spParentObject.listUrl = listUrl;
-        spParentObject.isLibrary = opts.isLibrary;
-
-        const spObject = await spObjectGetter({
-          spParentObject,
-          element
-        });
-        const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
-        ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePath));
-        if (actionType === 'delete' || actionType === 'recycle') {
-          needToQuery = true;
+      const spObject = await spObjectGetter({
+        spParentObject,
+        element
+      });
+      const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
+      ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePath));
+      if (actionType === 'delete' || actionType === 'recycle') {
+        needToQuery = true;
+      } else {
+        const spObjectCached = cached ? cache.get(cachePath) : null;
+        if (cached && spObjectCached) {
+          return spObjectCached;
         } else {
-          const spObjectCached = cached ? cache.get(cachePath) : null;
-          if (cached && spObjectCached) {
-            return spObjectCached;
-          } else {
-            needToQuery = true;
-            const currentSPObjects = load(clientContext)((actionType === 'create' || actionType === 'update') && !asItem ? spObject.get_folder() : spObject)(opts)
-            spObjectsToCache.set(cachePath, currentSPObjects)
-            return currentSPObjects;
-          }
+          needToQuery = true;
+          const currentSPObjects = load(clientContext)((actionType === 'create' || actionType === 'update') && !asItem ? spObject.get_folder() : spObject)(opts)
+          spObjectsToCache.set(cachePath, currentSPObjects)
+          return currentSPObjects;
         }
-      })
-    })
+      }
+    }))
   });
 
   if (needToQuery) {
@@ -143,7 +141,8 @@ export default (parent, elements) => {
       const listUrl = spParentObject.listUrl;
       const contextUrl = spParentObject.get_context().get_url();
       const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
-      const parentFolderUrl = getParentUrl(element.Url);
+      const relFolder = getListRelativeFolder(contextUrl)(listUrl)(element.Url);
+      const parentFolderUrl = getParentUrl(relFolder);
       const elementNew = Object.assign({}, element);
       parentFolderUrl && await site(contextUrl).list(listUrl).folder(parentFolderUrl).create({
         view: ['ServerRelativeUrl'],
@@ -151,7 +150,7 @@ export default (parent, elements) => {
         expanded: true,
       }).catch(identity);
       itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder);
-      itemCreationInfo.set_leafName(element.Url);
+      itemCreationInfo.set_leafName(relFolder);
       const spObject = spParentObject.addItem(itemCreationInfo);
       return setItem(await getColumns(contextUrl)(listUrl))(elementNew)((spObject));
     }),

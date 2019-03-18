@@ -15,9 +15,9 @@ import {
 	camlLog,
 	joinQueries,
 	concatQueries,
-} from './query_parser';
-import { log, executeJSOM, prepareResponseJSOM, prepareResponseREST, getClientContext, executorJSOM } from './utility';
-import * as cache from './cache';
+} from './lib/query-parser';
+import { log, executeJSOM, prepareResponseJSOM, prepareResponseREST, getClientContext, executorJSOM } from './lib/utility';
+import * as cache from './lib/cache';
 window.axios = axios;
 window.log = log;
 window.getCamlView = getCamlView;
@@ -30,7 +30,7 @@ window.spx = spx;
 
 window.cache = cache;
 
-// test()
+test()
 
 // axios({
 // 	url: `/test/spx/_api/web/lists/getbytitle('Files')/rootfolder/folders/getbyurl('a')/files/getbyurl('add.png')`,

@@ -23,9 +23,10 @@ import {
   constant,
   pipe,
   hasUrlTailSlash,
-  slice
-} from './../utility';
-import * as cache from './../cache';
+  slice,
+  arrayLast
+} from './../lib/utility';
+import * as cache from './../lib/cache';
 import site from './../modules/site';
 
 //Internal
@@ -59,17 +60,16 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
     let totalElements = 0;
     const contextUrl = contextElement.Url;
     const contextUrls = urlSplit(contextUrl);
-    let clientContext = getClientContext(contextUrl);
-    let parentSPObject = parent.getSPObject(clientContext);
-    clientContexts[contextUrl] = [clientContext];
+    clientContexts[contextUrl] = [getClientContext(contextUrl)];
     return box.chainAsync(async element => {
       const elementUrl = element.Url;
+      let clientContext = arrayLast(clientContexts[contextUrl]);
       if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
         clientContext = getClientContext(contextUrl);
-        parentSPObject = parent.getSPObject(clientContext);
         clientContexts[contextUrl].push(clientContext);
         totalElements = 0;
       }
+      const parentSPObject = parent.getSPObject(clientContext);
       const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl);
       const spObject = await spObjectGetter({
         spParentObject: actionType === 'create'
@@ -80,7 +80,7 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
         elementUrl
       });
       const cachePath = [...contextUrls, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
-      ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePath));
+      ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePath));
       if (actionType === 'delete' || actionType === 'recycle') {
         needToQuery = true;
       } else {

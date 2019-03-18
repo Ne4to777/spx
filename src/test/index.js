@@ -9,17 +9,18 @@ import folderWeb from '../test/folderWeb';
 import item from '../test/item';
 import list from '../test/list';
 import user from '../test/user';
-import { testIsOk } from './../utility'
+import { testIsOk } from './../lib/utility'
 
 export default async _ => {
-  await cache();
-  await site();
-  await web();
-  await folderWeb();
-  await fileWeb();
-  await list();
-  await folderList();
-  await column();
-  await fileList();
+  // await cache();
+  // await site();
+  // await web();
+  // await folderWeb();
+  // await fileWeb();
+  // await list();
+  // await folderList();
+  // await column();
+  // await fileList();
+  // await item()
   testIsOk('whole test')()
 }

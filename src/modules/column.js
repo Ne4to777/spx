@@ -24,8 +24,8 @@ import {
 	isStringEmpty,
 	slice,
 	hasUrlTailSlash
-} from './../utility';
-import * as cache from './../cache';
+} from './../lib/utility';
+import * as cache from './../lib/cache';
 
 // Internal
 
@@ -57,29 +57,28 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => (o
 		const clientContext = getClientContext(contextUrl);
 		const contextUrls = urlSplit(contextUrl);
 		const contextSPObject = parent.parent.getSPObject(clientContext);
-		const spObjects = parent.box.chain(listElement =>
-			box.chain(element => {
-				const columnTitle = element.Title;
-				const listUrl = listElement.Title;
-				const listSPObject = parent.getSPObject(listUrl)(contextSPObject);
-				const isCollection = !columnTitle || hasUrlTailSlash(columnTitle);
-				const spObject = spObjectGetter({
-					spParentObject: actionType === 'create' || isCollection ? getSPObjectCollection(listSPObject) : getSPObject(columnTitle)(listSPObject),
-					element
-				});
-				const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, columnTitle];
-				ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePaths));
-				const spObjectCached = cached ? cache.get(cachePaths) : null;
-				if (actionType === 'delete' || actionType === 'recycle') return;
-				if (cached && spObjectCached) {
-					needToQuery = false;
-					return spObjectCached;
-				} else {
-					const currentSPObjects = load(clientContext)(spObject)(opts);
-					spObjectsToCache.set(cachePaths, currentSPObjects)
-					return currentSPObjects;
-				}
-			}))
+		const spObjects = parent.box.chain(listElement => box.chain(element => {
+			const columnTitle = element.Title;
+			const listUrl = listElement.Title;
+			const listSPObject = parent.getSPObject(listUrl)(contextSPObject);
+			const isCollection = !columnTitle || hasUrlTailSlash(columnTitle);
+			const spObject = spObjectGetter({
+				spParentObject: actionType === 'create' || isCollection ? getSPObjectCollection(listSPObject) : getSPObject(columnTitle)(listSPObject),
+				element
+			});
+			const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, columnTitle];
+			ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePaths));
+			const spObjectCached = cached ? cache.get(cachePaths) : null;
+			if (actionType === 'delete' || actionType === 'recycle') return;
+			if (cached && spObjectCached) {
+				needToQuery = false;
+				return spObjectCached;
+			} else {
+				const currentSPObjects = load(clientContext)(spObject)(opts);
+				spObjectsToCache.set(cachePaths, currentSPObjects)
+				return currentSPObjects;
+			}
+		}))
 		if (needToQuery) {
 			await executorJSOM(clientContext)(opts)
 			spObjectsToCache.forEach((value, key) => cache.set(value)(key))

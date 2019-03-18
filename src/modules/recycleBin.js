@@ -9,8 +9,8 @@ import {
 	overstep,
 	methodEmpty,
 	identity
-} from './../utility';
-import * as cache from './../cache';
+} from './../lib/utility';
+import * as cache from './../lib/cache';
 
 // Internal
 

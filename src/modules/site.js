@@ -11,8 +11,8 @@ import {
   getInstance,
   getContext,
   getWeb
-} from './../utility'
-import * as cache from './../cache'
+} from './../lib/utility'
+import * as cache from './../lib/cache'
 import site from './../modules/web'
 import recycleBin from './../modules/recycleBin'
 import user from './../modules/user'

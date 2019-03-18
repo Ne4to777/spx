@@ -7,7 +7,7 @@ import {
 	isArray,
 	isNumber,
 	typeOf
-} from './../utility'
+} from './../lib/utility'
 
 import site from './../modules/site';
 

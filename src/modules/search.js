@@ -1,4 +1,4 @@
-import { getClientContext, getInstance, Box, load, executorJSOM, setFields } from './../utility';
+import { getClientContext, getInstance, Box, load, executorJSOM, setFields } from './../lib/utility';
 
 // const QUERY_TEMPLATES = [
 //   '{searchboxquery}',

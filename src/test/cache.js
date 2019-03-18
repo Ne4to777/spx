@@ -1,5 +1,5 @@
-import { set, unset, inspect } from './../cache'
-import { assert, testIsOk } from './../utility'
+import { set, unset, inspect } from './../lib/cache'
+import { assert, testIsOk } from './../lib/utility'
 
 const testUnit = path => operation => sample => {
   operation && operation(path);

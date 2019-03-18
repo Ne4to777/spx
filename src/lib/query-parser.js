@@ -1,4 +1,4 @@
-import { chunkArray, stringMatch, arrayTail, arrayHead, isObject, getArray, reduce, map, pipe, stringReplace, stringTrim, stringSplit } from './../utility'
+import { chunkArray, stringMatch, arrayTail, arrayHead, isObject, getArray, reduce, map, pipe, stringReplace, stringTrim, stringSplit } from './utility'
 const IN_CHUNK_SIZE = 500;
 const IN_CUSTOM_DELIMETER = '_DELIMITER_';
 const GROUP_REGEXP_STR = '\\s(\&\&|\|\||and|or)\\s';

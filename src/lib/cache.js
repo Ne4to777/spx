@@ -1,4 +1,4 @@
-import { pipe, filter, fix, constant, isExists } from './../utility'
+import { pipe, filter, fix, constant, isExists } from './utility'
 
 const cache = {};
 

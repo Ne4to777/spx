@@ -1,5 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert } from './../utility';
+import { assertObject, assertCollection, testIsOk, assert } from './../lib/utility';
 
 const PROPS = [
   'AllowContentTypes',

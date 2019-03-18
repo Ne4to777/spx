@@ -1,5 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, map } from './../utility'
+import { assertObject, assertCollection, testIsOk, assert, map } from './../lib/utility'
 
 const PROPS = [
   'AllowRssFeeds',

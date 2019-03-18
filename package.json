@@ -6,11 +6,11 @@
 	"main": "index.js",
 	"private": false,
 	"scripts": {
-		"dev": "node lib/init.js && concurrently --kill-others \"node lib/proxy.js\" \"webpack-dev-server --open  --config config/webpack.dev.js\"",
-		"prod": "webpack --config config/webpack.prod.js",
-		"build": "webpack --config config/webpack.build.js",
-		"commit": "webpack --config config/webpack.commit.js",
-		"copy": "webpack --config config/webpack.copy.js",
+		"dev": "node dev/init.js && concurrently --kill-others \"node dev/proxy.js\" \"webpack-dev-server --open  --config dev/webpack.dev.js\"",
+		"prod": "webpack --config dev/webpack.prod.js",
+		"build": "webpack --config dev/webpack.build.js",
+		"commit": "webpack --config dev/webpack.commit.js",
+		"copy": "webpack --config dev/webpack.copy.js",
 		"patchPublish": "npm run build && cd publish && npm version patch && npm publish"
 	},
 	"sideEffects": false,

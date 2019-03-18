@@ -1,6 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert } from './../utility';
-import * as cache from './../cache'
+import { assertObject, assertCollection, testIsOk, assert } from './../lib/utility';
 
 const PROPS = [
   'CanBeDeleted',

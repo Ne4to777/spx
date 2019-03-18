@@ -1,5 +1,5 @@
 import site from './../modules/site';
-import { assertObject, assertCollection, testIsOk } from './../utility';
+import { assertObject, assertCollection, testIsOk } from './../lib/utility';
 
 const PROPS = [
   'AllowCreateDeclarativeWorkflow',

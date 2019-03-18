@@ -1,5 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled } from './../utility';
+import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled } from './../lib/utility';
 
 const PROPS = [
   'ItemCount',
@@ -64,12 +64,12 @@ const assertCollectionItemProps = assertCollection(ITEM_PROPS);
 const rootWebList = site().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
 const workingWebList = site('test/spx').list('Test');
 
-const crud = async _ => workingWebList.folder('a/singleFolder').delete({ noRecycle: true, silent: true }).catch(async err => {
-  const newFolder = await assertObjectProps('new folder')(workingWebList.folder('a/singleFolder').create({ silent: true }));
+const crud = async _ => workingWebList.folder('a/b/singleFolder').delete({ noRecycle: true, silent: true }).catch(async err => {
+  const newFolder = await assertObjectProps('new folder')(workingWebList.folder('a/b/singleFolder').create({ silent: true }));
   assert(`Name is not a "singleFolder"`)(newFolder.Name === 'singleFolder');
-  const updatedFolder = await assertObjectProps('new folder')(workingWebList.folder({ Url: 'a/singleFolder', Title: 'updated folder' }).update({ silent: true }));
+  const updatedFolder = await assertObjectProps('new folder')(workingWebList.folder({ Url: 'a/b/singleFolder', Title: 'updated folder' }).update({ silent: true }));
   assert(`Name is not a "singleFolder"`)(updatedFolder.Name === 'singleFolder');
-  await workingWebList.folder('a/singleFolder').delete({ noRecycle: true, silent: true });
+  await workingWebList.folder('a/b/singleFolder').delete({ noRecycle: true, silent: true });
 });
 
 const crudAsItem = async _ => workingWebList.folder('a/singleFolderAsItem').delete({ noRecycle: true, silent: true }).catch(async err => {
@@ -80,33 +80,44 @@ const crudAsItem = async _ => workingWebList.folder('a/singleFolderAsItem').dele
   await workingWebList.folder('a/singleFolderAsItem').delete({ noRecycle: true, silent: true });
 });
 
-const crudCollection = async _ => workingWebList.folder(['a/multiFolder', 'a/multiFolderAnother']).delete({ noRecycle: true, silent: true }).catch(async err => {
-  const newFolders = await assertCollectionProps('new folder')(workingWebList.folder(['a/multiFolder', 'a/multiFolderAnother']).create({ silent: true }));
+const crudCollection = async _ => workingWebList.folder(['/test/spx/Lists/Test/a/multiFolder', '/test/spx/Lists/Test/a/multiFolderAnother']).delete({ noRecycle: true, silent: true }).catch(async err => {
+  const newFolders = await assertCollectionProps('new folder')(workingWebList.folder(['/test/spx/Lists/Test/a/multiFolder', '/test/spx/Lists/Test/a/multiFolderAnother']).create({ silent: true }));
   assert(`Name is not a "multiFolder"`)(newFolders[0].Name === 'multiFolder');
   assert(`Name is not a "multiFolderAnother"`)(newFolders[1].Name === 'multiFolderAnother');
   const updatedFolder = await assertCollectionProps('new folder')(workingWebList.folder([
-    { Url: 'a/multiFolder', Title: 'updated folder' },
-    { Url: 'a/multiFolderAnother', Title: 'updated folder another' }
+    { Url: '/test/spx/Lists/Test/a/multiFolder', Title: 'updated folder' },
+    { Url: '/test/spx/Lists/Test/a/multiFolderAnother', Title: 'updated folder another' }
   ]).update({ silent: true }));
   assert(`Name is not a "multiFolder"`)(updatedFolder[0].Name === 'multiFolder');
   assert(`Name is not a "multiFolderAnother"`)(updatedFolder[1].Name === 'multiFolderAnother');
-  await workingWebList.folder(['a/multiFolder', 'a/multiFolderAnother']).delete({ noRecycle: true, silent: true });
+  await workingWebList.folder(['/test/spx/Lists/Test/a/multiFolder', '/test/spx/Lists/Test/a/multiFolderAnother']).delete({ noRecycle: true, silent: true });
 });
 
-const crudCollectionAsItem = async _ => workingWebList.folder(['a/multiFolderAsItem', 'a/multiFolderAsItemAnother']).delete({ noRecycle: true, silent: true }).catch(async err => {
+const crudCollectionAsItem = async _ => workingWebList.folder(['/test/spx/Lists/Test/a/multiFolderAsItem', '/test/spx/Lists/Test/a/multiFolderAsItemAnother']).delete({ noRecycle: true, silent: true }).catch(async err => {
   const newFolders = await assertCollectionItemProps('new folder')(workingWebList.folder([
-    { Url: 'a/multiFolderAsItem', Title: 'new folder' },
-    { Url: 'a/multiFolderAsItemAnother', Title: 'new folder another' }]).create({ silent: true, asItem: true }));
+    { Url: '/test/spx/Lists/Test/a/multiFolderAsItem', Title: 'new folder' },
+    { Url: '/test/spx/Lists/Test/a/multiFolderAsItemAnother', Title: 'new folder another' }]).create({ silent: true, asItem: true }));
   assert(`Title is not a "new folder"`)(newFolders[0].Title === 'new folder');
   assert(`Title is not a "new folder another"`)(newFolders[1].Title === 'new folder another');
   const updatedFolders = await assertCollectionItemProps('new folder')(workingWebList.folder([
-    { Url: 'a/multiFolderAsItem', Title: 'updated folder' },
-    { Url: 'a/multiFolderAsItemAnother', Title: 'updated folder another' }
+    { Url: '/test/spx/Lists/Test/a/multiFolderAsItem', Title: 'updated folder' },
+    { Url: '/test/spx/Lists/Test/a/multiFolderAsItemAnother', Title: 'updated folder another' }
   ]).update({ silent: true, asItem: true }));
   assert(`Title is not a "updated folder"`)(updatedFolders[0].Title === 'updated folder');
   assert(`Title is not a "updated folder another"`)(updatedFolders[1].Title === 'updated folder another');
-  await workingWebList.folder(['a/multiFolderAsItem', 'a/multiFolderAsItemAnother']).delete({ noRecycle: true, silent: true });
+  await workingWebList.folder(['/test/spx/Lists/Test/a/multiFolderAsItem', '/test/spx/Lists/Test/a/multiFolderAsItemAnother']).delete({ noRecycle: true, silent: true });
 });
+
+const crudBundle = async _ => {
+  const foldersToCreate = [];
+  const budleList = site('test/spx').list('Bundle');
+  for (let i = 0; i < 253; i++) foldersToCreate.push({ Title: `test ${i}` })
+  const newFolders = await budleList.folder(foldersToCreate).create();
+  const foldersToUpdate = reduce(acc => el => acc.concat({ ID: el.ID, Title: `${el.Title} updated` }))([])(newFolders)
+  const updatedItems = await budleList.folder(foldersToUpdate).update();
+  const foldersTodelete = map(prop('ID'))(updatedItems);
+  await budleList.folder(foldersTodelete).delete({ noRecycle: true });
+}
 
 export default _ => Promise.all([
   assertObjectProps('root web list folder')(rootWebList.folder().get()),

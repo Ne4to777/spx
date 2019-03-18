@@ -6,7 +6,7 @@ import {
   prepareResponseJSOM,
   executorJSOM,
   isString
-} from './../utility'
+} from './../lib/utility'
 
 // Interface
 

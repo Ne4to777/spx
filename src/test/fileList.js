@@ -1,5 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled } from './../utility';
+import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled } from './../lib/utility';
 
 const PROPS = [
   'CheckInComment',

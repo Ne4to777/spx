@@ -33,9 +33,12 @@ import {
   isObject,
   typeOf,
   setItem,
-} from './../utility';
+  ifThen,
+  join,
+  arrayLast
+} from './../lib/utility';
 import axios from 'axios';
-import * as cache from './../cache';
+import * as cache from './../lib/cache';
 
 import site from './../modules/site';
 
@@ -89,47 +92,44 @@ const execute = parent => box => cacheLeaf => actionType => spObjectGetter => as
     let totalElements = 0;
     const contextUrl = contextElement.Url;
     const contextUrls = urlSplit(contextUrl);
-    let clientContext = getClientContext(contextUrl);
-    clientContexts[contextUrl] = [clientContext];
-    return parent.box.chainAsync(listElement => {
+    clientContexts[contextUrl] = [getClientContext(contextUrl)];
+    return parent.box.chainAsync(listElement => box.chainAsync(async element => {
+      const elementUrl = element.Url;
+      let clientContext = arrayLast(clientContexts[contextUrl]);
       const listUrl = listElement.Url;
-      let listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-      return box.chainAsync(async element => {
-        const elementUrl = element.Url;
-        if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
-          clientContext = getClientContext(contextUrl);
-          listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-          clientContexts[contextUrl].push(clientContext);
-          totalElements = 0;
-        }
-        const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
-        const spParentObject = actionType === 'create'
+      if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
+        clientContext = getClientContext(contextUrl);
+        clientContexts[contextUrl].push(clientContext);
+        totalElements = 0;
+      }
+      const listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
+      const isCollection = isExists(elementUrl) && hasUrlTailSlash(elementUrl);
+      const spParentObject = actionType === 'create'
+        ? getSPObjectCollection(elementUrl)(listSPObject)
+        : isCollection
           ? getSPObjectCollection(elementUrl)(listSPObject)
-          : isCollection
-            ? getSPObjectCollection(elementUrl)(listSPObject)
-            : getSPObject(elementUrl)(listSPObject)
-        spParentObject.listUrl = listUrl;
-        const spObject = await spObjectGetter({
-          spParentObject,
-          element
-        });
-        const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
-        ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePath));
-        if (actionType === 'delete' || actionType === 'recycle') {
-          needToQuery = true;
+          : getSPObject(elementUrl)(listSPObject)
+      spParentObject.listUrl = listUrl;
+      const spObject = await spObjectGetter({
+        spParentObject,
+        element
+      });
+      const cachePath = [...contextUrls, 'lists', listUrl, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
+      ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePath));
+      if (actionType === 'delete' || actionType === 'recycle') {
+        needToQuery = true;
+      } else {
+        const spObjectCached = cached ? cache.get(cachePath) : null;
+        if (cached && spObjectCached) {
+          return spObjectCached;
         } else {
-          const spObjectCached = cached ? cache.get(cachePath) : null;
-          if (cached && spObjectCached) {
-            return spObjectCached;
-          } else {
-            needToQuery = true;
-            const currentSPObjects = load(clientContext)((actionType === 'create' || actionType === 'update') && !asItem ? spObject.get_file() : spObject)(opts);
-            spObjectsToCache.set(cachePath, currentSPObjects)
-            return currentSPObjects;
-          }
+          needToQuery = true;
+          const currentSPObjects = load(clientContext)((actionType === 'create' || actionType === 'update') && !asItem ? spObject.get_file() : spObject)(opts);
+          spObjectsToCache.set(cachePath, currentSPObjects)
+          return currentSPObjects;
         }
-      })
-    })
+      }
+    }))
   });
   if (needToQuery) {
     parallelized ?
@@ -223,7 +223,7 @@ const createWithJSOM = async ({ spParentObject, element }) => {
   const fieldsToCreate = {};
   for (const fieldName in Columns) {
     const field = Columns[fieldName];
-    fieldsToCreate[fieldName] = isArray(field) ? field.join(';#;#') : field;
+    fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
   }
   const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
   setFields({
@@ -290,7 +290,7 @@ const createWithRESTFromBlob = async ({ contextUrl, listUrl, element }) => {
     }
   }
   const form = window.document.createElement('form');
-  form.innerHTML = inputs.join('');
+  form.innerHTML = join('')(inputs);
   const formData = new FormData(form);
   formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$InputFile', Content, filename);
   return {
@@ -364,8 +364,8 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
             Overwrite: element.Overwrite,
             Columns: existedColumnsToUpdate
           }).create({ silent: true });
+          isMove && await spxSourceFile.delete()
         }
-        isMove && await spxSourceFile.delete()
       })
     })
   })
@@ -416,7 +416,7 @@ export default (parent, elements) => {
         const fieldsToUpdate = {};
         for (const fieldName in Columns) {
           const field = Columns[fieldName];
-          fieldsToUpdate[fieldName] = isArray(field) ? field.join(';#;#') : field;
+          fieldsToUpdate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
         }
         const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
         setFields({
