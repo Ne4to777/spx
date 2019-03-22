@@ -19,7 +19,7 @@ fs.stat('./dev/private.json', async (err, stats) => {
 		const username = await question('Username: ');
 		const password = await question('Password: ');
 		const path = await question('Project absolute path (f.e. "Z:/a/b"): ');
-		const filename = await question('Output filename: ');
+		const filename = await question('Output filename (index.js): ');
 		const library = await question('Library name: ')
 		await fs.writeFileSync('./dev/private.json', JSON.stringify({
 			siteUrl: host || 'http://aura.dme.aero.corp',
@@ -28,8 +28,8 @@ fs.stat('./dev/private.json', async (err, stats) => {
 			username: username,
 			password: new Cpass().encode(password),
 			path: path.replace(/\//g, '\\'),
-			filename: filename,
-			library: library
+			filename: filename || 'index.js',
+			library: library || 'spx'
 		}));
 	}
 	rl.close();
