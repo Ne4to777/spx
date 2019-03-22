@@ -21,7 +21,6 @@ import {
   getWebRelativeUrl,
   switchCase,
   typeOf,
-  isArray,
   shiftSlash,
   ifThen,
   isArrayFilled,
@@ -30,7 +29,6 @@ import {
   removeEmptyUrls,
   removeDuplicatedUrls,
   constant,
-  join,
   deep2Iterator,
   deep2IteratorREST,
   webReport
@@ -228,7 +226,7 @@ export default (parent, elements) => {
         methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
       });
       await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
-      webReport({ ...opts, NAME, actionType: 'delete', box: instance.box, contextBox: instance.parent.box });
+      webReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, contextBox: instance.parent.box });
       return prepareResponseJSOM(opts)(result);
     },
 

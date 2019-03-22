@@ -8,7 +8,6 @@ import {
   switchCase,
   getTitleFromUrl,
   identity,
-  isStringEmpty,
   popSlash,
   getParentUrl,
   method,
@@ -169,7 +168,7 @@ export default (parent, elements) => {
         !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
       });
       await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
-      webReport({ ...opts, NAME, actionType: 'delete', box: instance.box, contextBox: instance.parent.box });
+      webReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, contextBox: instance.parent.box });
       return prepareResponseJSOM(opts)(result);
     }
   }

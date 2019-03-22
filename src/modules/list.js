@@ -255,7 +255,7 @@ export default (parent, urls) => {
 				methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			});
 			await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
-			report({ ...opts, actionType: 'delete', box: instance.box, parentBox: instance.parent.box });
+			report({ ...opts, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, parentBox: instance.parent.box });
 			return prepareResponseJSOM(opts)(result);
 		},
 

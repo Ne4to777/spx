@@ -26,7 +26,6 @@ import {
   removeDuplicatedUrls,
   shiftSlash,
   mergeSlashes,
-  isStringEmpty,
   getParentUrl,
   deep2Iterator,
   deep3Iterator,
@@ -238,7 +237,7 @@ export default (parent, elements) => {
         !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
       });
       await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
-      listReport({ ...opts, NAME, actionType: 'delete', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+      listReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
       return prepareResponseJSOM(opts)(result);
     }
   }
