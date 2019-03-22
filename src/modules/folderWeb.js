@@ -1,32 +1,32 @@
 import {
-  ACTION_TYPES_TO_UNSET,
-  REQUEST_BUNDLE_MAX_SIZE,
-  ACTION_TYPES,
-  Box,
+  AbstractBox,
   getInstance,
   methodEmpty,
   prepareResponseJSOM,
-  getClientContext,
-  urlSplit,
   load,
   executorJSOM,
-  overstep,
+  switchCase,
   getTitleFromUrl,
   identity,
-  getContext,
   isStringEmpty,
   popSlash,
-  prop,
   getParentUrl,
   method,
   ifThen,
   constant,
   pipe,
   hasUrlTailSlash,
-  slice,
-  arrayLast
+  getWebRelativeUrl,
+  typeOf,
+  shiftSlash,
+  mergeSlashes,
+  isArrayFilled,
+  map,
+  removeEmptyUrls,
+  removeDuplicatedUrls,
+  deep2Iterator,
+  webReport
 } from './../lib/utility';
-import * as cache from './../lib/cache';
 import site from './../modules/site';
 
 //Internal
@@ -35,7 +35,11 @@ const NAME = 'folder';
 
 const getSPObject = elementUrl => ifThen(constant(elementUrl))([
   method('getFolderByServerRelativeUrl')(elementUrl),
-  methodEmpty('get_rootFolder')
+  spObject => {
+    const rootFolder = methodEmpty('get_rootFolder')(spObject);
+    rootFolder.isRoot = true;
+    return rootFolder
+  }
 ])
 
 const getSPObjectCollection = elementUrl => pipe([
@@ -46,84 +50,127 @@ const getSPObjectCollection = elementUrl => pipe([
   methodEmpty('get_folders')
 ])
 
-const report = ({ silent, actionType }) => parentBox => box => spObjects => (
-  !silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()} at ${parentBox.join()}`),
-  spObjects
-)
+const liftFolderType = switchCase(typeOf)({
+  object: context => {
+    const newContext = Object.assign({}, context);
+    if (!context.Url && context.ServerRelativeUrl) newContext.Url = context.ServerRelativeUrl;
+    if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url);
+    if (!context.ServerRelativeUrl && context.Url) newContext.ServerRelativeUrl = context.Url;
+    return newContext
+  },
+  string: contextUrl => {
+    const url = contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl));
+    return {
+      Url: url,
+      ServerRelativeUrl: url
+    }
+  },
+  default: _ => ({
+    Url: '',
+    ServerRelativeUrl: ''
+  })
+})
 
-const execute = parent => box => cacheLeaf => actionType => spObjectGetter => async (opts = {}) => {
-  let needToQuery;
-  const clientContexts = {};
-  const spObjectsToCache = new Map;
-  const { cached, } = opts;
-  const elements = await parent.box.chainAsync(async contextElement => {
-    let totalElements = 0;
-    const contextUrl = contextElement.Url;
-    const contextUrls = urlSplit(contextUrl);
-    clientContexts[contextUrl] = [getClientContext(contextUrl)];
-    return box.chainAsync(async element => {
-      const elementUrl = element.Url;
-      let clientContext = arrayLast(clientContexts[contextUrl]);
-      if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
-        clientContext = getClientContext(contextUrl);
-        clientContexts[contextUrl].push(clientContext);
-        totalElements = 0;
-      }
-      const parentSPObject = parent.getSPObject(clientContext);
-      const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl);
-      const spObject = await spObjectGetter({
-        spParentObject: actionType === 'create'
-          ? getSPObject(getParentUrl(elementUrl))(parentSPObject)
-          : isCollection
-            ? getSPObjectCollection(elementUrl)(parentSPObject)
-            : getSPObject(elementUrl)(parentSPObject),
-        elementUrl
-      });
-      const cachePath = [...contextUrls, NAME, isCollection ? cacheLeaf + 'Collection' : cacheLeaf, elementUrl];
-      ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePath));
-      if (actionType === 'delete' || actionType === 'recycle') {
-        needToQuery = true;
-      } else {
-        const spObjectCached = cached ? cache.get(cachePath) : null;
-        if (cached && spObjectCached) {
-          return spObjectCached;
-        } else {
-          needToQuery = true;
-          const currentSPObjects = load(clientContext)(spObject)(opts);
-          spObjectsToCache.set(cachePath, currentSPObjects)
-          return currentSPObjects;
-        }
-      }
-    })
-  });
-  if (needToQuery) {
-    await parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
-    !actionType && spObjectsToCache.forEach((value, key) => cache.set(value)(key))
-  };
-  report({ ...opts, actionType })(parent.box)(box)();
-  return prepareResponseJSOM(opts)(elements);
+class Box extends AbstractBox {
+  constructor(value) {
+    super(value);
+    this.joinProp = 'ServerRelativeUrl';
+    this.value = this.isArray
+      ? ifThen(isArrayFilled)([
+        pipe([
+          map(liftFolderType),
+          removeEmptyUrls,
+          removeDuplicatedUrls
+        ]),
+        constant([liftFolderType()])
+      ])(value)
+      : liftFolderType(value);
+  }
 }
 
 // Inteface
 
 export default (parent, elements) => {
   const instance = {
-    box: getInstance(Box)(elements, 'folder'),
+    box: getInstance(Box)(elements),
     parent,
   };
-  const executeBinded = execute(parent)(instance.box)('properties');
   return {
+    get: async opts => {
+      const { clientContexts, result } = await deep2Iterator({
+        contextBox: instance.parent.box,
+        elementBox: instance.box
+      })(({ contextElement, clientContext, element }) => {
+        const parentSPObject = instance.parent.getSPObject(clientContext);
+        const contextUrl = contextElement.Url;
+        const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
+        const isCollection = hasUrlTailSlash(elementUrl);
+        const spObject = isCollection
+          ? getSPObjectCollection(elementUrl)(parentSPObject)
+          : getSPObject(elementUrl)(parentSPObject);
+        return load(clientContext)(spObject)(opts);
+      });
+      await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      return prepareResponseJSOM(opts)(result);
+    },
 
-    get: executeBinded(null)(prop('spParentObject')),
+    create: async function create(opts) {
+      const { clientContexts, result } = await deep2Iterator({
+        contextBox: instance.parent.box,
+        elementBox: instance.box
+      })(({ contextElement, clientContext, element }) => {
+        const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
+        const parentFolderUrl = getParentUrl(elementUrl);
+        const spObject = getSPObjectCollection(`${parentFolderUrl}/`)(instance.parent.getSPObject(clientContext)).add(getTitleFromUrl(elementUrl));
+        return load(clientContext)(spObject)(opts);
+      });
 
-    create: (instance => executeBinded('create')(async ({ spParentObject, elementUrl }) => {
-      const clientContext = getContext(spParentObject);
-      const parentFolderUrl = getParentUrl(elementUrl);
-      if (parentFolderUrl) await site(clientContext.get_url()).folder(parentFolderUrl).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
-      return getSPObjectCollection(`${parentFolderUrl}/`)(instance.parent.getSPObject(clientContext)).add(getTitleFromUrl(elementUrl));
-    }))(instance),
+      let needToRetry;
+      await instance.parent.box.chain(async el => {
+        for (const clientContext of clientContexts[el.Url]) {
+          await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+            if (err.get_message() === 'File Not Found.') {
+              const foldersToCreate = {};
+              await deep2Iterator({
+                contextBox: instance.parent.box,
+                elementBox: instance.box
+              })(({ contextElement, element }) => {
+                const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
+                foldersToCreate[getParentUrl(elementUrl)] = true;
+              })
+              await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
+                needToRetry = true;
+              }).catch(identity)
+            } else {
+              console.error(err.get_message())
+            }
+          })
+          if (needToRetry) break;
+        }
+      });
+      if (needToRetry) {
+        return create(opts)
+      } else {
+        webReport({ ...opts, NAME, actionType: 'create', box: instance.box, contextBox: instance.parent.box });
+        return prepareResponseJSOM(opts)(result);
+      }
+    },
 
-    delete: (opts = {}) => executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
-      overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts)
+    delete: async (opts = {}) => {
+      const { noRecycle } = opts;
+      const { clientContexts, result } = await deep2Iterator({
+        contextBox: instance.parent.box,
+        elementBox: instance.box
+      })(({ contextElement, clientContext, element }) => {
+        const contextUrl = contextElement.Url;
+        const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
+        const parentSPObject = instance.parent.getSPObject(clientContext);
+        const spObject = getSPObject(elementUrl)(parentSPObject);
+        !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+      });
+      await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      webReport({ ...opts, NAME, actionType: 'delete', box: instance.box, contextBox: instance.parent.box });
+      return prepareResponseJSOM(opts)(result);
+    }
   }
 }

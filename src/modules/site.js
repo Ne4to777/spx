@@ -1,18 +1,10 @@
 import {
-  ContextUrlBox,
   getClientContext,
   prepareResponseJSOM,
-  substitutionI,
   executeJSOM,
-  pipe,
-  identity,
   methodEmpty,
-  methodI,
   getInstance,
-  getContext,
-  getWeb
 } from './../lib/utility'
-import * as cache from './../lib/cache'
 import site from './../modules/web'
 import recycleBin from './../modules/recycleBin'
 import user from './../modules/user'
@@ -23,21 +15,21 @@ import user from './../modules/user'
 const NAME = 'site';
 
 const getSPObject = methodEmpty('get_site');
-const getListTemplates = methodI('getCustomListTemplates');
 
-const box = getInstance(ContextUrlBox)('/');
 
-const execute = cacheLeaf => spObjectGetter => async (opts = {}) => {
-  const { cached } = opts;
-  const clientContext = getClientContext('/');
-  const spObject = spObjectGetter(getSPObject(clientContext));
-  const cachePath = [NAME, cacheLeaf + 'Collection'];
-  const spObjectCached = cached ? cache.get(cachePath) : null;
-  if (cached && spObjectCached) return prepareResponseJSOM(opts)(currentSPObjects);
-  const currentSPObjects = await executeJSOM(clientContext)(spObject)(opts);
-  cache.set(currentSPObjects)(cachePath);
-  return prepareResponseJSOM(opts)(currentSPObjects);
+class Box {
+  constructor(value) {
+    this.value = { Url: value }
+  }
+  async chain(f) {
+    return f(this.value);
+  }
+  join() {
+    return this.value;
+  }
 }
+
+const box = getInstance(Box)('/');
 
 // Interface
 
@@ -45,8 +37,26 @@ const execute = cacheLeaf => spObjectGetter => async (opts = {}) => {
 site.user = user;
 site.recycleBin = recycleBin({ box, getSPObject });
 
-site.get = execute('properties')(identity);
-site.getCustomListTemplates = execute('customListTemplates')(substitutionI(pipe([getContext, getWeb]))(getListTemplates));
-site.getWebTemplates = execute('webTemplates')(spParentObject => spParentObject.getWebTemplates(1033, 0));
+site.get = async (opts = {}) => {
+  const clientContext = getClientContext('/');
+  const spObject = getSPObject(clientContext);
+  const currentSPObjects = await executeJSOM(clientContext)(spObject)(opts);
+  return prepareResponseJSOM(opts)(currentSPObjects);
+}
+site.getCustomListTemplates = async (opts = {}) => {
+  const clientContext = getClientContext('/');
+  const spObject = getSPObject(clientContext);
+  const web = clientContext.get_web();
+  const templates = spObject.getCustomListTemplates(web);
+  const currentSPObjects = await executeJSOM(clientContext)(templates)(opts);
+  return prepareResponseJSOM(opts)(currentSPObjects);
+}
+site.getWebTemplates = async (opts = {}) => {
+  const clientContext = getClientContext('/');
+  const spObject = getSPObject(clientContext);
+  const templates = spObject.getWebTemplates(1033, 0);
+  const currentSPObjects = await executeJSOM(clientContext)(templates)(opts);
+  return prepareResponseJSOM(opts)(currentSPObjects);
+}
 
 export default site;

@@ -1,27 +1,32 @@
 import {
-	ACTION_TYPES_TO_UNSET,
-	REQUEST_BUNDLE_MAX_SIZE,
-	ACTION_TYPES,
 	MAX_ITEMS_LIMIT,
-	IS_DELETE_ACTION,
-	Box,
+	AbstractBox,
 	getInstance,
 	prepareResponseJSOM,
-	getClientContext,
-	urlSplit,
 	load,
 	executorJSOM,
 	getInstanceEmpty,
-	slice,
 	setItem,
 	prop,
-	overstep,
 	methodEmpty,
 	identity,
 	arrayInit,
-	isNumber,
 	typeOf,
-	arrayLast
+	switchCase,
+	deep3Iterator,
+	hasUrlTailSlash,
+	shiftSlash,
+	mergeSlashes,
+	ifThen,
+	isArrayFilled,
+	map,
+	constant,
+	deep2Iterator,
+	listReport,
+	getListRelativeUrl,
+	popSlash,
+	isDefined,
+	isNull
 } from './../lib/utility';
 import * as cache from './../lib/cache';
 import {
@@ -39,36 +44,39 @@ import site from './../modules/site';
 
 const NAME = 'item';
 
-export const getColumns = webUrl => listUrl => site(webUrl).list(listUrl).column().get({
-	view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
-	groupBy: 'InternalName',
-	cached: true
-})
-
-const getSPObject = element => parentElement => {
+const getSPObject = element => listUrl => parentElement => {
 	let camlQuery = new SP.CamlQuery();
 	const ID = element.ID;
+	const contextUrl = parentElement.get_context().get_url();
 	switch (typeOf(ID)) {
 		case 'number': {
 			const spObject = parentElement.getItemById(ID);
-			spObject.listUrl = parentElement.listUrl;
 			return spObject
 		}
-		case 'string': camlQuery.set_viewXml(getCamlView()(ID)); break;
+		case 'string':
+			hasUrlTailSlash(ID)
+				? camlQuery.set_folderServerRelativeUrl(`${contextUrl}/${popSlash(ID)}`)
+				: camlQuery.set_viewXml(getCamlView()(ID));
+			break;
 		default:
 			if (element.set_viewXml) {
 				camlQuery = element;
 			} else if (element.get_lookupId) {
 				const spObject = parentElement.getItemById(element.get_lookupId());
-				spObject.listUrl = parentElement.listUrl;
 				return spObject
 			} else {
 				const { Folder, Query, Page, IsLibrary } = element;
 				if (Folder) {
-					const isFullUrl = new RegExp(parentElement.get_context().get_url(), 'i').test(Folder);
-					camlQuery.set_folderServerRelativeUrl(isFullUrl ? Folder : `${IsLibrary ? '' : 'Lists/'}${parentElement.listUrl}/${Folder}`);
+					let fullUrl = '';
+					if (contextUrl === '/') {
+						fullUrl = (IsLibrary ? '' : 'Lists/') + `${listUrl}/${Folder}`;
+					} else {
+						const isFullUrl = new RegExp(parentElement.get_context().get_url(), 'i').test(Folder);
+						fullUrl = isFullUrl ? Folder : ((IsLibrary ? '' : 'Lists/') + `${listUrl}/${Folder}`);
+					}
+					camlQuery.set_folderServerRelativeUrl(fullUrl);
 				}
-				element && camlQuery.set_viewXml(getCamlView(element)(Query));
+				camlQuery.set_viewXml(getCamlView(element)(Query));
 				if (Page) {
 					const position = new SP.ListItemCollectionPosition();
 					const { IsPrevious, Id, Column, Value } = Page;
@@ -79,175 +87,221 @@ const getSPObject = element => parentElement => {
 	}
 	const spObject = parentElement.getItems(camlQuery);
 	spObject.camlQuery = camlQuery;
-	spObject.listUrl = parentElement.listUrl;
 	return spObject
 }
 
-const listIterator = it => f => it.parent.parent.box.chainAsync(contextElement =>
-	it.parent.box.chainAsync(listElement => f(contextElement.Url)(listElement.Url))
-)
-
-const itemIterator = it => f => it.parent.parent.box.chainAsync(contextElement =>
-	it.parent.box.chainAsync(listElement =>
-		it.box.chainAsync(f(contextElement.Url)(listElement.Url))
-	)
-)
-
-const operateDuplicates = it => (opts = {}) => listIterator(it)(webUrl => async listUrl => {
-	const items = await site(webUrl).list(listUrl).item({
-		Scope: 'allItems',
-		Limit: MAX_ITEMS_LIMIT
-	}).get({
-		view: ['ID', 'FSObjType', 'Modified', ...it.box.getValues().map(prop('ID'))]
-	});
-	const itemsMap = new Map;
-	const getHashedColumnName = itemData => {
-		const values = [];
-		it.box.map(column => {
-			const value = itemData[column.ID];
-			if (value === null || value === void 0) {
-				return
-			} else {
-				values.push(value.get_lookupId ? value.get_lookupId() : value);
-			}
-		})
-		return MD5(values.join('.')).toString();
-	}
-	for (const item of items) {
-		const hashedColumnName = getHashedColumnName(item);
-		if (hashedColumnName !== void 0) {
-			if (!itemsMap.has(hashedColumnName)) itemsMap.set(hashedColumnName, []);
-			itemsMap.get(hashedColumnName).push(item);
+const liftItemType = switchCase(typeOf)({
+	object: item => {
+		const newItem = Object.assign({}, item);
+		if (!item.Url) newItem.Url = item.ID;
+		if (!item.ID) newItem.ID = item.Url;
+		return newItem
+	},
+	string: (item = '') => {
+		const url = shiftSlash(mergeSlashes(item));
+		return {
+			Url: url,
+			ID: url,
 		}
-	}
-	let duplicatedsSorted = [];
-	for (const [hashedColumnName, duplicateds] of itemsMap) {
-		if (duplicateds.length > 1) {
-			duplicatedsSorted = duplicatedsSorted.concat([duplicateds.sort((a, b) => a.Modified.getTime() - b.Modified.getTime())]);
-		}
-	}
-	const duplicatedsFiltered = duplicatedsSorted.map(arrayInit)
-	if (opts.delete) {
-		await list.item([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])]).delete(opts);
-	} else {
-		return duplicatedsFiltered
-	}
+	},
+	number: item => ({
+		ID: item,
+		Url: item
+	}),
+	default: _ => ({
+		ID: void 0,
+		Url: void 0
+	})
 })
 
-const report = ({ silent, actionType }) => contextBox => parentBox => box => spObjects => (
-	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()} in ${parentBox.join()} at ${contextBox.join()}`),
-	spObjects
-)
-
-const execute = parent => box => cacheLeaf => actionType => spObjectGetter => async (opts = {}) => {
-	let needToQuery;
-	const clientContexts = {};
-	const spObjectsToCache = new Map;
-	const { cached, showCaml, parallelized = actionType !== 'create' } = opts;
-	if (!opts.view && actionType) opts.view = ['ID'];
-	const elements = await parent.parent.box.chainAsync(contextElement => {
-		let totalElements = 0;
-		const contextUrl = contextElement.Url;
-		const contextUrls = urlSplit(contextUrl);
-		clientContexts[contextUrl] = [getClientContext(contextUrl)];
-		return parent.box.chainAsync(listElement => box.chainAsync(async element => {
-			let clientContext = arrayLast(clientContexts[contextUrl]);
-			const listUrl = listElement.Url;
-			if (actionType && ++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
-				clientContext = getClientContext(contextUrl);
-				clientContexts[contextUrl].push(clientContext);
-				totalElements = 0;
-			}
-			const listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
-			listSPObject.listUrl = listUrl;
-			const spObject = await spObjectGetter({
-				spParentObject: actionType === 'create' ? listSPObject : getSPObject(element)(listSPObject),
-				element
-			});
-			const isID = isNumber(element.ID);
-			showCaml && spObject.camlQuery && camlLog(spObject.camlQuery.get_viewXml());
-			const cachePath = isID ?
-				element.ID :
-				MD5(spObject.get_path().$1_1.toString().match(/<Parameters>.*<\/Parameters>/) + (opts.view || '')).toString();
-			const cachePaths = [...contextUrls, 'lists', listUrl, NAME, isID ? cacheLeaf : cacheLeaf + 'Collection', cachePath];
-			ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -2)(cachePaths));
-			if (IS_DELETE_ACTION[actionType]) {
-				needToQuery = true;
-				return spObject;
-			} else {
-				const spObjectCached = cached ? cache.get(cachePaths) : null;
-				if (cached && spObjectCached) {
-					return spObjectCached;
-				} else {
-					needToQuery = true;
-					const currentSPObjects = load(clientContext)(spObject)(opts);
-					spObjectsToCache.set(cachePaths, currentSPObjects)
-					return currentSPObjects;
-				}
-			}
-		}))
-	});
-	if (needToQuery) {
-		parallelized ?
-			await parent.parent.box.chain(el => {
-				return Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-			}) :
-			await parent.parent.box.chain(async el => {
-				for (let clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
-			});
-		!actionType && spObjectsToCache.forEach((value, key) => cache.set(value)(key))
-	};
-	const items = prepareResponseJSOM(opts)(elements);
-	report({ ...opts, actionType })(parent.parent.box)(parent.box)(actionType === 'create' ? getInstance(Box)(items, 'item') : box)();
-	return items;
+class Box extends AbstractBox {
+	constructor(value) {
+		super(value);
+		this.joinProp = 'ID';
+		this.value = this.isArray
+			? ifThen(isArrayFilled)([
+				map(liftItemType),
+				constant([liftItemType()])
+			])(value)
+			: liftItemType(value);
+	}
 }
+
+export const cacheColumns = contextBox => elementBox =>
+	deep2Iterator({ contextBox, elementBox })(async ({ contextElement, element }) => {
+		const contextUrl = contextElement.Url;
+		const listUrl = element.Url;
+		if (!cache.get(['columns', contextUrl, listUrl])) {
+			const columns = await site(contextUrl).list(listUrl).column().get({
+				view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
+				groupBy: 'InternalName'
+			})
+			cache.set(columns)(['columns', contextUrl, listUrl]);
+		}
+	})
+
+const operateDuplicates = instance => async (opts = {}) => {
+	const { result } = await deep2Iterator({
+		contextBox: instance.parent.parent.box,
+		elementBox: instance.parent.box
+	})(async ({ contextElement, element }) => {
+		const list = site(contextElement.Url).list(element.Url);
+		const items = await list.item({
+			Scope: 'allItems',
+			Limit: MAX_ITEMS_LIMIT
+		}).get({
+			view: ['ID', 'FSObjType', 'Modified', ...instance.box.value.map(prop('ID'))]
+		});
+		const itemsMap = new Map;
+		const getHashedColumnName = itemData => {
+			const values = [];
+			instance.box.chain(column => {
+				const value = itemData[column.ID];
+				isDefined(value) && values.push(value.get_lookupId ? value.get_lookupId() : value);
+			})
+			return MD5(values.join('.')).toString();
+		}
+		for (const item of items) {
+			const hashedColumnName = getHashedColumnName(item);
+			if (hashedColumnName !== void 0) {
+				if (!itemsMap.has(hashedColumnName)) itemsMap.set(hashedColumnName, []);
+				itemsMap.get(hashedColumnName).push(item);
+			}
+		}
+		let duplicatedsSorted = [];
+		for (const [hashedColumnName, duplicateds] of itemsMap) {
+			if (duplicateds.length > 1) {
+				duplicatedsSorted = duplicatedsSorted.concat([duplicateds.sort((a, b) => a.Modified.getTime() - b.Modified.getTime())]);
+			}
+		}
+		const duplicatedsFiltered = duplicatedsSorted.map(arrayInit)
+		if (opts.delete) {
+			await list.item([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])]).delete(opts);
+		} else {
+			return duplicatedsFiltered
+		}
+	})
+	return result;
+}
+
 // Inteface
 
 export default (parent, elements) => {
 	const instance = {
-		box: getInstance(Box)(elements, 'item'),
+		box: getInstance(Box)(elements),
 		parent
 	};
-	const executeBinded = execute(parent)(instance.box)('properties');
 	return {
-		get: executeBinded(null)(prop('spParentObject')),
+		get: async (opts = {}) => {
+			const { showCaml } = opts;
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(({ clientContext, parentElement, element }) => {
+				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+				const spObject = getSPObject(element)(parentElement.Url)(listSPObject);
+				showCaml && spObject.camlQuery && camlLog(spObject.camlQuery.get_viewXml());
+				return load(clientContext)(spObject)(opts)
+			})
+			await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			return prepareResponseJSOM(opts)(result)
+		},
 
-		create: (instance => async opts => {
-			await listIterator(instance)(getColumns);
-			return executeBinded('create')(async ({ spParentObject, element }) => {
-				const contextUrl = spParentObject.get_context().get_url();
-				const listUrl = spParentObject.listUrl;
-				const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
-				const { Folder, Columns } = element;
-				if (Folder) {
-					const spxFolder = site(contextUrl).list(listUrl).folder(Folder);
-					const folderOpts = { cached: true, silent: true };
-					const folderData = await spxFolder
-						.get({ ...folderOpts, asItem: true })
-						.catch(async err => await spxFolder.create({ ...folderOpts, view: ['FileRef'] }));
-					folderData.FileRef.split(listUrl)[1] && itemCreationInfo.set_folderUrl(folderData.FileRef);
+		create: async function create(opts = {}) {
+			await cacheColumns(instance.parent.parent.box)(instance.parent.box);
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(
+				({ contextElement, clientContext, parentElement, element }) => {
+					const contextUrl = contextElement.Url;
+					const listUrl = parentElement.Url;
+					const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
+					const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+					const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+					const { Folder, Columns } = element;
+					const newElement = Object.assign({}, Columns || element);
+					delete newElement.ID;
+					delete newElement.Folder;
+					Folder && itemCreationInfo.set_folderUrl(`/${contextUrl}${opts.IsLibrary ? '/' : '/Lists/'}${listUrl}/${getListRelativeUrl(contextUrl)(listUrl)(Folder)}`);
+					const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(newElement)(listSPObject.addItem(itemCreationInfo))
+					return load(clientContext)(spObject)(opts)
+				})
+			let needToRetry;
+			let isError;
+			await instance.parent.parent.box.chain(async el => {
+				for (const clientContext of clientContexts[el.Url]) {
+					await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+						if (/There is no file with URL/.test(err.get_message())) {
+							const foldersToCreate = {};
+							await deep3Iterator({
+								contextBox: instance.parent.parent.box,
+								parentBox: instance.parent.box,
+								elementBox: instance.box
+							})(({ contextElement, parentElement, element }) => {
+								const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Folder);
+								foldersToCreate[elementUrl] = true;
+							})
+							await deep2Iterator({
+								contextBox: instance.parent.parent.box,
+								elementBox: instance.parent.box
+							})(({ contextElement, element }) =>
+								site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] }).then(_ => {
+									needToRetry = true;
+								}).catch(identity)
+							)
+						} else {
+							!opts.silent && !opts.silentErrors && console.error(err.get_message())
+						}
+						isError = true;
+					})
+					if (needToRetry) break;
 				}
-				const spObject = spParentObject.addItem(itemCreationInfo);
-				return setItem(await getColumns(contextUrl)(listUrl))(Columns || element)((spObject));
-			})(opts)
-		})(instance),
+			});
+			if (needToRetry) {
+				return create(opts)
+			} else {
+				if (!isError) {
+					listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+					return prepareResponseJSOM(opts)(result);
+				}
+			}
+		},
 
-		update: (instance => async opts => {
-			await listIterator(instance)(getColumns);
-			return executeBinded('update')(async ({ spParentObject, element }) => {
-				const contextUrl = spParentObject.get_context().get_url();
-				const listUrl = spParentObject.listUrl;
+		update: async opts => {
+			await cacheColumns(instance.parent.parent.box)(instance.parent.box);
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(({ contextElement, clientContext, parentElement, element }) => {
+				if (!element.ID) throw new Error('update failed. ID is missed');
+				const contextUrl = contextElement.Url;
+				const listUrl = parentElement.Url;
+				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
 				const elementNew = Object.assign({}, element);
 				delete elementNew.ID;
-				return setItem(await getColumns(contextUrl)(listUrl))(elementNew)(spParentObject)
-			})(opts)
-		})(instance),
+				const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(elementNew)(getSPObject(element)(parentElement.Url)(listSPObject))
+				return load(clientContext)(spObject)(opts)
+			})
+			await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			return prepareResponseJSOM(opts)(result);
+		},
 
-		updateByQuery: (instance => async opts =>
-			itemIterator(instance)(webUrl => listUrl => async element => {
+		updateByQuery: async opts => {
+			const { result } = deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(async ({ contextElement, parentElement, element }) => {
 				const { Query, Columns = {} } = element;
 				if (Query === void 0) throw new Error('Query is missed');
-				const list = site(webUrl).list(listUrl);
+				const list = site(contextElement.Url).list(parentElement.Url);
 				const items = await list.item(Query).get({ ...opts, expanded: false });
 				if (items.length) {
 					const itemsToUpdate = items.map(item => {
@@ -257,55 +311,97 @@ export default (parent, elements) => {
 					});
 					return list.item(itemsToUpdate).update(opts);
 				}
-			}))(instance),
+			})
+			return result;
+		},
 
-		delete: (opts = {}) =>
-			executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spParentObject }) =>
-				overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spParentObject))(opts),
+		delete: async (opts = {}) => {
+			const { noRecycle } = opts;
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box,
+			})(({ clientContext, parentElement, element }) => {
+				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+				const spObject = getSPObject(element)(parentElement.Url)(listSPObject);
+				!spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+			});
+			await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			listReport({ ...opts, NAME, actionType: 'delete', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			return prepareResponseJSOM(opts)(result);
+		},
 
-		deleteByQuery: (instance => async opts =>
-			itemIterator(instance)(webUrl => listUrl => async element => {
+		deleteByQuery: async opts => {
+			const { result } = deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(async ({ contextElement, parentElement, element }) => {
 				if (element === void 0) throw new Error('Query is missed');
-				const list = site(webUrl).list(listUrl);
+				const list = site(contextElement.Url).list(parentElement.Url);
 				const items = await list.item(element).get(opts);
 				if (items.length) {
 					await list.item(items.map(prop('ID'))).delete();
 					return items
 				}
-			}))(instance),
+			})
+			return result;
+		},
 
 		getDuplicates: operateDuplicates(instance),
 		deleteDuplicates: (opts = {}) => operateDuplicates(instance)({ ...opts, delete: true }),
 
-		getEmpties: (instance => (opts = {}) => {
-			const columns = instance.box.getValues().map(prop('ID'));
-			return listIterator(instance)(webUrl => listUrl => site(webUrl).list(listUrl).item({
-				Query: `${joinQueries('or')('isnull')(columns)()}`,
-				Scope: 'allItems',
-				Limit: MAX_ITEMS_LIMIT
-			}).get(opts))
-		})(instance),
+		getEmpties: async opts => {
+			const columns = instance.box.value.map(prop('ID'));
+			const { result } = await deep2Iterator({
+				contextBox: instance.parent.parent.box,
+				elementBox: instance.parent.box
+			})(async ({ contextElement, element }) =>
+				site(contextElement.Url).list(element.Url).item({
+					Query: `${joinQueries('or')('isnull')(columns)()}`,
+					Scope: 'allItems',
+					Limit: MAX_ITEMS_LIMIT
+				}).get(opts))
+			return result;
+		},
+		deleteEmpties: async opts => {
+			const columns = instance.box.value.map(prop('ID'));
+			const { result } = await deep2Iterator({
+				contextBox: instance.parent.parent.box,
+				elementBox: instance.parent.box
+			})(async ({ contextElement, element }) => {
+				const list = site(contextElement.Url).list(element.Url);
+				return list.item((await list.item(columns).getEmpties(opts)).map(prop('ID'))).delete()
+			})
+			return result;
+		},
 
-		deleteEmpties: (instance => opts =>
-			listIterator(instance)(webUrl => async listUrl => site(webUrl).list(listUrl).item((await instance.getEmpties(opts)).map(prop('ID'))).delete())
-		)(instance),
-
-		merge: (instance => async (opts = {}) =>
-			itemIterator(instance)(webUrl => listUrl => async element => {
-				const { Key, Forced, Target, Source, Mediator = _ => identity } = element;
-				const sourceColumn = Source.Column;
-				const targetColumn = Target.Column;
-				const list = site(webUrl).list(listUrl);
+		merge: async (opts = {}) => {
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(async ({ contextElement, clientContext, parentElement, element }) => {
+				const { Key, Forced, To, From, Mediator = _ => identity } = element;
+				if (!Key) throw new Error('Key is missed');
+				const contextUrl = contextElement.Url;
+				const listUrl = parentElement.Url;
+				const sourceColumn = From.Column;
+				if (!sourceColumn) throw new Error('From Column is missed');
+				const targetColumn = To.Column;
+				if (!targetColumn) throw new Error('To Column is missed');
+				const list = site(contextUrl).list(listUrl);
 				const [sourceItems, targetItems] = await Promise.all([
-					site(Source.Web || webUrl).list(Source.List || listUrl).item({
-						Query: concatQueries()([`${Key} IsNotNull`, Source.Query]),
+					site(From.Web || contextUrl).list(From.List || listUrl).item({
+						Query: concatQueries()([`${Key} IsNotNull`, From.Query]),
 						Scope: 'allItems',
 						Limit: MAX_ITEMS_LIMIT
 					}).get({
 						view: ['ID', Key, sourceColumn]
 					}),
 					list.item({
-						Query: concatQueries()([`${Key} IsNotNull`, Target.Query]),
+						Query: concatQueries()([`${Key} IsNotNull`, To.Query]),
 						Scope: 'allItems',
 						Limit: MAX_ITEMS_LIMIT,
 					}).get({
@@ -315,40 +411,72 @@ export default (parent, elements) => {
 				])
 				const itemsToMerge = [];
 				await Promise.all(sourceItems.map(async  sourceItem => {
-					const targetItem = targetItems[sourceItem[Key]];
-					if (targetItem) {
+					const targetItemGroup = targetItems[sourceItem[Key]];
+					if (targetItemGroup) {
+						const targetItem = targetItemGroup[0];
 						const itemToMerge = { ID: targetItem.ID };
-						if (targetItem[targetColumn] === null || Forced) {
+						if (isNull(targetItem[targetColumn]) || Forced) {
 							itemToMerge[targetColumn] = await Mediator(sourceColumn)(sourceItem[sourceColumn]);
 							itemsToMerge.push(itemToMerge);
 						}
 					}
 				}))
-				return list.item(itemsToMerge).update(opts);
+				return itemsToMerge.length && list.item(itemsToMerge).update(opts);
 			})
-		)(instance),
+		},
 
-		erase: (instance => async opts =>
-			itemIterator(instance)(webUrl => listUrl => async element => {
+		erase: async opts => {
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(({ contextElement, parentElement, element }) => {
 				const { Query = '', Columns = ['Title'] } = element;
-				return site(webUrl).list(listUrl).item({ Query, Columns: Columns.reduce((acc, el) => (acc[el] = null, acc), {}) }).updateByQuery(opts);
+				return site(contextElement.Url).list(parentElement.Url).item({ Query, Columns: Columns.reduce((acc, el) => (acc[el] = null, acc), {}) }).updateByQuery(opts);
 			})
-		)(instance),
+			await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			listReport({ ...opts, NAME, actionType: 'erase', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			return prepareResponseJSOM(opts)(result);
+		},
 
-		createDiscussion: execute(instance.parent)(instance.box)('discussion')('create')(({ spParentObject, element }) => {
-			const spObject = SP.Utilities.Utility.createNewDiscussion(spParentObject.get_context(), spParentObject, element.Title);
-			for (const columnName in element) spObject.set_item(columnName, element[columnName]);
-			spObject.update();
-			return spObject
-		}),
+		createDiscussion: async (opts = {}) => {
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(({ clientContext, parentElement, element }) => {
+				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+				delete element.Url;
+				delete element.ID;
+				const spObject = SP.Utilities.Utility.createNewDiscussion(clientContext, listSPObject, element.Title);
+				for (const columnName in element) spObject.set_item(columnName, element[columnName]);
+				spObject.update();
+				return spObject
+			})
+			await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			return prepareResponseJSOM(opts)(result);
+		},
 
-		createReply: execute(instance.parent)(instance.box)('reply')('create')(({ spParentObject, element }) => {
-			const { Columns } = element;
-			const item = getSPObject(element)(spParentObject);
-			const spObject = SP.Utilities.Utility.createNewDiscussionReply(spParentObject.get_context(), item);
-			for (const columnName in Columns) spObject.set_item(columnName, Columns[columnName]);
-			spObject.update();
-			return spObject
-		})
+		createReply: async (opts = {}) => {
+			const { clientContexts, result } = await deep3Iterator({
+				contextBox: instance.parent.parent.box,
+				parentBox: instance.parent.box,
+				elementBox: instance.box
+			})(({ clientContext, parentElement, element }) => {
+				const { Columns } = element;
+				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+				const spItemObject = getSPObject(element)(parentElement.Url)(listSPObject);
+				const spObject = SP.Utilities.Utility.createNewDiscussionReply(clientContext, spItemObject);
+				for (const columnName in Columns) spObject.set_item(columnName, Columns[columnName]);
+				spObject.update();
+				return spObject
+			})
+			await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			return prepareResponseJSOM(opts)(result);
+		},
 	}
 } 

@@ -13,6 +13,9 @@
 export const REQUEST_TIMEOUT = 3600000;
 export const MAX_ITEMS_LIMIT = 100000;
 export const REQUEST_BUNDLE_MAX_SIZE = 252;
+export const REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE = 126;
+export const REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE = 82;
+export const REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE = 240;
 export const ACTION_TYPES = {
 	create: 'created',
 	update: 'updated',
@@ -22,7 +25,8 @@ export const ACTION_TYPES = {
 	copy: 'copied',
 	move: 'moved',
 	restore: 'restored',
-	clear: 'cleared'
+	clear: 'cleared',
+	erase: 'erased'
 }
 export const IS_DELETE_ACTION = {
 	delete: true,
@@ -461,6 +465,7 @@ export const isFunction = x => typeOf(x) === 'function';
 export const isIterator = x => typeOf(x) === 'iterator';
 export const isArray = x => typeOf(x) === 'array';
 export const isObject = x => typeOf(x) === 'object';
+export const isBlob = x => typeOf(x) === 'blob';
 export const isGUID = stringTest(/^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/);
 
 //  ========================================================================================================
@@ -549,6 +554,25 @@ export const log = (...args) => {
 	return args.length > 1 ? args : args[0]
 }
 
+export const webReport = ({ NAME, detailed, silent, actionType, contextBox, box }) =>
+	!silent && actionType && console.log(`${
+		ACTION_TYPES[actionType]} ${
+		box.getCount()} ${
+		NAME}(s) at ${
+		contextBox.join()}${
+		detailed ? `: ${box.join()}` : ''}`)
+
+
+export const listReport = ({ NAME, detailed, silent, actionType, box, listBox, contextBox }) => {
+	!silent && actionType && console.log(`${
+		ACTION_TYPES[actionType]} ${
+		box.getCount()} ${
+		NAME}(s) in ${
+		listBox.join()} at ${
+		contextBox.join()}${
+		detailed ? `: ${box.join()}` : ''}`)
+}
+
 //  =====================================================================================
 //  ============      ===       =====    ====  ====  ==       ===        ==       =======
 //  ===========   ==   ==  ====  ===  ==  ===  ====  ==  ====  ==  ========  ====  ======
@@ -612,224 +636,94 @@ export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash
 export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL]);
 export const hasUrlTailSlash = stringTest(/\/$/);
 
-export const getListRelativeFolder = webUrl => listUrl => elementUrl => {
-	if (elementUrl) {
-		if (elementUrl === '/') return '/'
-		return shiftSlash(arrayLast(stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl)))))
-	}
-}
+export const getListRelativeUrl = webUrl => listUrl => elementUrl =>
+	elementUrl && stringTest(/\//)(elementUrl)
+		? (elementUrl === '/'
+			? '/'
+			: shiftSlash(arrayLast(stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl))))))
+		: elementUrl
 
-export const getWebRelativeFolder = webUrl => elementUrl => {
-	if (elementUrl) {
-		if (elementUrl === '/') return '/'
-		return shiftSlash(arrayLast(stringSplit('@web@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl))))
-	}
-}
+export const getWebRelativeUrl = webUrl => elementUrl =>
+	elementUrl && stringTest(/\//)(elementUrl)
+		? (elementUrl === '/'
+			? '/'
+			: shiftSlash(arrayLast(stringSplit('@web@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl)))))
+		: elementUrl
 
-const liftContextUrlType = switchCase(typeOf)({
-	object: contextUrl => {
-		const newContext = Object.assign({}, contextUrl);
-		newContext.Url = shiftSlash(newContext.Url);
-		if (!contextUrl.Url && contextUrl.Title) newContext.Url = contextUrl.Title;
-		if (!contextUrl.Title && contextUrl.Url) newContext.Title = getTitleFromUrl(contextUrl.Url);
-		return newContext
-	},
-	string: contextUrl => ({
-		Url: shiftSlash(contextUrl),
-		Title: getTitleFromUrl(contextUrl)
-	}),
-	default: _ => ({
-		Url: ROOT_WEB_DUMMY,
-		Title: ''
-	})
-})
-
-const liftUrlType = switchCase(typeOf)({
-	object: item => {
-		if (!item.Url) item.Url = item.Folder ? `${item.Folder}/${item.Content.name}` : item.Content.name;
-		return item;
-	},
-	string: item => ({
-		Url: item,
-		Title: getTitleFromUrl(item),
-		ServerRelativeUrl: item
-	}),
-	number: item => ({
-		Url: item,
-		Title: item,
-		ServerRelativeUrl: item
-	}),
-	default: _ => ({
-		Url: void 0,
-		ServerRelativeUrl: void 0
-	})
-})
-
-const liftListType = switchCase(typeOf)({
-	object: list => {
-		const newList = Object.assign({}, list);
-		if (!list.Title) newList.Title = list.EntityTypeName || list.Url;
-		return newList
-	},
-	string: list => ({
-		Url: list,
-		Title: list
-	}),
-	default: _ => ({
-		Url: '',
-		Title: ''
-	})
-})
-
-const liftColumnType = switchCase(typeOf)({
-	object: column => {
-		const newColumn = Object.assign({}, column);
-		if (!column.Title) newColumn.Title = column.EntityPropertyName || column.InternalName || column.StaticName;
-		if (!column.Type) newColumn.Type = 'Text';
-		return newColumn
-	},
-	string: column => ({
-		Title: column,
-		Type: 'Text'
-	}),
-	default: _ => ({
-		Title: ''
-	})
-})
-
-const liftItemType = switchCase(typeOf)({
-	object: identity,
-	string: item => ({
-		ID: item
-	}),
-	number: item => ({
-		ID: item
-	}),
-	default: _ => ({
-		ID: void 0
-	})
-})
-
-const normalizeContextUrl = pipe([
-	liftContextUrlType,
-	substitution(o => url => (o.Url = url, o))
-		(pipe([
-			prop('Url'),
-			overstep(pipe([
-				mergeSlashes,
-				ifThen(isEqual('/'))([
-					constant(`${ROOT_WEB_DUMMY}/`),
-					shiftSlash
-				])
-			]))
-		]))
-])
-const normalizeContextUrls = ifThen(isArrayFilled)([
-	pipe([
-		map(normalizeContextUrl),
-		removeEmptyUrls,
-		removeDuplicatedUrls
-	]),
-	constant([liftContextUrlType()])
-])
-
-export class ContextUrlBox {
+export class AbstractBox {
 	constructor(value) {
-		this.isArray = isArray(value);
-		this.value = this.isArray ? normalizeContextUrls(value) : normalizeContextUrl(value);
-	}
-	async chainAsync(f) {
-		return await this.isArray ? Promise.all(map(f)(this.value)) : f(this.value);
-	}
-	chain(f) {
-		return this.isArray ? map(f)(this.value) : f(this.value);
-	}
-	join() {
-		return this.isArray ? join(', ')(map(prop('Url'))(this.value)) : this.value.Url;
-	}
-	getLength() {
-		return this.isArray ? this.value.length : 1;
-	}
-	getHead() {
-		return this.isArray ? this.value[0] : this.value;
-	}
-}
-
-const normalizeUrl = pipe([
-	liftUrlType,
-	substitution(o => url => (o.Url = url, o))
-		(pipe([
-			prop('Url'),
-			overstep(ifThen(isExists)([
-				pipe([
-					mergeSlashes,
-					shiftSlash
-				])
-			]))
-		]))
-])
-const normalizeUrls = ifThen(isArrayFilled)([
-	pipe([
-		map(normalizeUrl),
-		removeEmptyUrls,
-		removeDuplicatedUrls
-	]),
-	constant([liftUrlType()])
-])
-
-export class Box {
-	constructor(value, type) {
 		this.isArray = isArray(value);
 		this.prop = 'Url';
 		this.joinProp = 'Url';
-		this.value = switchCase(identity)({
-			list: _ => {
-				this.joinProp = 'Title';
-				return this.isArray ? map(liftListType)(value) : liftListType(value)
-			},
-			column: _ => {
-				this.prop = 'Title';
-				this.joinProp = 'Title';
-				return this.isArray ? map(liftColumnType)(value) : liftColumnType(value)
-			},
-			item: _ => {
-				this.prop = 'ID';
-				this.joinProp = 'ID';
-				return this.isArray ? map(liftItemType)(value) : liftItemType(value)
-			},
-			folder: _ => {
-				this.joinProp = 'ServerRelativeUrl';
-				return this.isArray ? normalizeUrls(value) : normalizeUrl(value)
-			},
-			file: _ => {
-				this.joinProp = 'ServerRelativeUrl';
-				return this.isArray ? normalizeUrls(value) : normalizeUrl(value)
-			},
-			default: _ => this.isArray ? normalizeUrls(value) : normalizeUrl(value)
-		})(type)
+		this.value = value
 	}
-	async chainAsync(f) {
-		return await this.isArray ? Promise.all(map(f)(this.value)) : f(this.value);
-	}
-	chain(f) {
-		return this.isArray ? map(f)(this.value) : f(this.value);
-	}
-	map(f) {
-		return new Box(this.isArray ? map(f)(this.value) : f(this.value));
+	async chain(f) {
+		return this.isArray ? Promise.all(map(f)(this.value)) : f(this.value);
 	}
 	join() {
 		return this.isArray ? join(', ')(map(prop(this.joinProp))(this.value)) : this.value[this.joinProp];
 	}
-	getValues() {
-		return this.isArray ? this.value : [this.value];
-	}
-	getLength() {
+	getCount() {
 		return this.isArray ? this.value.length : 1;
 	}
-	getHead() {
-		return this.isArray ? this.value[0] : this.value;
-	}
 }
+
+
+//  ===========================================================================================
+//  ===========    ==        ==        ==       ======  =====        ====    ====       =======
+//  ============  ======  =====  ========  ====  ====    =======  ======  ==  ===  ====  ======
+//  ============  ======  =====  ========  ====  ===  ==  ======  =====  ====  ==  ====  ======
+//  ============  ======  =====  ========  ===   ==  ====  =====  =====  ====  ==  ===   ======
+//  ============  ======  =====      ====      ====  ====  =====  =====  ====  ==      ========
+//  ============  ======  =====  ========  ====  ==        =====  =====  ====  ==  ====  ======
+//  ============  ======  =====  ========  ====  ==  ====  =====  =====  ====  ==  ====  ======
+//  ============  ======  =====  ========  ====  ==  ====  =====  ======  ==  ===  ====  ======
+//  ===========    =====  =====        ==  ====  ==  ====  =====  =======    ====  ====  ======
+//  ===========================================================================================
+
+export const deep2Iterator = ({ contextBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async f => {
+	const clientContexts = {};
+	const result = await contextBox.chain(contextElement => {
+		let totalElements = 0;
+		const contextUrl = contextElement.Url;
+		let clientContext = getClientContext(contextUrl);
+		clientContexts[contextUrl] = [clientContext];
+		return elementBox.chain(element => {
+			if (++totalElements >= bundleSize) {
+				clientContext = getClientContext(contextUrl);
+				clientContexts[contextUrl].push(clientContext);
+				totalElements = 0;
+			}
+			return f({ contextElement, clientContext, element })
+		})
+	});
+	return { clientContexts, result }
+}
+
+export const deep3Iterator = ({ contextBox, parentBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async f => {
+	const clientContexts = {};
+	const result = await contextBox.chain(contextElement => {
+		let totalElements = 0;
+		const contextUrl = contextElement.Url;
+		let clientContext = getClientContext(contextUrl);
+		clientContexts[contextUrl] = [clientContext];
+		return parentBox.chain(parentElement => elementBox.chain(element => {
+			if (++totalElements >= bundleSize) {
+				clientContext = getClientContext(contextUrl);
+				clientContexts[contextUrl].push(clientContext);
+				totalElements = 0;
+			}
+			return f({ contextElement, clientContext, parentElement, element })
+		}))
+	});
+	return { clientContexts, result }
+}
+
+export const deep2IteratorREST = ({ contextBox, elementBox }) => f =>
+	contextBox.chain(contextElement => elementBox.chain(async element => await f({ contextElement, element })));
+
+export const deep3IteratorREST = ({ contextBox, parentBox, elementBox }) => f =>
+	contextBox.chain(contextElement => parentBox.chain(parentElement => elementBox.chain(async element => await f({ contextElement, parentElement, element }))));
 
 
 //  ========================================================================================
@@ -848,7 +742,6 @@ const newClientContext = getInstance(SP.ClientContext);
 
 export const getClientContext = pipe([
 	pipe([
-		stringReplace(ROOT_WEB_DUMMY)('/'),
 		mergeSlashes,
 		popSlash,
 		prependSlash,
@@ -1083,9 +976,9 @@ export const getSPFolderByUrl = url => ifThen(constant(url))([
 
 export const setItem = fieldsInfo => fields => spObject => {
 	for (const prop in fields) {
-		const fieldValues = fields[prop];
 		const fieldInfoArray = fieldsInfo[prop];
-		if (isArray(fieldInfoArray)) {
+		if (fieldInfoArray) {
+			const fieldValues = fields[prop];
 			const fieldInfo = fieldInfoArray[0];
 			const set = setItemSP(fieldInfo.InternalName)(spObject);
 			const setLookupAndUser = f => constructor => pipe([f(constructor), set]);
@@ -1152,7 +1045,6 @@ export const setFields = source => target => {
 export const getContext = methodEmpty('get_context');
 
 export const getWeb = methodEmpty('get_web');
-
 
 //  =======================================================
 //  ===========        ==        ===      ===        ======

@@ -1,16 +1,9 @@
 import {
-	ACTION_TYPES_TO_UNSET,
 	getClientContext,
 	prepareResponseJSOM,
 	ACTION_TYPES,
-	urlSplit,
-	executorJSOM,
 	executeJSOM,
-	overstep,
-	methodEmpty,
-	identity
 } from './../lib/utility';
-import * as cache from './../lib/cache';
 
 // Internal
 
@@ -18,38 +11,39 @@ const NAME = 'recycleBin';
 
 const getSPObjectCollection = parent => clientContext => parent.getSPObject(clientContext).get_recycleBin();
 
-const report = ({ silent, actionType }) => parent => spObjects => (
-	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${parent.box.joinUrls()}`),
-	spObjects
-)
-
-const execute = parent => cacheLeaf => actionType => spObjectGetter => (opts = {}) => parent.box
-	.chainAsync(async element => {
-		const { cached } = opts;
-		const contextUrl = element.Url;
-		const clientContext = getClientContext(contextUrl);
-		const contextUrlSplits = urlSplit(contextUrl);
-		const spObject = spObjectGetter(getSPObjectCollection(parent)(clientContext));
-		const cachePath = [...contextUrlSplits, NAME, cacheLeaf + 'Collection'];
-		ACTION_TYPES_TO_UNSET[actionType] && cache.unset(contextUrlSplits);
-		if (actionType === 'delete' || actionType === 'recycle') return executorJSOM(clientContext);
-		const spObjectCached = cached ? cache.get(cachePath) : null;
-		if (cached && spObjectCached) return spObjectCached;
-		const currentSPObjects = await executeJSOM(clientContext)(spObject)(opts);
-		cache.set(currentSPObjects)(cachePath)
-		return currentSPObjects;
-	})
-	.then(report({ ...opts, actionType })(parent))
-	.then(prepareResponseJSOM(opts))
-
+const report = ({ silent, actionType, box }) =>
+	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME} at: ${box.join()}`)
 
 // Interface
 
 export default parent => {
-	const executeBinded = execute(parent)('properties');
 	return {
-		get: executeBinded(null)(identity),
-		restoreAll: executeBinded('restore')(overstep(methodEmpty('restoreAll'))),
-		deleteAll: executeBinded('delete')(overstep(methodEmpty('deleteAll')))
+		get: async  opts => {
+			const result = await parent.box.chain(async element => {
+				const clientContext = getClientContext(element.Url);
+				return executeJSOM(clientContext)(getSPObjectCollection(parent)(clientContext))(opts);
+			})
+			return prepareResponseJSOM(opts)(result)
+		},
+		restoreAll: async opts => {
+			const result = await parent.box.chain(async element => {
+				const clientContext = getClientContext(element.Url);
+				const spObject = getSPObjectCollection(parent)(clientContext);
+				spObject.restoreAll();
+				return executeJSOM(clientContext)(spObject)(opts);;
+			})
+			report({ ...opts, actionType: 'restore', box: parent.box })
+			return prepareResponseJSOM(opts)(result)
+		},
+		deleteAll: async opts => {
+			const result = await parent.box.chain(async element => {
+				const clientContext = getClientContext(element.Url);
+				const spObject = getSPObjectCollection(parent)(clientContext);
+				spObject.deleteAll();
+				return executeJSOM(clientContext)(spObject)(opts);;
+			})
+			report({ ...opts, actionType: 'delete', box: parent.box })
+			return prepareResponseJSOM(opts)(result)
+		}
 	}
 } 

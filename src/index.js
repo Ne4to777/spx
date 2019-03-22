@@ -477,3 +477,19 @@ const getFileBase64 = async _ => {
 }
 
 // getFileBase64()
+
+
+const createItem = async _ => {
+	const clientContext = new SP.ClientContext('/test/spx');
+	const list = clientContext.get_web().get_lists().getByTitle('Items');
+	const creationInfo = new SP.ListItemCreationInformation();
+	creationInfo.set_folderUrl('/test/spx/Lists/Items/a');
+	const item = list.addItem(creationInfo);
+	item.set_item('Title', 'hi');
+	item.update();
+	clientContext.load(item);
+	clientContext.executeQueryAsync(_ => {
+		console.log(item);
+	})
+}
+// createItem()

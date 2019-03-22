@@ -1,5 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled } from './../lib/utility';
+import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled, identity } from './../lib/utility';
 
 const PROPS = [
   'CheckInComment',
@@ -106,11 +106,36 @@ const ITEM_REST_PROPS = [
   '__metadata'
 ]
 
+const REST_PROPS = [
+  'Author',
+  'CheckInComment',
+  'CheckOutType',
+  'CheckedOutByUser',
+  'ContentTag',
+  'CustomizedPageStatus',
+  'ETag',
+  'Exists',
+  'ListItemAllFields',
+  'LockedByUser',
+  'MajorVersion',
+  'MinorVersion',
+  'ModifiedBy',
+  'Name',
+  'ServerRelativeUrl',
+  'TimeCreated',
+  'TimeLastModified',
+  'Title',
+  '__metadata',
+]
+
 const assertObjectProps = assertObject(PROPS);
 const assertCollectionProps = assertCollection(PROPS);
 
 const assertObjectItemProps = assertObject(ITEM_PROPS);
 const assertCollectionItemProps = assertCollection(ITEM_PROPS);
+
+const assertObjectRESTProps = assertObject(REST_PROPS);
+const assertCollectionRESTProps = assertCollection(REST_PROPS);
 
 const assertObjectItemRESTProps = assertObject(ITEM_REST_PROPS);
 const assertCollectionItemRESTProps = assertCollection(ITEM_REST_PROPS);
@@ -118,25 +143,27 @@ const assertCollectionItemRESTProps = assertCollection(ITEM_REST_PROPS);
 const rootWebList = site().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
 const workingWebList = site('test/spx').list('Files');
 
-const singleUrl = 'a/single.txt';
-const singleAsStringUrl = 'a/singleAsString.txt';
-const singleAsBlobgUrl = 'a/singleAsBlob.txt';
-const singleAsItemUrl = 'a/singleAsItem.txt';
-const multiUrl = 'a/multiUrl.txt';
-const multiUrlAnother = 'a/multiUrlAnother.txt';
-
-const crud = async _ => workingWebList.file(singleUrl).delete({ noRecycle: true, silent: true }).catch(async err => {
-  await workingWebList.file(singleUrl).create({ silent: true });
-  const newFile = await workingWebList.file(singleUrl).get({ silent: true });
-  assert(`Name is not a "single.txt"`)(newFile.Name === 'single.txt');
-  const updatedFile = await assertObjectProps('updated file')(workingWebList.file({ Url: singleUrl, Columns: { Title: 'updated file' } }).update({ silent: true }));
+const crud = async _ => {
+  const folder = 'a';
+  const filename = 'single.txt';
+  const url = `${folder}/${filename}`;
+  await workingWebList.folder(folder).delete({ noRecycle: true }).catch(identity)
+  await workingWebList.file(url).create();
+  const newFile = await workingWebList.file(url).get();
+  assert(`Name is not a "${filename}"`)(newFile.Name === filename);
+  const updatedFile = await assertObjectProps('updated file')(workingWebList.file({ Url: url, Columns: { Title: 'updated file' } }).update());
   assert(`Title is not a "updated file"`)(updatedFile.Title === 'updated file');
-  await workingWebList.file(singleUrl).delete({ noRecycle: true, silent: true });
-});
+  await workingWebList.file(url).delete({ noRecycle: true });
+}
 
-const crudAsSting = async _ => workingWebList.file(singleAsStringUrl).delete({ noRecycle: true, silent: true }).catch(async err => {
-  await workingWebList.file({ Url: singleAsStringUrl, Content: 'hi' }).create({ silent: true });
-  const newFile = await workingWebList.file(singleAsStringUrl).get({ silent: true, asBlob: true });
+const crudAsSting = async _ => {
+  const folder = '/test/spx/Files/b';
+  const filename = 'singleAsString.txt';
+  const url = `${folder}/${filename}`;
+  await workingWebList.folder(folder).delete({ noRecycle: true }).catch(identity)
+  const createdFile = await workingWebList.file({ Url: url, Content: 'hi', Columns: { Title: 'new file' } }).create({ fromString: true });
+  assert(`Title is not a "new file"`)(createdFile.Title === 'new file');
+  const newFile = await workingWebList.file(url).get({ asBlob: true });
   const content = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => resolve(e.srcElement.result);
@@ -144,26 +171,31 @@ const crudAsSting = async _ => workingWebList.file(singleAsStringUrl).delete({ n
   })
   assert(`content is not a "hi"`)(content === 'hi');
   const updatedFile = await assertObjectProps('updated file')(workingWebList.file({
-    Url: singleAsStringUrl,
+    Url: url,
     Columns: {
       Title: 'updated file'
     },
     Content: 'hi another'
-  }).update({ silent: true }));
+  }).update());
   assert(`Title is not a "updated file"`)(updatedFile.Title === 'updated file');
-  const newUpdatedFile = await workingWebList.file(singleAsStringUrl).get({ silent: true, asBlob: true });
+  const newUpdatedFile = await workingWebList.file(url).get({ asBlob: true });
   const contentUpdated = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => resolve(e.srcElement.result);
     reader.readAsText(newUpdatedFile);
   })
   assert(`content is not a "hi another"`)(contentUpdated === 'hi another');
-  await workingWebList.file(singleAsStringUrl).delete({ noRecycle: true, silent: true });
-});
+  await workingWebList.file(url).delete({ noRecycle: true });
+}
 
-const crudAsBlob = async _ => workingWebList.file(singleAsStringUrl).delete({ noRecycle: true, silent: true }).catch(async err => {
-  await workingWebList.file({ Url: singleAsBlobgUrl, Content: new Blob(['hi'], { type: 'text/csv' }) }).create({ silent: true });
-  const newFile = await workingWebList.file(singleAsBlobgUrl).get({ silent: true, asBlob: true });
+const crudAsBlob = async _ => {
+  const folder = 'c';
+  const filename = 'singleAsBlob.txt';
+  const url = `${folder}/${filename}`;
+  await workingWebList.folder(folder).delete({ noRecycle: true, silentErrors: true }).catch(identity)
+  const createdFile = await workingWebList.file({ Url: url, Content: new Blob(['hi'], { type: 'text/csv' }) }).create({ needResponse: true });
+  // console.log(createdFile);
+  const newFile = await workingWebList.file(url).get({ asBlob: true });
   const content = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => resolve(e.srcElement.result);
@@ -171,58 +203,74 @@ const crudAsBlob = async _ => workingWebList.file(singleAsStringUrl).delete({ no
   })
   assert(`content is not a "hi"`)(content === 'hi');
   const updatedFile = await assertObjectProps('new file')(workingWebList.file({
-    Url: singleAsBlobgUrl,
+    Url: url,
     Columns: {
       Title: 'updated file'
     },
     Content: 'hi another'
-  }).update({ silent: true }));
+  }).update());
   assert(`Title is not a "updated file"`)(updatedFile.Title === 'updated file');
-  const newUpdatedFile = await workingWebList.file(singleAsBlobgUrl).get({ silent: true, asBlob: true });
+  const newUpdatedFile = await workingWebList.file(url).get({ asBlob: true });
   const contentUpdated = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => resolve(e.srcElement.result);
     reader.readAsText(newUpdatedFile);
   })
   assert(`content is not a "hi another"`)(contentUpdated === 'hi another');
-  await workingWebList.file(singleAsBlobgUrl).delete({ noRecycle: true, silent: true });
-});
+  await workingWebList.file(url).delete({ noRecycle: true });
+}
 
-const crudAsItem = async _ => workingWebList.file(singleAsItemUrl).delete({ noRecycle: true, silent: true }).catch(async err => {
-  const newFile = await assertObjectItemRESTProps('new file')(workingWebList.file({ Url: singleAsItemUrl, Columns: { Title: 'new file' } }).create({ silent: true, asItem: true }));
+const crudAsItem = async _ => {
+  const folder = 'd';
+  const filename = 'singleAsItem.txt';
+  const url = `${folder}/${filename}`;
+  await workingWebList.folder(folder).delete({ noRecycle: true, silentErrors: true }).catch(identity)
+  const newFile = await assertObjectItemProps('new file')(workingWebList.file({ Url: url, Columns: { Title: 'new file' } }).create({ asItem: true }));
   assert(`Title is not a "new file"`)(newFile.Title === 'new file');
-  const updatedFile = await assertObjectItemProps('updated file')(workingWebList.file({ Url: singleAsItemUrl, Columns: { Title: 'updated file' } }).update({ silent: true, asItem: true }));
+  const updatedFile = await assertObjectItemProps('updated file')(workingWebList.file({ Url: url, Columns: { Title: 'updated file' } }).update({ asItem: true }));
   assert(`Title is not a "updated file"`)(updatedFile.Title === 'updated file');
-  await workingWebList.file(singleAsItemUrl).delete({ noRecycle: true, silent: true });
-});
+  await workingWebList.file(url).delete({ noRecycle: true });
+}
 
-const crudCollection = async _ => workingWebList.file([multiUrl, multiUrlAnother]).delete({ noRecycle: true, silent: true }).catch(async err => {
-  await workingWebList.file([multiUrl, multiUrlAnother]).create({ silent: true });
+const crudCollection = async _ => {
+  const folder = 'e';
+  const filename = 'multiUrl.txt';
+  const filenameAnother = 'multiUrlAnother.txt';
+  const url = `${folder}/${filename}`;
+  const urlAnother = `${folder}/${filenameAnother}`;
+  await workingWebList.folder(folder).delete({ noRecycle: true, silentErrors: true }).catch(identity)
+  await workingWebList.file([url, urlAnother]).create();
   const updatedFiles = await assertCollectionProps('updated file')(workingWebList.file([
-    { Url: multiUrl, Columns: { Title: 'updated file' } },
-    { Url: multiUrlAnother, Columns: { Title: 'updated file another' } }
-  ]).update({ silent: true }));
-  assert(`Name is not a "multiUrl.txt"`)(updatedFiles[0].Name === 'multiUrl.txt');
-  assert(`Name is not a "multiUrlAnother.txt"`)(updatedFiles[1].Name === 'multiUrlAnother.txt');
-  await workingWebList.file([multiUrl, multiUrlAnother]).delete({ noRecycle: true, silent: true });
-});
+    { Url: url, Columns: { Title: 'updated file' } },
+    { Url: urlAnother, Columns: { Title: 'updated file another' } }
+  ]).update());
+  assert(`Name is not a "${filename}"`)(updatedFiles[0].Name === filename);
+  assert(`Name is not a "${filenameAnother}"`)(updatedFiles[1].Name === filenameAnother);
+  await workingWebList.file([url, urlAnother]).delete({ noRecycle: true });
+}
 
-const crudCollectionAsItem = async _ => workingWebList.file([multiUrl, multiUrlAnother]).delete({ noRecycle: true, silent: true }).catch(async err => {
+const crudCollectionAsItem = async _ => {
+  const folder = 'f';
+  const filename = 'multiUrl.txt';
+  const filenameAnother = 'multiUrlAnother.txt';
+  const url = `${folder}/${filename}`;
+  const urlAnother = `${folder}/${filenameAnother}`;
+  await workingWebList.folder(folder).delete({ noRecycle: true, silentErrors: true }).catch(identity)
   await workingWebList.file([
-    { Url: multiUrl, Columns: { Title: 'new file' } },
-    { Url: multiUrlAnother, Columns: { Title: 'new file another' } }
-  ]).create({ silent: true });
-  const newFiles = await workingWebList.file([multiUrl, multiUrlAnother]).get({ silent: true, asItem: true });
+    { Url: url, Columns: { Title: 'new file' } },
+    { Url: urlAnother, Columns: { Title: 'new file another' } }
+  ]).create();
+  const newFiles = await workingWebList.file([url, urlAnother]).get({ asItem: true });
   assert(`Title is not a "new file"`)(newFiles[0].Title === 'new file');
   assert(`Title is not a "new file another"`)(newFiles[1].Title === 'new file another');
   const updatedFiles = await assertCollectionItemProps('updated file')(workingWebList.file([
-    { Url: multiUrl, Columns: { Title: 'updated file' } },
-    { Url: multiUrlAnother, Columns: { Title: 'updated file another' } }
-  ]).update({ silent: true, asItem: true }));
+    { Url: url, Columns: { Title: 'updated file' } },
+    { Url: urlAnother, Columns: { Title: 'updated file another' } }
+  ]).update({ asItem: true }));
   assert(`Title is not a "updated file"`)(updatedFiles[0].Title === 'updated file');
   assert(`Title is not a "updated file another"`)(updatedFiles[1].Title === 'updated file another');
-  await workingWebList.file([multiUrl, multiUrlAnother]).delete({ noRecycle: true, silent: true });
-});
+  await workingWebList.file([url, urlAnother]).delete({ noRecycle: true });
+}
 
 export default async _ => {
   await Promise.all([
@@ -231,13 +279,14 @@ export default async _ => {
     assertObjectProps('web list file')(workingWebList.file('test.txt').get()),
     assertCollectionProps('web list root file')(workingWebList.file('/').get()),
     assertCollectionProps('web list test.txt, test.js file')(workingWebList.file(['test.txt', 'test.js']).get()),
-    assertObjectProps('web a list folder file')(workingWebList.file('a/add.png').get()),
-    assertCollectionProps('web a list folder file')(workingWebList.file('a/').get()),
+    assertObjectProps('web a list folder file')(workingWebList.file('g/full.jpg').get()),
+    assertCollectionProps('web a list folder file')(workingWebList.file('g/').get()),
+
     assertObjectItemProps('web list file')(workingWebList.file('test.txt').get({ asItem: true })),
     assertCollectionItemProps('web list root file')(workingWebList.file('/').get({ asItem: true })),
     assertCollectionItemProps('web list test.txt, test.js file')(workingWebList.file(['test.txt', 'test.js']).get({ asItem: true })),
-    assertObjectItemProps('web a list folder file')(workingWebList.file('a/add.png').get({ asItem: true })),
-    assertCollectionItemProps('web a list folder file')(workingWebList.file('a/').get({ asItem: true }))
+    assertObjectItemProps('web a list folder file')(workingWebList.file('g/full.jpg').get({ asItem: true })),
+    assertCollectionItemProps('web a list folder file')(workingWebList.file('g/').get({ asItem: true }))
   ]);
   await crud();
   await crudAsSting();

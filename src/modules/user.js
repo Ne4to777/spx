@@ -84,7 +84,7 @@ const getByName = items => (opts = {}) => {
 	} else {
 		list = site(USER_WEB).list(USER_LIST)
 	}
-	return list.item(`Title In ${userNames}`).get(opts);
+	return list.item(`Title BeginsWith ${userNames}`).get(opts);
 }
 
 const getByEMail = isUsersArray => items => async (opts = {}) => {
@@ -133,7 +133,7 @@ const user = users => {
 				const values = elements;
 				return isNumber(el) || ~~el == el || (typeOf(el) === 'object' && el.uid)
 					? getByUid(isUsersArray)(values)(opts)
-					: /\s/.test(el)
+					: /\s/.test(el) || /[а-яА-ЯЁё]/.test(el)
 						? getByName(values)(opts)
 						: /@/.test(el)
 							? getByEMail(isUsersArray)(values)(opts)
@@ -194,13 +194,13 @@ const user = users => {
 }
 
 user.get = async (opts = {}) => {
-	const { isSP } = opts;
-	if (isSP) {
+	const { fromSP } = opts;
+	if (fromSP) {
 		const clientContext = getClientContext('/');
 		const user = clientContext.get_web().get_currentUser();
 		return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(user)(opts));
 	} else {
-		const uid = window._spPageContextInfo ? window._spPageContextInfo.userId : (await user.get({ view: 'Id', isSP: true })).Id;
+		const uid = window._spPageContextInfo ? window._spPageContextInfo.userId : (await user.get({ view: 'Id', fromSP: true })).Id;
 		return (await site(USER_WEB).list(USER_LIST).item(`Number uid Eq ${uid}`).get(opts))[0];
 	}
 }

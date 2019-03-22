@@ -1,8 +1,7 @@
 import {
-	ACTION_TYPES_TO_UNSET,
+	REQUEST_BUNDLE_MAX_SIZE,
 	ACTION_TYPES,
 	FILE_LIST_TEMPLATES,
-	Box,
 	getInstance,
 	isGUID,
 	pipe,
@@ -13,24 +12,28 @@ import {
 	constant,
 	prepareResponseJSOM,
 	getClientContext,
-	urlSplit,
 	load,
 	executorJSOM,
 	getInstanceEmpty,
 	setFields,
 	overstep,
 	hasUrlTailSlash,
-	isFilled,
-	prop,
 	getTitleFromUrl,
 	identity,
 	isExists,
-	isStringEmpty,
-	slice,
-	executeJSOM,
-	isString
+	isString,
+	switchCase,
+	typeOf,
+	isArray,
+	shiftSlash,
+	mergeSlashes,
+	arrayLast,
+	isArrayFilled,
+	map,
+	removeEmptyUrls,
+	removeDuplicatedUrls,
+	AbstractBox
 } from './../lib/utility';
-import * as cache from './../lib/cache';
 import site from './../modules/site';
 import column from './../modules/column';
 import folder from './../modules/folderList';
@@ -50,161 +53,219 @@ const getSPObject = elementUrl => pipe([
 ])
 const getSPObjectCollection = methodEmpty('get_lists');
 
-const report = ({ silent, actionType }) => parentBox => box => spObjects => (
-	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()} at ${parentBox.join()}`),
-	spObjects
-)
-
-const execute = parent => box => cacheLeaf => actionType => spObjectGetter => (opts = {}) => parent.box
-	.chainAsync(async contextElement => {
-		const { cached } = opts;
-		let needToQuery = true;
-		const spObjectsToCache = new Map;
-		const contextUrl = contextElement.Url;
-		const clientContext = getClientContext(contextUrl);
-		const contextUrls = urlSplit(contextUrl);
-		const parentSPObject = parent.getSPObject(clientContext);
-		const spObjects = box.chain(element => {
-			let listUrl = element.Title;
-			const spObject = spObjectGetter({
-				spContextObject: actionType === 'create' || hasUrlTailSlash(listUrl) ? getSPObjectCollection(parentSPObject) : getSPObject(listUrl)(parentSPObject),
-				element
-			});
-			const cachePath = [...contextUrls, NAME, isStringEmpty(listUrl) ? cacheLeaf + 'Collection' : cacheLeaf, listUrl];
-			ACTION_TYPES_TO_UNSET[actionType] && cache.unset(slice(0, -3)(cachePath));
-			const spObjectCached = cached ? cache.get(cachePath) : null;
-			if (actionType === 'delete' || actionType === 'recycle') return;
-			if (cached && isFilled(spObjectCached)) {
-				needToQuery = false;
-				return spObjectCached;
-			} else {
-				const currentSPObjects = load(clientContext)(spObject)(opts);
-				spObjectsToCache.set(cachePath, currentSPObjects)
-				return currentSPObjects;
-			}
-		})
-		if (needToQuery) {
-			await executorJSOM(clientContext)(opts)
-			spObjectsToCache.forEach((value, key) => cache.set(value)(key))
-		};
-		return spObjects;
+const liftListType = switchCase(typeOf)({
+	object: list => {
+		const newList = Object.assign({}, list);
+		if (!list.Url) newList.Url = list.EntityTypeName || list.Title;
+		if (list.Url !== '/') newList.Url = shiftSlash(newList.Url);
+		if (!list.Title) newList.Title = list.EntityTypeName || list.Url;
+		return newList
+	},
+	string: list => ({
+		Url: list === '/' ? '/' : shiftSlash(mergeSlashes(list)),
+		Title: getTitleFromUrl(list)
+	}),
+	default: _ => ({
+		Url: '',
+		Title: ''
 	})
-	.then(report({ ...opts, actionType })(parent.box)(box))
-	.then(prepareResponseJSOM(opts))
+})
+
+
+class Box extends AbstractBox {
+	constructor(value = '') {
+		super(value);
+		this.value = this.isArray
+			? ifThen(isArrayFilled)([
+				pipe([
+					map(liftListType),
+					removeEmptyUrls,
+					removeDuplicatedUrls
+				]),
+				constant([liftListType()])
+			])(value)
+			: liftListType(value);
+	}
+}
+
+const report = ({ silent, actionType, parentBox, box }) =>
+	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()} at ${parentBox.join()}`)
+
+const elementIterator = contextBox => elementBox => async f => {
+	const clientContexts = {};
+	const result = await contextBox.chain(contextElement => {
+		let totalElements = 0;
+		const contextUrl = contextElement.Url;
+		clientContexts[contextUrl] = [getClientContext(contextUrl)];
+		return elementBox.chain(element => {
+			let clientContext = arrayLast(clientContexts[contextUrl]);
+			if (++totalElements >= REQUEST_BUNDLE_MAX_SIZE) {
+				clientContext = getClientContext(contextUrl);
+				clientContexts[contextUrl].push(clientContext);
+				totalElements = 0;
+			}
+			return f({ contextElement, clientContext, element })
+		})
+	});
+	return { clientContexts, result }
+}
 
 // Inteface
 
 export default (parent, urls) => {
 	const instance = {
-		box: getInstance(Box)(urls, 'list'),
+		box: getInstance(Box)(urls),
 		parent,
 		getSPObject,
 		getSPObjectCollection
 	};
-	const executeBinded = execute(parent)(instance.box)('properties');
 	return {
-		column: (instance => elements => column(instance, elements))(instance),
-		folder: (instance => elements => folder(instance, elements))(instance),
-		file: (instance => elements => file(instance, elements))(instance),
-		item: (instance => elements => item(instance, elements))(instance),
-		get: executeBinded(null)(prop('spContextObject')),
-		create: executeBinded('create')(({ spContextObject, element }) => pipe([
-			getInstanceEmpty,
-			setFields({
-				set_title: element.Title,
-				set_templateType: element.BaseTemplate || SP.ListTemplateType[element.TemplateType || 'genericList'],
-				set_url: element.Url,
-				set_templateFeatureId: element.TemplateFeatureId,
-				set_customSchemaXml: element.CustomSchemaXml,
-				set_dataSourceProperties: element.DataSourceProperties,
-				set_documentTemplateType: element.DocumentTemplateType,
-				set_quickLaunchOption: element.QuickLaunchOption
-			}),
-			methodI('add')(spContextObject),
-			overstep(setFields({
-				set_contentTypesEnabled: element.ContentTypesEnabled,
-				set_defaultContentApprovalWorkflowId: element.DefaultContentApprovalWorkflowId,
-				set_defaultDisplayFormUrl: element.DefaultDisplayFormUrl,
-				set_defaultEditFormUrl: element.DefaultEditFormUrl,
-				set_defaultNewFormUrl: element.DefaultNewFormUrl,
-				set_description: element.Description,
-				set_direction: element.Direction,
-				set_draftVersionVisibility: element.DraftVersionVisibility,
-				set_enableAttachments: element.EnableAttachments || false,
-				set_enableFolderCreation: element.EnableFolderCreation === void 0 ? true : element.EnableFolderCreation,
-				set_enableMinorVersions: element.EnableMinorVersions,
-				set_enableModeration: element.EnableModeration,
-				set_enableVersioning: element.EnableVersioning === void 0 ? true : element.EnableVersioning,
-				set_forceCheckout: element.ForceCheckout,
-				set_hidden: element.Hidden,
-				set_imageUrl: element.ImageUrl,
-				set_irmEnabled: element.IrmEnabled,
-				set_irmExpire: element.IrmExpire,
-				set_irmReject: element.IrmReject,
-				set_isApplicationList: element.IsApplicationList,
-				set_lastItemModifiedDate: element.LastItemModifiedDate,
-				set_majorVersionLimit: element.EnableVersioning ? element.MajorVersionLimit : void 0,
-				set_multipleDataList: element.MultipleDataList,
-				set_noCrawl: element.NoCrawl === void 0 ? true : element.NoCrawl,
-				set_objectVersion: element.ObjectVersion,
-				set_onQuickLaunch: element.OnQuickLaunch,
-				set_validationFormula: element.ValidationFormula,
-				set_validationMessage: element.ValidationMessage
-			})),
-			overstep(ifThen(constant(!element.BaseTemplate && !FILE_LIST_TEMPLATES[element.TemplateType]))([
-				setFields({
-					set_documentTemplateUrl: element.DocumentTemplateUrl,
-					MajorWithMinorVersionsLimit: element.EnableVersioning ? element.MajorWithMinorVersionsLimit : void 0
-				})
-			])),
-			overstep(methodEmpty('update'))
-		])(SP.ListCreationInformation)),
-		update: executeBinded('update')(({ spContextObject, element }) => pipe([
-			setFields({
-				set_title: element.Title,
-				set_enableFolderCreation: element.EnableFolderCreation,
-				set_contentTypesEnabled: element.ContentTypesEnabled,
-				set_defaultContentApprovalWorkflowId: element.DefaultContentApprovalWorkflowId,
-				set_defaultDisplayFormUrl: element.DefaultDisplayFormUrl,
-				set_defaultEditFormUrl: element.DefaultEditFormUrl,
-				set_defaultNewFormUrl: element.DefaultNewFormUrl,
-				set_description: element.Description,
-				set_direction: element.Direction,
-				set_draftVersionVisibility: element.DraftVersionVisibility,
-				set_documentTemplateUrl: element.DocumentTemplateUrl,
-				set_enableAttachments: element.EnableAttachments,
-				set_enableMinorVersions: element.EnableMinorVersions,
-				set_enableModeration: element.EnableModeration,
-				set_enableVersioning: element.EnableVersioning,
-				set_forceCheckout: element.ForceCheckout,
-				set_hidden: element.Hidden,
-				set_imageUrl: element.ImageUrl,
-				set_irmEnabled: element.IrmEnabled,
-				set_irmExpire: element.IrmExpire,
-				set_irmReject: element.IrmReject,
-				set_isApplicationList: element.IsApplicationList,
-				set_lastItemModifiedDate: element.LastItemModifiedDate,
-				set_majorVersionLimit: element.MajorVersionLimit,
-				set_majorWithMinorVersionsLimit: element.MajorWithMinorVersionsLimit,
-				set_multipleDataList: element.MultipleDataList,
-				set_noCrawl: element.NoCrawl,
-				set_objectVersion: element.ObjectVersion,
-				set_onQuickLaunch: element.OnQuickLaunch,
-				set_validationFormula: element.ValidationFormula,
-				set_validationMessage: element.ValidationMessage
-			}),
-			overstep(methodEmpty('update'))
-		])(spContextObject)),
-		delete: (opts = {}) => executeBinded(opts.noRecycle ? 'delete' : 'recycle')(({ spContextObject }) =>
-			overstep(methodEmpty(opts.noRecycle ? 'deleteObject' : 'recycle'))(spContextObject))(opts),
+		column: elements => column(instance, elements),
+		folder: elements => folder(instance, elements),
+		file: elements => file(instance, elements),
+		item: elements => item(instance, elements),
+		get: async opts => {
+			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				const parentSPObject = instance.parent.getSPObject(clientContext);
+				const elementUrl = element.Url;
+				const isCollection = hasUrlTailSlash(elementUrl);
+				const spObject = isCollection
+					? getSPObjectCollection(parentSPObject)
+					: getSPObject(elementUrl)(parentSPObject);
+				return load(clientContext)(spObject)(opts);
+			})
+			await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			return prepareResponseJSOM(opts)(result)
+		},
+		create: async opts => {
+			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				const parentSPObject = instance.parent.getSPObject(clientContext);
+				const spObject = pipe([
+					getInstanceEmpty,
+					setFields({
+						set_title: element.Title,
+						set_templateType: element.BaseTemplate || SP.ListTemplateType[element.TemplateType || 'genericList'],
+						set_url: element.Url,
+						set_templateFeatureId: element.TemplateFeatureId,
+						set_customSchemaXml: element.CustomSchemaXml,
+						set_dataSourceProperties: element.DataSourceProperties,
+						set_documentTemplateType: element.DocumentTemplateType,
+						set_quickLaunchOption: element.QuickLaunchOption
+					}),
+					methodI('add')(getSPObjectCollection(parentSPObject)),
+					overstep(setFields({
+						set_contentTypesEnabled: element.ContentTypesEnabled,
+						set_defaultContentApprovalWorkflowId: element.DefaultContentApprovalWorkflowId,
+						set_defaultDisplayFormUrl: element.DefaultDisplayFormUrl,
+						set_defaultEditFormUrl: element.DefaultEditFormUrl,
+						set_defaultNewFormUrl: element.DefaultNewFormUrl,
+						set_description: element.Description,
+						set_direction: element.Direction,
+						set_draftVersionVisibility: element.DraftVersionVisibility,
+						set_enableAttachments: element.EnableAttachments || false,
+						set_enableFolderCreation: element.EnableFolderCreation === void 0 ? true : element.EnableFolderCreation,
+						set_enableMinorVersions: element.EnableMinorVersions,
+						set_enableModeration: element.EnableModeration,
+						set_enableVersioning: element.EnableVersioning === void 0 ? true : element.EnableVersioning,
+						set_forceCheckout: element.ForceCheckout,
+						set_hidden: element.Hidden,
+						set_imageUrl: element.ImageUrl,
+						set_irmEnabled: element.IrmEnabled,
+						set_irmExpire: element.IrmExpire,
+						set_irmReject: element.IrmReject,
+						set_isApplicationList: element.IsApplicationList,
+						set_lastItemModifiedDate: element.LastItemModifiedDate,
+						set_majorVersionLimit: element.EnableVersioning ? element.MajorVersionLimit : void 0,
+						set_multipleDataList: element.MultipleDataList,
+						set_noCrawl: element.NoCrawl === void 0 ? true : element.NoCrawl,
+						set_objectVersion: element.ObjectVersion,
+						set_onQuickLaunch: element.OnQuickLaunch,
+						set_validationFormula: element.ValidationFormula,
+						set_validationMessage: element.ValidationMessage
+					})),
+					overstep(ifThen(constant(!element.BaseTemplate && !FILE_LIST_TEMPLATES[element.TemplateType]))([
+						setFields({
+							set_documentTemplateUrl: element.DocumentTemplateUrl,
+							MajorWithMinorVersionsLimit: element.EnableVersioning ? element.MajorWithMinorVersionsLimit : void 0
+						})
+					])),
+					overstep(methodEmpty('update'))
+				])(SP.ListCreationInformation)
+				return load(clientContext)(spObject)(opts);
+			})
+			await instance.parent.box.chain(async el => {
+				for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
+			});
+			report({ ...opts, actionType: 'create', box: instance.box, parentBox: instance.parent.box });
+			return prepareResponseJSOM(opts)(result)
+		},
+		update: async opts => {
+			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				const parentSPObject = instance.parent.getSPObject(clientContext);
+				const spObject = pipe([
+					setFields({
+						set_title: element.Title,
+						set_enableFolderCreation: element.EnableFolderCreation,
+						set_contentTypesEnabled: element.ContentTypesEnabled,
+						set_defaultContentApprovalWorkflowId: element.DefaultContentApprovalWorkflowId,
+						set_defaultDisplayFormUrl: element.DefaultDisplayFormUrl,
+						set_defaultEditFormUrl: element.DefaultEditFormUrl,
+						set_defaultNewFormUrl: element.DefaultNewFormUrl,
+						set_description: element.Description,
+						set_direction: element.Direction,
+						set_draftVersionVisibility: element.DraftVersionVisibility,
+						set_documentTemplateUrl: element.DocumentTemplateUrl,
+						set_enableAttachments: element.EnableAttachments,
+						set_enableMinorVersions: element.EnableMinorVersions,
+						set_enableModeration: element.EnableModeration,
+						set_enableVersioning: element.EnableVersioning,
+						set_forceCheckout: element.ForceCheckout,
+						set_hidden: element.Hidden,
+						set_imageUrl: element.ImageUrl,
+						set_irmEnabled: element.IrmEnabled,
+						set_irmExpire: element.IrmExpire,
+						set_irmReject: element.IrmReject,
+						set_isApplicationList: element.IsApplicationList,
+						set_lastItemModifiedDate: element.LastItemModifiedDate,
+						set_majorVersionLimit: element.MajorVersionLimit,
+						set_majorWithMinorVersionsLimit: element.MajorWithMinorVersionsLimit,
+						set_multipleDataList: element.MultipleDataList,
+						set_noCrawl: element.NoCrawl,
+						set_objectVersion: element.ObjectVersion,
+						set_onQuickLaunch: element.OnQuickLaunch,
+						set_validationFormula: element.ValidationFormula,
+						set_validationMessage: element.ValidationMessage
+					}),
+					overstep(methodEmpty('update'))
+				])(getSPObject(element.Url)(parentSPObject))
+				return load(clientContext)(spObject)(opts);
+			})
+			await instance.parent.box.chain(async el => {
+				for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
+			});
+			report({ ...opts, actionType: 'update', box: instance.box, parentBox: instance.parent.box });
+			return prepareResponseJSOM(opts)(result)
+		},
+		delete: async (opts = {}) => {
+			const { noRecycle } = opts;
+			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				const elementUrl = element.Url;
+				const parentSPObject = instance.parent.getSPObject(clientContext);
+				const spObject = getSPObject(elementUrl)(parentSPObject);
+				methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+			});
+			await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			report({ ...opts, actionType: 'delete', box: instance.box, parentBox: instance.parent.box });
+			return prepareResponseJSOM(opts)(result);
+		},
 
-		cloneLayout: (instance => async  _ => {
+		cloneLayout: async  _ => {
 			console.log('cloning layout in progress...');
-			await instance.parent.box.chainAsync(async context => {
+			await instance.parent.box.chain(async context => {
 				const contextUrl = context.Url;
-				return instance.box.chainAsync(async element => {
+				return instance.box.chain(async element => {
 					let targetWebUrl, targetListUrl;
-					const { Title, To } = element;
+					const { Title, Url, To } = element;
 					if (isString(To)) {
 						targetWebUrl = contextUrl;
 						targetListUrl = To;
@@ -212,27 +273,27 @@ export default (parent, urls) => {
 						targetWebUrl = To.Web;
 						targetListUrl = To.List;
 					}
+					const sourceListUrl = Title || Url;
 					if (!targetWebUrl) throw new Error('Target webUrl is missed');
 					if (!targetListUrl) throw new Error('Target listUrl is missed');
-					if (!Title) throw new Error('Source list Title is missed');
+					if (!sourceListUrl) throw new Error('Source list Title is missed');
 					const targetTitle = getTitleFromUrl(targetListUrl);
 
 					const targetSPX = site(targetWebUrl);
 					const sourceSPX = site(contextUrl);
 					const targetSPXList = targetSPX.list(targetListUrl);
-					const sourceSPXList = sourceSPX.list(Title);
-
-					await targetSPXList.get({ silent: true }).catch(async () => {
+					const sourceSPXList = sourceSPX.list(sourceListUrl);
+					await targetSPXList.get({ silent: true }).catch(async _ => {
 						const newListData = Object.assign({}, await sourceSPXList.get());
 						newListData.Title = targetTitle;
 						await targetSPX.list(newListData).create()
 					});
 					const [sourceColumns, targetColumns] = await Promise.all([
 						sourceSPXList.column().get(),
-						targetSPXList.column().get({ groupBy: 'StaticName' })
+						targetSPXList.column().get({ groupBy: 'InternalName' })
 					])
 					const columnsToCreate = sourceColumns.reduce((acc, sourceColumn) => {
-						const targetColumn = targetColumns[sourceColumn.StaticName];
+						const targetColumn = targetColumns[sourceColumn.InternalName];
 						if (!targetColumn && !sourceColumn.FromBaseType) acc.push(Object.assign({}, sourceColumn));
 						return acc
 					}, []);
@@ -240,9 +301,9 @@ export default (parent, urls) => {
 				})
 			})
 			console.log('cloning layout done!');
-		})(instance),
+		},
 
-		clone: (instance => async (opts = {}) => {
+		clone: async opts => {
 			const columnsToExclude = {
 				Attachments: true,
 				MetaInfo: true,
@@ -252,9 +313,9 @@ export default (parent, urls) => {
 				Order: true
 			}
 			console.log('cloning in progress...');
-			await instance.parent.box.chainAsync(async contextElement => {
+			await instance.parent.box.chain(async contextElement => {
 				const contextUrl = contextElement.Url;
-				return instance.box.chainAsync(async element => {
+				return instance.box.chain(async element => {
 					let targetWebUrl, targetListUrl;
 					const foldersToCreate = [];
 					const { Title, To } = element;
@@ -265,17 +326,17 @@ export default (parent, urls) => {
 						targetWebUrl = To.Web;
 						targetListUrl = To.List;
 					}
-
+					const sourceListUrl = Title || Url;
 					if (!targetWebUrl) throw new Error('Target webUrl is missed');
 					if (!targetListUrl) throw new Error('Target listUrl is missed');
-					if (!Title) throw new Error('Source list Title is missed');
+					if (!sourceListUrl) throw new Error('Source list Title is missed');
 
 					const targetTitle = To.Title || getTitleFromUrl(targetListUrl);
 
 					const targetSPX = site(targetWebUrl);
 					const sourceSPX = site(contextUrl);
 					const targetSPXList = targetSPX.list(targetTitle);
-					const sourceSPXList = sourceSPX.list(Title);
+					const sourceSPXList = sourceSPX.list(sourceListUrl);
 
 					await sourceSPX.list(element).cloneLayout();
 					console.log('cloning items...');
@@ -285,7 +346,7 @@ export default (parent, urls) => {
 						sourceSPXList.item({ Query: 'FSObjType eq 1', Scope: 'all' }).get(),
 						sourceSPXList.item({ Query: '', Scope: 'allItems' }).get()
 					])
-					const foldersMapped = sourceFoldersData.map(folder => folder.FileRef.split(`${Title}/`)[1]);
+					const foldersMapped = sourceFoldersData.map(folder => folder.FileRef.split(`${sourceListUrl}/`)[1]);
 
 					for (let folder of sourceFoldersData) {
 						const props = {};
@@ -293,7 +354,7 @@ export default (parent, urls) => {
 							const folderProp = folder[prop];
 							if (!sourceColumnsData[prop].ReadOnlyField && !columnsToExclude[prop] && folderProp !== null) props[prop] = folderProp;
 						}
-						props.Url = folder.FileRef.split(`${Title}/`)[1];
+						props.Url = folder.FileRef.split(`${sourceListUrl}/`)[1];
 						let isSubfolder;
 						for (let folderUrl of foldersMapped) {
 							if (new RegExp(`^${props.Url}\\/`).test(folderUrl)) {
@@ -306,7 +367,7 @@ export default (parent, urls) => {
 					foldersToCreate.length && await targetSPXList.folder(foldersToCreate).create({ silentErrors: true }).catch(identity);
 					if (sourceListData.BaseType) {
 						for (const fileItem of sourceItemsData) {
-							const fileUrl = fileItem.FileRef.split(`${Title}/`)[1];
+							const fileUrl = fileItem.FileRef.split(`${sourceListUrl}/`)[1];
 							await sourceSPXList.file({
 								Url: fileUrl,
 								To: {
@@ -319,7 +380,7 @@ export default (parent, urls) => {
 					} else {
 						const itemsToCreate = sourceItemsData.map(item => {
 							const newItem = {};
-							const folder = item.FileDirRef.split(`${Title}/`)[1];
+							const folder = item.FileDirRef.split(`${sourceListUrl}/`)[1];
 							if (folder) newItem.Folder = folder;
 							for (const prop in item) {
 								const value = item[prop];
@@ -332,59 +393,60 @@ export default (parent, urls) => {
 				})
 			})
 			console.log('cloning is complete!');
-		})(instance),
+		},
 
-		clear: (instance => async opts => {
+		clear: async opts => {
 			console.log('clearing in progress...');
-			await instance.parent.box.chainAsync(context =>
-				instance.box.chainAsync(element =>
-					site(context.Url).list(element.Title).item({ Query: '' }).deleteByQuery(opts)))
+			await instance.parent.box.chain(context => instance.box.chain(element =>
+				site(context.Url).list(element.Title).item({ Query: '' }).deleteByQuery(opts)))
 			console.log('clearing is complete!');
-		})(instance),
+		},
 
-		getAggregations: (instance => opts =>
-			instance.parent.box.chainAsync(contextElement => {
-				const contextUrl = contextElement.Url;
-				return instance.box.chainAsync(async element => {
-					let scopeStr = '';
-					let fieldRefs = '';
-					let caml = '';
-					const aggregations = {};
-					const { Title, Columns, Scope = 'all', Query } = element;
-					const clientContext = getClientContext(contextUrl);
-					const list = instance.getSPObject(Title)(instance.parent.getSPObject(clientContext));
-					for (let columnName in Columns) {
-						fieldRefs += `<FieldRef Name="${columnName}" Type="${Columns[columnName]}"/>`;
-						aggregations[columnName] = 0
-					};
-					if (Scope) {
-						if (/allItems/i.test(Scope)) {
-							scopeStr = ' Scope="Recursive"';
-						} else if (/^items$/i.test(Scope)) {
-							scopeStr = ' Scope="FilesOnly"';
-						} else if (/^all$/i.test(Scope)) {
-							scopeStr = ' Scope="RecursiveAll"';
-						}
+		getAggregations: opts => instance.parent.box.chain(contextElement => {
+			const contextUrl = contextElement.Url;
+			return instance.box.chain(async element => {
+				let scopeStr = '';
+				let fieldRefs = '';
+				let caml = '';
+				const aggregations = {};
+				const { Title, Columns, Scope = 'all', Query } = element;
+				const clientContext = getClientContext(contextUrl);
+				const list = instance.getSPObject(Title)(instance.parent.getSPObject(clientContext));
+				for (let columnName in Columns) {
+					fieldRefs += `<FieldRef Name="${columnName}" Type="${Columns[columnName]}"/>`;
+					aggregations[columnName] = 0
+				};
+				if (Scope) {
+					if (/allItems/i.test(Scope)) {
+						scopeStr = ' Scope="Recursive"';
+					} else if (/^items$/i.test(Scope)) {
+						scopeStr = ' Scope="FilesOnly"';
+					} else if (/^all$/i.test(Scope)) {
+						scopeStr = ' Scope="RecursiveAll"';
 					}
-					if (Query) caml = `<Query><Where>${getCamlQuery(Query)}</Where></Query>`;
-					const aggregationsQuery = list.renderListData(`<View${scopeStr}>${caml}<Aggregations>${fieldRefs}</Aggregations></View>`);
-					await executorJSOM(clientContext)(opts);
-					const aggregationsData = JSON.parse(aggregationsQuery.get_value()).Row[0];
-					for (let name in aggregationsData) {
-						const columnName = name.split('.')[0];
-						if (Columns.hasOwnProperty(columnName)) aggregations[columnName] = ~~aggregationsData[name];
-					}
-					return aggregations;
-				})
-			}))(instance),
+				}
+				if (Query) caml = `<Query><Where>${getCamlQuery(Query)}</Where></Query>`;
+				const aggregationsQuery = list.renderListData(`<View${scopeStr}>${caml}<Aggregations>${fieldRefs}</Aggregations></View>`);
+				await executorJSOM(clientContext)(opts);
+				const aggregationsData = JSON.parse(aggregationsQuery.get_value()).Row[0];
+				for (let name in aggregationsData) {
+					const columnName = name.split('.')[0];
+					if (Columns.hasOwnProperty(columnName)) aggregations[columnName] = ~~aggregationsData[name];
+				}
+				return aggregations;
+			})
+		}),
 
-		doesUserHavePermissions: (instance => (type = 'manageWeb') =>
-			instance.parent.box.chainAsync(context => instance.box.chainAsync(async element => {
-				const clientContext = getClientContext(context.Url);
-				const web = clientContext.get_web();
-				const oList = web.get_lists().getByTitle(element.Url);
-				await executeJSOM(clientContext)(oList)({ view: 'EffectiveBasePermissions' });
-				return oList.get_effectiveBasePermissions().has(SP.PermissionKind[type])
-			})))(instance),
+		doesUserHavePermissions: async (type = 'manageWeb') => {
+			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				const parentSPObject = instance.parent.getSPObject(clientContext);
+				const spObject = getSPObject(element.Url)(parentSPObject)
+				return load(clientContext)(spObject)({ view: 'EffectiveBasePermissions' });
+			})
+			await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)())));
+			return isArray(result)
+				? result.map(el => el.get_effectiveBasePermissions().has(SP.PermissionKind[type]))
+				: result.get_effectiveBasePermissions().has(SP.PermissionKind[type])
+		}
 	}
 }
