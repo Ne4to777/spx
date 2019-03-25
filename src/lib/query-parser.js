@@ -1,4 +1,20 @@
-import { chunkArray, stringMatch, arrayTail, arrayHead, isObject, getArray, reduce, map, pipe, stringReplace, stringTrim, stringSplit } from './utility'
+import {
+	chunkArray,
+	stringMatch,
+	arrayTail,
+	arrayHead,
+	isObject,
+	getArray,
+	reduce,
+	map,
+	pipe,
+	stringReplace,
+	stringTrim,
+	stringSplit,
+	typeOf,
+	stringTest
+} from './utility'
+
 const IN_CHUNK_SIZE = 500;
 const IN_CUSTOM_DELIMETER = '_DELIMITER_';
 const GROUP_REGEXP_STR = '\\s(\&\&|\|\||and|or)\\s';
@@ -271,22 +287,33 @@ const convertGroupR = str => {
 };
 
 export const getCamlQuery = str => {
-	if (!str) return '';
-	if (isObject(str)) {
-		return getCamlQuery(str);
-	} else {
-		const sanitaizedStr = trimBraces(str.replace(/^\s+/, ''));
-		if (/^\<|\>$/.test(sanitaizedStr)) return str;
-		return GROUP_REGEXP.test(sanitaizedStr) ? convertGroupR(sanitaizedStr) : convertExpression(sanitaizedStr)
+	switch (typeOf(str)) {
+		case 'number': return getCamlQuery(`ID eq ${str}`)
+		case 'object': return getCamlView(str);
+		case 'string':
+			if (str) {
+				if (str === (+str).toString()) return getCamlQuery(`ID eq ${str}`);
+				if (stringTest(/\s/)(str) && stringSplit(/\s/)(str).length > 1) {
+					const sanitaizedStr = trimBraces(str.replace(/\s{2,}/g, ' ').replace(/^\s|\s$/g, ''));
+					if (stringSplit(/\s/)(sanitaizedStr).length > 1) {
+						if (/^\<|\>$/.test(sanitaizedStr)) return str;
+						return GROUP_REGEXP.test(sanitaizedStr) ? convertGroupR(sanitaizedStr) : convertExpression(sanitaizedStr);
+					}
+				}
+			} else {
+				return ''
+			}
+		default: return ''
 	}
 }
 
-export const getCamlView = (opts = {}) => str => {
+export const getCamlView = (str = {}) => {
 	let orderBys;
 	let orderByStr = '';
 	let limitStr = '';
 	let scopeStr = '';
-	const { OrderBy, Scope, Limit } = opts;
+	let { OrderBy, Scope, Limit, Query = '' } = str;
+	if (!isObject(str)) Query = str;
 	if (OrderBy) {
 		orderBys = getArray(OrderBy);
 		for (let item of orderBys) {
@@ -297,11 +324,9 @@ export const getCamlView = (opts = {}) => str => {
 	if (Scope) scopeStr = /allItems/i.test(Scope)
 		? ' Scope="Recursive"' : /^items$/i.test(Scope)
 			? ' Scope="FilesOnly"' : /^all$/i.test(Scope)
-				? ' Scope="RecursiveAll"' : ''
-
-	const queryStr = orderByStr
-		? `<Query>${(str ? `<Where>${getCamlQuery(str)}</Where>${orderByStr}` : `${orderByStr}`)}</Query>` : str
-			? `<Query><Where>${getCamlQuery(str)}</Where></Query>` : ''
+				? ' Scope="RecursiveAll"' : '';
+	const whereStr = Query ? `<Where>${getCamlQuery(Query)}</Where>` : '';
+	const queryStr = whereStr || orderByStr ? `<Query>${whereStr}${orderByStr}</Query>` : '';
 	if (Limit) limitStr = `<RowLimit>${Limit}</RowLimit>`;
 	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
 }

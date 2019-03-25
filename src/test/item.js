@@ -189,19 +189,29 @@ const crudBundle = async _ => {
   await budleList.item(itemsTodelete).delete({ noRecycle: true });
 }
 
+const page = async _ => {
+  const limit = 10;
+  const spxList = site('test/spx').list('Pager');
+  await spxList.item({ Page: { Id: 20 }, Limit: limit }).get();
+  const items = await spxList.item({ Page: { Id: 10 }, Limit: limit, OrderBy: 'Title>' }).get();
+  console.log(items);
+}
+
 
 
 export default _ => Promise.all([
-  assertObjectUserProps('user web list item 10842 ID')(userWebList.item(10842).get()),
-  assertCollectionUserProps('user web list item first')(userWebList.item({ Limit: 1 }).get()),
-  assertCollectionUserProps('user web list item 10842 ID')(userWebList.item('ID eq 10842').get()),
-  assertCollectionProps('web list item')(workingWebList.item().get()),
-  assertObjectProps('web a list item 305 ID ')(workingWebList.item(305).get()),
-  assertCollectionProps('web d list item')(workingWebList.item({ Folder: 'd' }).get()),
-  assertCollectionProps('web d, e list item')(workingWebList.item([{ Folder: 'd' }, { Folder: 'e' }]).get()),
+  // assertObjectUserProps('user web list item 10842 ID')(userWebList.item(10842).get()),
+  // assertCollectionUserProps('user web list item first')(userWebList.item({ Limit: 1 }).get()),
+  // assertCollectionUserProps('user web list item 10842 ID')(userWebList.item('ID eq 10842').get()),
+  // assertCollectionProps('web list item')(workingWebList.item().get()),
+  // assertObjectProps('web a list item 305 ID ')(workingWebList.item(305).get()),
+  // assertCollectionProps('web d list item')(workingWebList.item({ Folder: 'd' }).get()),
+  // assertCollectionProps('web d, e list item')(workingWebList.item([{ Folder: 'd' }, { Folder: 'e' }]).get()),
 
-  crud(),
-  crudCollection(),
-  crudBundle()
+  // crud(),
+  // crudCollection(),
+  // crudBundle(),
+
+  page()
 
 ]).then(testIsOk('itemList'))

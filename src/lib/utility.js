@@ -1060,6 +1060,8 @@ export const getWeb = methodEmpty('get_web');
 
 export const assert = msg => bool => console.assert(bool === true, msg);
 
+export const assertString = msg => sample => str => assert(`${msg}: ${str}`)(isEqual(sample)(str));
+
 export const assertProp = prop => o => assert(`object has no property "${prop}"`)(hasOwnProp(prop)(o))
 
 export const assertProps = props => o => {

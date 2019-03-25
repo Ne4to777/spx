@@ -56,7 +56,7 @@ const getSPObject = element => listUrl => parentElement => {
 		case 'string':
 			hasUrlTailSlash(ID)
 				? camlQuery.set_folderServerRelativeUrl(`${contextUrl}/${popSlash(ID)}`)
-				: camlQuery.set_viewXml(getCamlView()(ID));
+				: camlQuery.set_viewXml(getCamlView(ID));
 			break;
 		default:
 			if (element.set_viewXml) {
@@ -65,22 +65,25 @@ const getSPObject = element => listUrl => parentElement => {
 				const spObject = parentElement.getItemById(element.get_lookupId());
 				return spObject
 			} else {
-				const { Folder, Query, Page, IsLibrary } = element;
+				const { Folder, Page, IsLibrary } = element;
 				if (Folder) {
 					let fullUrl = '';
+					let folderUrl = `${IsLibrary ? '' : 'Lists/'}${listUrl}/${Folder}`;
 					if (contextUrl === '/') {
-						fullUrl = (IsLibrary ? '' : 'Lists/') + `${listUrl}/${Folder}`;
+						fullUrl = folderUrl;
 					} else {
 						const isFullUrl = new RegExp(parentElement.get_context().get_url(), 'i').test(Folder);
-						fullUrl = isFullUrl ? Folder : ((IsLibrary ? '' : 'Lists/') + `${listUrl}/${Folder}`);
+						fullUrl = isFullUrl ? Folder : folderUrl;
 					}
 					camlQuery.set_folderServerRelativeUrl(fullUrl);
 				}
-				camlQuery.set_viewXml(getCamlView(element)(Query));
+				camlQuery.set_viewXml(getCamlView(element));
 				if (Page) {
-					const position = new SP.ListItemCollectionPosition();
-					const { IsPrevious, Id, Column, Value } = Page;
-					position.set_pagingInfo(`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${Id}&p_${Column || 'ID'}=${Value || ''}`);
+					const position = getInstanceEmpty(SP.ListItemCollectionPosition);
+					const { IsPrevious, Id = 0, Column, Value = null } = Page;
+					const isPreviousStr = IsPrevious ? 'PagedPrev=TRUE&' : '';
+					const columnStr = Column ? `&p_${Column}=${Value}` : '';
+					position.set_pagingInfo(`${isPreviousStr}Paged=TRUE&p_ID=${Id}${columnStr}`);
 					camlQuery.set_listItemCollectionPosition(position);
 				}
 			}

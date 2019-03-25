@@ -493,3 +493,35 @@ const createItem = async _ => {
 	})
 }
 // createItem()
+
+const getPaged = id => title => new Promise((resolve, reject) => {
+	const clientContext = new SP.ClientContext('/test/spx');
+	const camlQuery = new SP.CamlQuery();
+	if (id && title) {
+		const position = new SP.ListItemCollectionPosition();
+		const pagingInfo = `Paged=TRUE&p_ID=${id}&p_Title=${title}`;
+		position.set_pagingInfo(pagingInfo);
+		camlQuery.set_listItemCollectionPosition(position);
+	}
+	camlQuery.set_viewXml(getCamlView({ Limit: 10, OrderBy: 'Title>' }))
+	const itemsSP = clientContext.get_web().get_lists().getByTitle('Pager').getItems(camlQuery);
+	const items = clientContext.loadQuery(itemsSP, 'Include(ID,Title)');
+	clientContext.executeQueryAsync(_ => resolve(items.map(el => el.get_fieldValues())), console.log)
+})
+
+const getPages = async _ => {
+	const p1 = await getPaged()();
+	console.log(p1);
+	const p2 = await getPaged(91)('test90')
+	console.log(p2);
+}
+
+const getPagesSPX = async _ => {
+	const list = spx('test/spx').list('Pager');
+	const p1 = await list.item({ Limit: 10, OrderBy: 'Title>', Page: {} }).get();
+	console.log(p1);
+	const p2 = await list.item({ Limit: 10, OrderBy: 'Title>', Page: { Id: 91, Value: 'test90', Column: 'Title' } }).get();
+	console.log(p2);
+}
+
+getPagesSPX()

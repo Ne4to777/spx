@@ -9,6 +9,7 @@ import folderWeb from '../test/folderWeb';
 import item from '../test/item';
 import list from '../test/list';
 import user from '../test/user';
+import queryParser from '../test/query-parser';
 import { testIsOk } from './../lib/utility'
 
 export default async _ => {
@@ -22,5 +23,6 @@ export default async _ => {
   // await folderList();
   // await fileList();
   // await item()
+  // await queryParser()
   testIsOk('whole test')()
 }
