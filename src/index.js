@@ -524,4 +524,4 @@ const getPagesSPX = async _ => {
 	console.log(p2);
 }
 
-getPagesSPX()
+// getPagesSPX()
