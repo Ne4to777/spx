@@ -79,18 +79,29 @@ const getSPObject = element => listUrl => parentElement => {
 				}
 				camlQuery.set_viewXml(getCamlView(element));
 				if (Page) {
-					const position = getInstanceEmpty(SP.ListItemCollectionPosition);
-					const { IsPrevious, Id = 0, Column, Value = null } = Page;
-					const isPreviousStr = IsPrevious ? 'PagedPrev=TRUE&' : '';
-					const columnStr = Column ? `&p_${Column}=${Value}` : '';
-					position.set_pagingInfo(`${isPreviousStr}Paged=TRUE&p_ID=${Id}${columnStr}`);
-					camlQuery.set_listItemCollectionPosition(position);
+					const { IsPrevious, Id, Columns } = Page;
+					if (Id) {
+						const position = getInstanceEmpty(SP.ListItemCollectionPosition);
+						position.set_pagingInfo(`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${Id}${getPagingColumnsStr(Columns)}`);
+						camlQuery.set_listItemCollectionPosition(position);
+					}
 				}
 			}
 	}
 	const spObject = parentElement.getItems(camlQuery);
 	spObject.camlQuery = camlQuery;
 	return spObject
+}
+
+const getPagingColumnsStr = columns => {
+	if (!columns) return '';
+	let str = '';
+	for (let name in columns) {
+		const value = columns[name];
+		if (value === 'ID' || value === void 0) continue;
+		str += `&p_${name}=${encodeURIComponent(value)}`
+	}
+	return str
 }
 
 const liftItemType = switchCase(typeOf)({

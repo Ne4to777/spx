@@ -494,33 +494,54 @@ const createItem = async _ => {
 }
 // createItem()
 
-const getPaged = id => title => new Promise((resolve, reject) => {
+const getPaged = el => new Promise((resolve, reject) => {
 	const clientContext = new SP.ClientContext('/test/spx');
 	const camlQuery = new SP.CamlQuery();
-	if (id && title) {
+	if (el) {
 		const position = new SP.ListItemCollectionPosition();
-		const pagingInfo = `Paged=TRUE&p_ID=${id}&p_Title=${title}`;
+		const pagingInfo = `Paged=TRUE&p_ID=${el.ID}&p_sort1=${el.sort1}&p_sort2=${el.sort2}&p_sort3=${el.sort3}`;
 		position.set_pagingInfo(pagingInfo);
 		camlQuery.set_listItemCollectionPosition(position);
 	}
-	camlQuery.set_viewXml(getCamlView({ Limit: 10, OrderBy: 'Title>' }))
-	const itemsSP = clientContext.get_web().get_lists().getByTitle('Pager').getItems(camlQuery);
-	const items = clientContext.loadQuery(itemsSP, 'Include(ID,Title)');
+	camlQuery.set_viewXml(getCamlView({ Limit: 2, OrderBy: ['sort1', 'sort2', 'sort3>'] }))
+	const itemsSP = clientContext.get_web().get_lists().getByTitle('PagerSort').getItems(camlQuery);
+	const items = clientContext.loadQuery(itemsSP, 'Include(ID,sort1,sort2,sort3)');
 	clientContext.executeQueryAsync(_ => resolve(items.map(el => el.get_fieldValues())), console.log)
 })
 
 const getPages = async _ => {
-	const p1 = await getPaged()();
+	const p1 = await getPaged();
 	console.log(p1);
-	const p2 = await getPaged(91)('test90')
+	const last = p1[p1.length - 1];
+	const p2 = await getPaged(last)
 	console.log(p2);
 }
 
+// getPages()
+
 const getPagesSPX = async _ => {
-	const list = spx('test/spx').list('Pager');
-	const p1 = await list.item({ Limit: 10, OrderBy: 'Title>', Page: {} }).get();
+	const list = spx('test/spx').list('PagerSort');
+	const p1 = await list.item({
+		Limit: 2,
+		OrderBy: 'ID>',
+		// OrderBy: ['sort1', 'sort2', 'sort3>'],
+		Page: {}
+	}).get({ view: ['ID', 'sort1', 'sort2', 'sort3'] });
 	console.log(p1);
-	const p2 = await list.item({ Limit: 10, OrderBy: 'Title>', Page: { Id: 91, Value: 'test90', Column: 'Title' } }).get();
+	const last = p1[p1.length - 1];
+	const p2 = await list.item({
+		Limit: 2,
+		OrderBy: 'ID>',
+		// OrderBy: ['sort1', 'sort2', 'sort3>'],
+		Page: {
+			Id: last.ID,
+			// Columns: {
+			// 	sort1: last.sort1,
+			// 	sort2: last.sort2,
+			// 	sort3: last.sort3
+			// }
+		}
+	}).get({ view: ['ID', 'sort1', 'sort2', 'sort3'] });
 	console.log(p2);
 }
 
