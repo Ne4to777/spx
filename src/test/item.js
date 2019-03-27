@@ -200,16 +200,16 @@ const page = async _ => {
 
 
 export default _ => Promise.all([
-  // assertObjectUserProps('user web list item 10842 ID')(userWebList.item(10842).get()),
-  // assertCollectionUserProps('user web list item first')(userWebList.item({ Limit: 1 }).get()),
-  // assertCollectionUserProps('user web list item 10842 ID')(userWebList.item('ID eq 10842').get()),
-  // assertCollectionProps('web list item')(workingWebList.item().get()),
-  // assertObjectProps('web a list item 305 ID ')(workingWebList.item(305).get()),
-  // assertCollectionProps('web d list item')(workingWebList.item({ Folder: 'd' }).get()),
-  // assertCollectionProps('web d, e list item')(workingWebList.item([{ Folder: 'd' }, { Folder: 'e' }]).get()),
+  assertObjectUserProps('user web list item 10842 ID')(userWebList.item(10842).get()),
+  assertCollectionUserProps('user web list item first')(userWebList.item({ Limit: 1 }).get()),
+  assertCollectionUserProps('user web list item 10842 ID')(userWebList.item('ID eq 10842').get()),
+  assertCollectionProps('web list item')(workingWebList.item().get()),
+  assertObjectProps('web a list item 305 ID ')(workingWebList.item(305).get()),
+  assertCollectionProps('web d list item')(workingWebList.item({ Folder: 'd' }).get()),
+  assertCollectionProps('web d, e list item')(workingWebList.item([{ Folder: 'd' }, { Folder: 'e' }]).get()),
 
-  // crud(),
-  // crudCollection(),
+  crud(),
+  crudCollection(),
   // crudBundle(),
 
   page()

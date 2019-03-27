@@ -362,6 +362,7 @@ export const filter = f => xs => xs.filter(f);
 export const slice = (from, to) => xs => xs.slice(from, to);
 export const join = delim => xs => xs.join(delim);
 export const removeEmpties = filter(x => !!x);
+export const removeUndefineds = filter(x => x !== void 0);
 export const concat = array => x => array.concat(x);
 export const reduce = f => init => xs => xs.reduce(curry(f), switchCase(typeOf)({
 	object: constant({}),
@@ -488,9 +489,10 @@ export const isZero = x => x === 0;
 export const isNotZero = pipe([isZero, not]);
 export const isNaN = x => x !== x;
 export const isNotNaN = pipe([isNaN, not]);
+export const isNumberFilled = x => isNotZero(x) && isNotNaN(x);
 export const isStringEmpty = x => x === '';
 export const isStringFilled = pipe([isStringEmpty, not]);
-export const isArrayFilled = pipe([prop('length'), toBoolean]);
+export const isArrayFilled = pipe([filter(isDefined), prop('length'), toBoolean]);
 export const isArrayEmpty = pipe([isArrayFilled, not]);
 export const isObjectFilled = pipe([keys, isArrayFilled]);
 export const isObjectEmpty = pipe([keys, isArrayEmpty]);
@@ -498,7 +500,7 @@ export const isExists = x => isDefined(x) && isNotNull(x);
 export const isNotExists = pipe([isExists, not]);
 export const isFilled = ifThen(isExists)([
 	switchCase(typeOf)({
-		number: x => isNotZero(x) && isNotNaN(x),
+		number: isNumberFilled,
 		string: isStringFilled,
 		array: isArrayFilled,
 		object: isObjectFilled,
@@ -554,6 +556,13 @@ export const log = (...args) => {
 	return args.length > 1 ? args : args[0]
 }
 
+export const contextReport = ({ NAME, detailed, silent, actionType, box }) =>
+	!silent && actionType && console.log(`${
+		ACTION_TYPES[actionType]} ${
+		box.getCount()} ${
+		NAME}(s)${
+		detailed ? `: ${box.join()}` : ''}`)
+
 export const webReport = ({ NAME, detailed, silent, actionType, contextBox, box }) =>
 	!silent && actionType && console.log(`${
 		ACTION_TYPES[actionType]} ${
@@ -566,7 +575,7 @@ export const webReport = ({ NAME, detailed, silent, actionType, contextBox, box 
 export const listReport = ({ NAME, detailed, silent, actionType, box, listBox, contextBox }) => {
 	!silent && actionType && console.log(`${
 		ACTION_TYPES[actionType]} ${
-		box.getCount()} ${
+		box.getCount(actionType)} ${
 		NAME}(s) in ${
 		listBox.join()} at ${
 		contextBox.join()}${
@@ -621,7 +630,10 @@ export const grouper = pipe([getArray, flip(pipe([getArray, reduceDirty(flip(pip
 //  ============      ===  ====  ==        ======
 //  =============================================
 
+export const hasUrlTailSlash = stringTest(/\/$/);
+export const hasUrlFilename = stringTest(/\.[^\/]+$/);
 export const removeEmptyUrls = filter(x => !!x.Url);
+export const removeEmptyFilenames = filter(x => x.Url && hasUrlFilename(x.Url));
 export const removeDuplicatedUrls = pipe([reduce(acc => x => (acc[x.Url] = x, acc))({}), Object.values]);
 export const prependSlash = ifThen(stringTest(/^\//))([identity, sum('/')]);
 export const popSlash = stringCut(/\/$/);
@@ -634,7 +646,7 @@ export const urlJoin = join('/');
 export const getParentUrl = pipe([popSlash, urlSplit, arrayInit, urlJoin]);
 export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash]);
 export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL]);
-export const hasUrlTailSlash = stringTest(/\/$/);
+export const isStrictUrl = url => isStringFilled(url) && !hasUrlTailSlash(url);
 
 export const getListRelativeUrl = webUrl => listUrl => elementUrl =>
 	elementUrl && stringTest(/\//)(elementUrl)
@@ -661,10 +673,10 @@ export class AbstractBox {
 		return this.isArray ? Promise.all(map(f)(this.value)) : f(this.value);
 	}
 	join() {
-		return this.isArray ? join(', ')(map(prop(this.joinProp))(this.value)) : this.value[this.joinProp];
+		return this.isArray ? join(', ')(pipe([removeEmptyUrls, map(prop(this.joinProp))])(this.value)) : this.value[this.joinProp];
 	}
 	getCount() {
-		return this.isArray ? this.value.length : 1;
+		return this.isArray ? removeEmptyUrls(this.value).length : isStrictUrl(this.value[this.prop]) ? 1 : 0;
 	}
 }
 
@@ -798,6 +810,7 @@ export const prepareResponseJSOM = (opts = {}) =>
 	ifThen(isArray)([
 		pipe([
 			flatten,
+			removeUndefineds,
 			ifThen(constant(opts.expanded))([
 				identity,
 				pipe([

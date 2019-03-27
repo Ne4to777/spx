@@ -16,34 +16,32 @@ const report = ({ silent, actionType, box }) =>
 
 // Interface
 
-export default parent => {
-	return {
-		get: async  opts => {
-			const result = await parent.box.chain(async element => {
-				const clientContext = getClientContext(element.Url);
-				return executeJSOM(clientContext)(getSPObjectCollection(parent)(clientContext))(opts);
-			})
-			return prepareResponseJSOM(opts)(result)
-		},
-		restoreAll: async opts => {
-			const result = await parent.box.chain(async element => {
-				const clientContext = getClientContext(element.Url);
-				const spObject = getSPObjectCollection(parent)(clientContext);
-				spObject.restoreAll();
-				return executeJSOM(clientContext)(spObject)(opts);;
-			})
-			report({ ...opts, actionType: 'restore', box: parent.box })
-			return prepareResponseJSOM(opts)(result)
-		},
-		deleteAll: async opts => {
-			const result = await parent.box.chain(async element => {
-				const clientContext = getClientContext(element.Url);
-				const spObject = getSPObjectCollection(parent)(clientContext);
-				spObject.deleteAll();
-				return executeJSOM(clientContext)(spObject)(opts);;
-			})
-			report({ ...opts, actionType: 'delete', box: parent.box })
-			return prepareResponseJSOM(opts)(result)
-		}
+export default parent => ({
+	get: async  opts => {
+		const result = await parent.box.chain(async element => {
+			const clientContext = getClientContext(element.Url);
+			return executeJSOM(clientContext)(getSPObjectCollection(parent)(clientContext))(opts);
+		})
+		return prepareResponseJSOM(opts)(result)
+	},
+	restoreAll: async opts => {
+		const result = await parent.box.chain(async element => {
+			const clientContext = getClientContext(element.Url);
+			const spObject = getSPObjectCollection(parent)(clientContext);
+			spObject.restoreAll();
+			return executeJSOM(clientContext)(spObject)(opts);;
+		})
+		report({ ...opts, actionType: 'restore', box: parent.box })
+		return prepareResponseJSOM(opts)(result)
+	},
+	deleteAll: async opts => {
+		const result = await parent.box.chain(async element => {
+			const clientContext = getClientContext(element.Url);
+			const spObject = getSPObjectCollection(parent)(clientContext);
+			spObject.deleteAll();
+			return executeJSOM(clientContext)(spObject)(opts);;
+		})
+		report({ ...opts, actionType: 'delete', box: parent.box })
+		return prepareResponseJSOM(opts)(result)
 	}
-} 
+})

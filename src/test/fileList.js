@@ -134,12 +134,6 @@ const assertCollectionProps = assertCollection(PROPS);
 const assertObjectItemProps = assertObject(ITEM_PROPS);
 const assertCollectionItemProps = assertCollection(ITEM_PROPS);
 
-const assertObjectRESTProps = assertObject(REST_PROPS);
-const assertCollectionRESTProps = assertCollection(REST_PROPS);
-
-const assertObjectItemRESTProps = assertObject(ITEM_REST_PROPS);
-const assertCollectionItemRESTProps = assertCollection(ITEM_REST_PROPS);
-
 const rootWebList = site().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
 const workingWebList = site('test/spx').list('Files');
 

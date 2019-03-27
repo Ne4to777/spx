@@ -76,5 +76,6 @@ export default _ => Promise.all([
   assertObjectProps('web list column')(workingWeb.list('Test').column('Title').get()),
   assertCollectionProps('web root list column')(workingWeb.list('Test').column().get()),
   assertCollectionProps('web Test, TestAnother list column')(workingWeb.list(['Test', 'TestAnother']).column(['Title', 'Author']).get()),
-  crud().then(crudCollection),
+  crud()
+    .then(crudCollection),
 ]).then(testIsOk('column'))

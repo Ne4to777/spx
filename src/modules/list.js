@@ -1,7 +1,7 @@
 import {
 	REQUEST_BUNDLE_MAX_SIZE,
-	ACTION_TYPES,
 	FILE_LIST_TEMPLATES,
+	AbstractBox,
 	getInstance,
 	isGUID,
 	pipe,
@@ -32,7 +32,8 @@ import {
 	map,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
-	AbstractBox
+	webReport,
+	isStrictUrl
 } from './../lib/utility';
 import site from './../modules/site';
 import column from './../modules/column';
@@ -88,9 +89,6 @@ class Box extends AbstractBox {
 	}
 }
 
-const report = ({ silent, actionType, parentBox, box }) =>
-	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()} at ${parentBox.join()}`)
-
 const elementIterator = contextBox => elementBox => async f => {
 	const clientContexts = {};
 	const result = await contextBox.chain(contextElement => {
@@ -112,7 +110,7 @@ const elementIterator = contextBox => elementBox => async f => {
 
 // Inteface
 
-export default (parent, urls) => {
+export default parent => urls => {
 	const instance = {
 		box: getInstance(Box)(urls),
 		parent,
@@ -120,10 +118,10 @@ export default (parent, urls) => {
 		getSPObjectCollection
 	};
 	return {
-		column: elements => column(instance, elements),
-		folder: elements => folder(instance, elements),
-		file: elements => file(instance, elements),
-		item: elements => item(instance, elements),
+		column: column(instance),
+		folder: folder(instance),
+		file: file(instance),
+		item: item(instance),
 		get: async opts => {
 			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
 				const parentSPObject = instance.parent.getSPObject(clientContext);
@@ -139,13 +137,16 @@ export default (parent, urls) => {
 		},
 		create: async opts => {
 			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				const title = element.Title || getTitleFromUrl(element.Url);
+				const url = element.Url || title;
+				if (!isStrictUrl(url)) return;
 				const parentSPObject = instance.parent.getSPObject(clientContext);
 				const spObject = pipe([
 					getInstanceEmpty,
 					setFields({
-						set_title: element.Title,
+						set_title: title,
 						set_templateType: element.BaseTemplate || SP.ListTemplateType[element.TemplateType || 'genericList'],
-						set_url: element.Url,
+						set_url: url,
 						set_templateFeatureId: element.TemplateFeatureId,
 						set_customSchemaXml: element.CustomSchemaXml,
 						set_dataSourceProperties: element.DataSourceProperties,
@@ -193,14 +194,17 @@ export default (parent, urls) => {
 				])(SP.ListCreationInformation)
 				return load(clientContext)(spObject)(opts);
 			})
-			await instance.parent.box.chain(async el => {
-				for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
-			});
-			report({ ...opts, actionType: 'create', box: instance.box, parentBox: instance.parent.box });
+			if (instance.box.getCount()) {
+				await instance.parent.box.chain(async el => {
+					for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
+				});
+			}
+			webReport({ ...opts, NAME, actionType: 'create', box: instance.box, contextBox: instance.parent.box });
 			return prepareResponseJSOM(opts)(result)
 		},
 		update: async opts => {
 			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
+				if (!isStrictUrl(element.Url)) return;
 				const parentSPObject = instance.parent.getSPObject(clientContext);
 				const spObject = pipe([
 					setFields({
@@ -240,22 +244,27 @@ export default (parent, urls) => {
 				])(getSPObject(element.Url)(parentSPObject))
 				return load(clientContext)(spObject)(opts);
 			})
-			await instance.parent.box.chain(async el => {
-				for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
-			});
-			report({ ...opts, actionType: 'update', box: instance.box, parentBox: instance.parent.box });
+			if (instance.box.getCount()) {
+				await instance.parent.box.chain(async el => {
+					for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
+				});
+			}
+			webReport({ ...opts, NAME, actionType: 'update', box: instance.box, contextBox: instance.parent.box });
 			return prepareResponseJSOM(opts)(result)
 		},
 		delete: async (opts = {}) => {
 			const { noRecycle } = opts;
 			const { clientContexts, result } = await elementIterator(instance.parent.box)(instance.box)(({ clientContext, element }) => {
 				const elementUrl = element.Url;
+				if (!isStrictUrl(elementUrl)) return;
 				const parentSPObject = instance.parent.getSPObject(clientContext);
 				const spObject = getSPObject(elementUrl)(parentSPObject);
 				methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			});
-			await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
-			report({ ...opts, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, parentBox: instance.parent.box });
+			if (instance.box.getCount()) {
+				await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			}
+			webReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, contextBox: instance.parent.box });
 			return prepareResponseJSOM(opts)(result);
 		},
 
@@ -278,7 +287,6 @@ export default (parent, urls) => {
 					if (!targetListUrl) throw new Error('Target listUrl is missed');
 					if (!sourceListUrl) throw new Error('Source list Title is missed');
 					const targetTitle = getTitleFromUrl(targetListUrl);
-
 					const targetSPX = site(targetWebUrl);
 					const sourceSPX = site(contextUrl);
 					const targetSPXList = targetSPX.list(targetListUrl);
@@ -286,6 +294,7 @@ export default (parent, urls) => {
 					await targetSPXList.get({ silent: true }).catch(async _ => {
 						const newListData = Object.assign({}, await sourceSPXList.get());
 						newListData.Title = targetTitle;
+						newListData.Url = targetTitle;
 						await targetSPX.list(newListData).create()
 					});
 					const [sourceColumns, targetColumns] = await Promise.all([
@@ -417,13 +426,10 @@ export default (parent, urls) => {
 					aggregations[columnName] = 0
 				};
 				if (Scope) {
-					if (/allItems/i.test(Scope)) {
-						scopeStr = ' Scope="Recursive"';
-					} else if (/^items$/i.test(Scope)) {
-						scopeStr = ' Scope="FilesOnly"';
-					} else if (/^all$/i.test(Scope)) {
-						scopeStr = ' Scope="RecursiveAll"';
-					}
+					scopeStr = /allItems/i.test(Scope)
+						? ' Scope="Recursive"' : /^items$/i.test(Scope)
+							? ' Scope="FilesOnly"' : /^all$/i.test(Scope)
+								? ' Scope="RecursiveAll"' : '';
 				}
 				if (Query) caml = `<Query><Where>${getCamlQuery(Query)}</Where></Query>`;
 				const aggregationsQuery = list.renderListData(`<View${scopeStr}>${caml}<Aggregations>${fieldRefs}</Aggregations></View>`);

@@ -13,7 +13,6 @@ import {
 	setFields,
 	overstep,
 	stringReplace,
-	isFilled,
 	isExists,
 	switchCase,
 	isStringEmpty,
@@ -26,7 +25,9 @@ import {
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	deep3Iterator,
-	listReport
+	listReport,
+	isStrictUrl,
+	isFilled
 } from './../lib/utility';
 
 // Internal
@@ -85,7 +86,7 @@ const addFieldAsXml = spParentObject => schema => spParentObject.addFieldAsXml(s
 
 // Inteface
 
-export default (parent, elements) => {
+export default parent => elements => {
 	const instance = {
 		box: getInstance(Box)(elements),
 		parent
@@ -117,10 +118,12 @@ export default (parent, elements) => {
 				parentBox: instance.parent.box,
 				elementBox: instance.box
 			})(({ clientContext, parentElement, element }) => {
+				const url = element.Title || element.Url;
+				if (!isStrictUrl(url)) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
 				const {
-					Title,
+					Title = url,
 					Type = element.TypeAsString || 'Text',
 					AllowMultipleValues,
 					LookupWebId,
@@ -130,7 +133,6 @@ export default (parent, elements) => {
 					RichText,
 					SchemaXml
 				} = element;
-
 				const castTo = value => spFieldObject => clientContext.castTo(spFieldObject, value);
 				const spObject = pipe([
 					ifThen(isFilled)([
@@ -209,8 +211,10 @@ export default (parent, elements) => {
 
 				return load(clientContext)(spObject)(opts);
 			})
+			if (instance.box.getCount()) {
+				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			}
 			listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
-			await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
 			return prepareResponseJSOM(opts)(result)
 		},
 
@@ -220,6 +224,7 @@ export default (parent, elements) => {
 				parentBox: instance.parent.box,
 				elementBox: instance.box
 			})(({ clientContext, parentElement, element }) => {
+				if (!isStrictUrl(element.Url)) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
 
@@ -253,8 +258,10 @@ export default (parent, elements) => {
 				])(getSPObject(element.Url)(listSPObject))
 				return load(clientContext)(spObject)(opts);
 			})
+			if (instance.box.getCount()) {
+				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			}
 			listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
-			await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
 			return prepareResponseJSOM(opts)(result)
 		},
 
@@ -264,13 +271,17 @@ export default (parent, elements) => {
 				parentBox: instance.parent.box,
 				elementBox: instance.box
 			})(({ clientContext, parentElement, element }) => {
+				const elementUrl = element.Url;
+				if (!isStrictUrl(elementUrl)) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
-				const spObject = getSPObject(element.Url)(listSPObject)
+				const spObject = getSPObject(elementUrl)(listSPObject)
 				spObject.deleteObject();
 			})
+			if (instance.box.getCount()) {
+				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			}
 			listReport({ ...opts, NAME, actionType: 'delete', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
-			await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
 			return prepareResponseJSOM(opts)(result)
 		},
 	}

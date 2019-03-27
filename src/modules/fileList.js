@@ -44,7 +44,10 @@ import {
   deep2IteratorREST,
   stringTest,
   isUndefined,
-  isBlob
+  isBlob,
+  isStrictUrl,
+  hasUrlFilename,
+  removeEmptyFilenames
 } from './../lib/utility';
 import axios from 'axios';
 import * as cache from './../lib/cache';
@@ -104,6 +107,8 @@ const liftFolderType = switchCase(typeOf)({
   })
 })
 
+
+
 class Box extends AbstractBox {
   constructor(value) {
     super(value);
@@ -118,6 +123,9 @@ class Box extends AbstractBox {
         constant([liftFolderType()])
       ])(value)
       : liftFolderType(value);
+  }
+  getCount() {
+    return this.isArray ? removeEmptyFilenames(this.value).length : hasUrlFilename(this.value[this.prop]) ? 1 : 0;
   }
 }
 
@@ -140,6 +148,7 @@ const createWithJSOM = instance => async (opts = {}) => {
       const listUrl = parentElement.Url;
       const contextUrl = contextElement.Url;
       const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+      if (!hasUrlFilename(elementUrl)) return;
       const contextSPObject = instance.parent.parent.getSPObject(clientContext);
       const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
       const spObjects = getSPObjectCollection(elementUrl)(listSPObject);
@@ -164,35 +173,37 @@ const createWithJSOM = instance => async (opts = {}) => {
       return load(clientContext)(spObject)(opts)
     })
   let needToRetry;
-  await instance.parent.parent.box.chain(async el => {
-    for (const clientContext of clientContexts[el.Url]) {
-      await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-        if (err.get_message() === 'File Not Found.') {
-          const foldersToCreate = {};
-          await deep3Iterator({
-            contextBox: instance.parent.parent.box,
-            parentBox: instance.parent.box,
-            elementBox: instance.box,
-            // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-          })(({ contextElement, parentElement, element }) => {
-            const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
-            foldersToCreate[getFolderFromUrl(elementUrl)] = true;
-          })
-          await deep2Iterator({
-            contextBox: instance.parent.parent.box,
-            elementBox: instance.parent.box,
-            // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-          })(({ contextElement, element }) =>
-            site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity)
-          )
-          needToRetry = true;
-        } else {
-          console.error(err.get_message())
-        }
-      })
-      if (needToRetry) break;
-    }
-  });
+  if (instance.box.getCount()) {
+    await instance.parent.parent.box.chain(async el => {
+      for (const clientContext of clientContexts[el.Url]) {
+        await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+          if (err.get_message() === 'File Not Found.') {
+            const foldersToCreate = {};
+            await deep3Iterator({
+              contextBox: instance.parent.parent.box,
+              parentBox: instance.parent.box,
+              elementBox: instance.box,
+              // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
+            })(({ contextElement, parentElement, element }) => {
+              const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
+              foldersToCreate[getFolderFromUrl(elementUrl)] = true;
+            })
+            await deep2Iterator({
+              contextBox: instance.parent.parent.box,
+              elementBox: instance.parent.box,
+              // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
+            })(({ contextElement, element }) =>
+              site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity)
+            )
+            needToRetry = true;
+          } else {
+            console.error(err.get_message())
+          }
+        })
+        if (needToRetry) break;
+      }
+    });
+  }
   if (needToRetry) {
     return createWithJSOM(instance)(opts)
   } else {
@@ -201,22 +212,30 @@ const createWithJSOM = instance => async (opts = {}) => {
   }
 }
 
-const createWithREST = instance => (opts = {}) =>
-  deep3IteratorREST({
+const createWithREST = instance => async opts => {
+  const res = await deep3IteratorREST({
     contextBox: instance.parent.parent.box,
     parentBox: instance.parent.box,
     elementBox: instance.box
-  })(async ({ contextElement, parentElement, element }) => isBlob(element.Content)
-    ? await createWithRESTFromBlob({ instance, contextElement, parentElement, element })(opts)
-    : await createWithRESTFromString({ instance, contextElement, parentElement, element })(opts)
-  )
+  })(({ contextElement, parentElement, element }) => {
+    const contextUrl = contextElement.Url;
+    const listUrl = parentElement.Url;
+    const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+    if (!hasUrlFilename(elementUrl)) return;
+    return isBlob(element.Content)
+      ? createWithRESTFromBlob({ instance, contextUrl, listUrl, element })(opts)
+      : createWithRESTFromString({ instance, contextUrl, listUrl, element })(opts)
+  })
+  listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+  return res;
+}
 
-const createWithRESTFromString = ({ instance, contextElement, parentElement, element }) => async (opts = {}) => {
+const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) => async (opts = {}) => {
   const { needResponse } = opts;
   const { Url = '', Content = '', Overwrite = true, OnProgress = identity, Folder = '', Columns } = element;
-  const contextUrl = contextElement.Url;
-  const listUrl = parentElement.Url;
   const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+  let needToRetry;
+  let isError;
   const folder = getListRelativeUrl(contextUrl)(listUrl)(Folder) || getFolderFromUrl(elementUrl);
   const filename = getFilenameFromUrl(elementUrl);
   const filesUrl = getRESTObjectCollection(folder ? `${folder}/${filename}` : filename)(listUrl)(contextUrl);
@@ -230,8 +249,6 @@ const createWithRESTFromString = ({ instance, contextElement, parentElement, ele
     data: Content,
     onUploadProgress: e => OnProgress(Math.floor((e.loaded * 100) / e.total))
   }
-  let needToRetry;
-  let isError;
   await axios(request).catch(async err => {
     if (err.response.statusText === 'Not Found') {
       const foldersToCreate = {};
@@ -258,7 +275,7 @@ const createWithRESTFromString = ({ instance, contextElement, parentElement, ele
     isError = true;
   });
   if (needToRetry) {
-    return createWithRESTFromString({ instance, contextElement, parentElement, element })(opts);
+    return createWithRESTFromString({ instance, contextUrl, listUrl, element })(opts);
   } else {
     if (!isError) {
       let response;
@@ -273,14 +290,14 @@ const createWithRESTFromString = ({ instance, contextElement, parentElement, ele
   }
 }
 
-const createWithRESTFromBlob = ({ instance, contextElement, parentElement, element }) => async opts => {
+const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => async opts => {
   let founds;
   const inputs = [];
   const { needResponse } = opts;
   const { Url = '', Content = '', Overwrite, OnProgress = identity, Folder = '', Columns } = element;
-  const contextUrl = contextElement.Url;
-  const listUrl = parentElement.Url;
   const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+  let needToRetry;
+  let isError;
   const folder = Folder || getFolderFromUrl(elementUrl);
   const filename = elementUrl ? getFilenameFromUrl(elementUrl) : Content.name;
   const requiredInputs = {
@@ -317,8 +334,6 @@ const createWithRESTFromBlob = ({ instance, contextElement, parentElement, eleme
     data: formData,
     onUploadProgress: e => OnProgress(Math.floor((e.loaded * 100) / e.total))
   }
-  let needToRetry;
-  let isError;
   const response = await axios(request);
   if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
     const foldersToCreate = {};
@@ -343,7 +358,7 @@ const createWithRESTFromBlob = ({ instance, contextElement, parentElement, eleme
     )
   }
   if (needToRetry) {
-    return createWithRESTFromBlob({ instance, contextElement, parentElement, element })(opts);
+    return createWithRESTFromBlob({ instance, contextUrl, listUrl, element })(opts);
   } else {
     if (!isError) {
       let response;
@@ -352,7 +367,6 @@ const createWithRESTFromBlob = ({ instance, contextElement, parentElement, eleme
       } else if (needResponse) {
         response = await site(contextUrl).list(listUrl).file(elementUrl).get(opts);
       }
-      listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
       return response;
     }
   }
@@ -368,6 +382,7 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     const contextUrl = contextElement.Url;
     const listUrl = parentElement.Url;
     const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+    if (!hasUrlFilename(elementUrl)) return;
     let targetWebUrl, targetListUrl, targetFileUrl;
     if (isObject(To)) {
       targetWebUrl = To.Web;
@@ -442,7 +457,7 @@ export const cacheColumns = contextBox => elementBox =>
 
 // Inteface
 
-export default (parent, elements) => {
+export default parent => elements => {
   const instance = {
     box: getInstance(Box)(elements),
     parent,
@@ -501,6 +516,7 @@ export default (parent, elements) => {
           const listUrl = parentElement.Url;
           const contextUrl = contextElement.Url;
           const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+          if (!hasUrlFilename(elementUrl)) return;
           const contextSPObject = instance.parent.parent.getSPObject(clientContext);
           const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
           let spObject;
@@ -523,7 +539,9 @@ export default (parent, elements) => {
           }
           return load(clientContext)(spObject.get_file())(opts)
         })
-      await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      if (instance.box.getCount()) {
+        await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      }
       listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
       return prepareResponseJSOM(opts)(result)
     },
@@ -538,11 +556,14 @@ export default (parent, elements) => {
         const contextUrl = contextElement.Url;
         const listUrl = parentElement.Url;
         const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+        if (!hasUrlFilename(elementUrl)) return;
         const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
         const spObject = getSPObject(elementUrl)(listSPObject);
         methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
       });
-      await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      if (instance.box.getCount()) {
+        await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      }
       listReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
       return prepareResponseJSOM(opts)(result);
     },

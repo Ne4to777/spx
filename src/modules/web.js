@@ -1,5 +1,4 @@
 import {
-	ACTION_TYPES,
 	AbstractBox,
 	getClientContext,
 	prepareResponseJSOM,
@@ -25,6 +24,8 @@ import {
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	getTitleFromUrl,
+	contextReport,
+	isStrictUrl
 } from './../lib/utility'
 
 // import search from './../modules/search'
@@ -75,9 +76,6 @@ class Box extends AbstractBox {
 	}
 }
 
-const report = ({ silent, actionType, box }) =>
-	!silent && actionType && console.log(`${ACTION_TYPES[actionType]} ${NAME}: ${box.join()}`)
-
 // Interface
 
 export default urls => {
@@ -88,10 +86,10 @@ export default urls => {
 	};
 	return {
 		recycleBin: recycleBin(instance),
-		// search: elements => search(instance, elements),
-		list: elements => list(instance, elements),
-		folder: elements => folder(instance, elements),
-		file: elements => file(instance, elements),
+		// search: search(instance),
+		list: list(instance),
+		folder: folder(instance),
+		file: file(instance),
 
 
 		get: async opts => {
@@ -107,6 +105,7 @@ export default urls => {
 		create: async opts => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = getParentUrl(element.Url);
+				if (!isStrictUrl(elementUrl)) return;
 				const clientContext = getClientContext(elementUrl);
 
 				const spObject = pipe([
@@ -143,13 +142,14 @@ export default urls => {
 
 				return executeJSOM(clientContext)(spObject)(opts);
 			})
-			report({ ...opts, actionType: 'create', box: instance.box });
+			contextReport({ ...opts, NAME, actionType: 'create', box: instance.box });
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		update: async opts => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = element.Url;
+				if (!isStrictUrl(elementUrl)) return;
 				const clientContext = getClientContext(elementUrl);
 				const spObject = pipe([
 					setFields({
@@ -176,19 +176,20 @@ export default urls => {
 				])(getSPObject(clientContext))
 				return await executeJSOM(clientContext)(spObject)(opts);
 			})
-			report({ ...opts, actionType: 'update', box: instance.box });
+			contextReport({ ...opts, NAME, actionType: 'update', box: instance.box });
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		delete: async opts => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = element.Url;
+				if (!isStrictUrl(elementUrl)) return;
 				const clientContext = getClientContext(elementUrl);
 				const spObject = getSPObject(clientContext);
 				try { spObject.deleteObject() } catch (err) { new Error('Context url is wrong') }
 				return executorJSOM(clientContext)(opts);
 			})
-			report({ ...opts, actionType: 'delete', box: instance.box });
+			contextReport({ ...opts, NAME, actionType: 'delete', box: instance.box });
 			return prepareResponseJSOM(opts)(result)
 		},
 

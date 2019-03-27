@@ -26,7 +26,9 @@ import {
 	getListRelativeUrl,
 	popSlash,
 	isDefined,
-	isNull
+	isNull,
+	isFilled,
+	removeEmptyUrls
 } from './../lib/utility';
 import * as cache from './../lib/cache';
 import {
@@ -139,6 +141,16 @@ class Box extends AbstractBox {
 			])(value)
 			: liftItemType(value);
 	}
+	getCount(actionType) {
+		if (this.isArray) {
+			if (actionType === 'update' || actionType === 'delete' || actionType === 'recycle') {
+				return removeEmptyUrls(this.value).length
+			}
+			return this.value.length
+		} else {
+			return this.value.Url ? 1 : 0;
+		}
+	}
 }
 
 export const cacheColumns = contextBox => elementBox =>
@@ -200,7 +212,7 @@ const operateDuplicates = instance => async (opts = {}) => {
 
 // Inteface
 
-export default (parent, elements) => {
+export default parent => elements => {
 	const instance = {
 		box: getInstance(Box)(elements),
 		parent
@@ -292,7 +304,7 @@ export default (parent, elements) => {
 				parentBox: instance.parent.box,
 				elementBox: instance.box
 			})(({ contextElement, clientContext, parentElement, element }) => {
-				if (!element.ID) throw new Error('update failed. ID is missed');
+				if (!element.Url) return;
 				const contextUrl = contextElement.Url;
 				const listUrl = parentElement.Url;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
@@ -302,7 +314,9 @@ export default (parent, elements) => {
 				const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(elementNew)(getSPObject(element)(parentElement.Url)(listSPObject))
 				return load(clientContext)(spObject)(opts)
 			})
-			await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			if (isFilled(result)) {
+				await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			}
 			listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
 			return prepareResponseJSOM(opts)(result);
 		},
@@ -336,12 +350,15 @@ export default (parent, elements) => {
 				parentBox: instance.parent.box,
 				elementBox: instance.box,
 			})(({ clientContext, parentElement, element }) => {
+				if (!element.Url) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
 				const spObject = getSPObject(element)(parentElement.Url)(listSPObject);
 				!spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			});
-			await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			if (isFilled(result)) {
+				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+			}
 			listReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
 			return prepareResponseJSOM(opts)(result);
 		},

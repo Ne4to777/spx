@@ -40,13 +40,13 @@ const crudBundle = async _ => {
 }
 
 export default _ => Promise.all([
-  // assertObjectProps('root web folder')(rootWeb.folder().get()),
-  // assertCollectionProps('root web folder')(rootWeb.folder('/').get()),
-  // assertObjectProps('web root folder')(workingWeb.folder().get()),
-  // assertObjectProps('web _catalogs folder')(workingWeb.folder('_catalogs').get()),
-  // assertCollectionProps('web _catalogs folder')(workingWeb.folder('_catalogs/').get()),
-  // assertCollectionProps('web _catalogs folder')(workingWeb.folder(['_catalogs', 'Files']).get()),
-  // crud(),
-  // crudCollection(),
-  crudBundle()
+  assertObjectProps('root web folder')(rootWeb.folder().get()),
+  assertCollectionProps('root web folder')(rootWeb.folder('/').get()),
+  assertObjectProps('web root folder')(workingWeb.folder().get()),
+  assertObjectProps('web _catalogs folder')(workingWeb.folder('_catalogs').get()),
+  assertCollectionProps('web _catalogs folder')(workingWeb.folder('_catalogs/').get()),
+  assertCollectionProps('web _catalogs folder')(workingWeb.folder(['_catalogs', 'Files']).get()),
+  crud(),
+  crudCollection(),
+  // crudBundle()
 ]).then(testIsOk('folderWeb'))

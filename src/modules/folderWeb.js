@@ -24,7 +24,8 @@ import {
   removeEmptyUrls,
   removeDuplicatedUrls,
   deep2Iterator,
-  webReport
+  webReport,
+  isStrictUrl
 } from './../lib/utility';
 import site from './../modules/site';
 
@@ -89,7 +90,7 @@ class Box extends AbstractBox {
 
 // Inteface
 
-export default (parent, elements) => {
+export default parent => elements => {
   const instance = {
     box: getInstance(Box)(elements),
     parent,
@@ -119,34 +120,37 @@ export default (parent, elements) => {
         elementBox: instance.box
       })(({ contextElement, clientContext, element }) => {
         const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
+        if (!isStrictUrl(elementUrl)) return;
         const parentFolderUrl = getParentUrl(elementUrl);
         const spObject = getSPObjectCollection(`${parentFolderUrl}/`)(instance.parent.getSPObject(clientContext)).add(getTitleFromUrl(elementUrl));
         return load(clientContext)(spObject)(opts);
       });
 
       let needToRetry;
-      await instance.parent.box.chain(async el => {
-        for (const clientContext of clientContexts[el.Url]) {
-          await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-            if (err.get_message() === 'File Not Found.') {
-              const foldersToCreate = {};
-              await deep2Iterator({
-                contextBox: instance.parent.box,
-                elementBox: instance.box
-              })(({ contextElement, element }) => {
-                const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
-                foldersToCreate[getParentUrl(elementUrl)] = true;
-              })
-              await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
-                needToRetry = true;
-              }).catch(identity)
-            } else {
-              console.error(err.get_message())
-            }
-          })
-          if (needToRetry) break;
-        }
-      });
+      if (instance.box.getCount()) {
+        await instance.parent.box.chain(async el => {
+          for (const clientContext of clientContexts[el.Url]) {
+            await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+              if (err.get_message() === 'File Not Found.') {
+                const foldersToCreate = {};
+                await deep2Iterator({
+                  contextBox: instance.parent.box,
+                  elementBox: instance.box
+                })(({ contextElement, element }) => {
+                  const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
+                  foldersToCreate[getParentUrl(elementUrl)] = true;
+                })
+                await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
+                  needToRetry = true;
+                }).catch(identity)
+              } else {
+                console.error(err.get_message())
+              }
+            })
+            if (needToRetry) break;
+          }
+        });
+      }
       if (needToRetry) {
         return create(opts)
       } else {
@@ -163,11 +167,14 @@ export default (parent, elements) => {
       })(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
+        if (!isStrictUrl(elementUrl)) return;
         const parentSPObject = instance.parent.getSPObject(clientContext);
         const spObject = getSPObject(elementUrl)(parentSPObject);
         !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
       });
-      await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      if (instance.box.getCount()) {
+        await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      }
       webReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, contextBox: instance.parent.box });
       return prepareResponseJSOM(opts)(result);
     }

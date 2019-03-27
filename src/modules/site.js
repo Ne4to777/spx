@@ -37,13 +37,13 @@ const box = getInstance(Box)('/');
 site.user = user;
 site.recycleBin = recycleBin({ box, getSPObject });
 
-site.get = async (opts = {}) => {
+site.get = async opts => {
   const clientContext = getClientContext('/');
   const spObject = getSPObject(clientContext);
   const currentSPObjects = await executeJSOM(clientContext)(spObject)(opts);
   return prepareResponseJSOM(opts)(currentSPObjects);
 }
-site.getCustomListTemplates = async (opts = {}) => {
+site.getCustomListTemplates = async opts => {
   const clientContext = getClientContext('/');
   const spObject = getSPObject(clientContext);
   const web = clientContext.get_web();
@@ -51,7 +51,7 @@ site.getCustomListTemplates = async (opts = {}) => {
   const currentSPObjects = await executeJSOM(clientContext)(templates)(opts);
   return prepareResponseJSOM(opts)(currentSPObjects);
 }
-site.getWebTemplates = async (opts = {}) => {
+site.getWebTemplates = async opts => {
   const clientContext = getClientContext('/');
   const spObject = getSPObject(clientContext);
   const templates = spObject.getWebTemplates(1033, 0);

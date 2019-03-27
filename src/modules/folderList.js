@@ -30,7 +30,8 @@ import {
   deep2Iterator,
   deep3Iterator,
   listReport,
-  getTitleFromUrl
+  getTitleFromUrl,
+  isStrictUrl
 } from './../lib/utility';
 import * as cache from './../lib/cache';
 
@@ -106,7 +107,7 @@ export const cacheColumns = contextBox => elementBox =>
 
 // Inteface
 
-export default (parent, elements) => {
+export default parent => elements => {
   const instance = {
     box: getInstance(Box)(elements),
     parent,
@@ -147,6 +148,7 @@ export default (parent, elements) => {
           const listUrl = parentElement.Url;
           const contextUrl = contextElement.Url;
           const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+          if (!isStrictUrl(elementUrl)) return;
           const contextSPObject = instance.parent.parent.getSPObject(clientContext);
           const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
           const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation);
@@ -158,37 +160,39 @@ export default (parent, elements) => {
         })
       let needToRetry;
       let isError;
-      await instance.parent.parent.box.chain(async el => {
-        for (const clientContext of clientContexts[el.Url]) {
-          await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-            if (/This operation can only be performed on a file;/.test(err.get_message())) {
-              const foldersToCreate = {};
-              await deep3Iterator({
-                contextBox: instance.parent.parent.box,
-                parentBox: instance.parent.box,
-                elementBox: instance.box,
-                bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-              })(({ contextElement, parentElement, element }) => {
-                const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
-                foldersToCreate[getParentUrl(elementUrl)] = true;
-              })
-              await deep2Iterator({
-                contextBox: instance.parent.parent.box,
-                elementBox: instance.parent.box,
-                bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-              })(({ contextElement, element }) =>
-                site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
-                  needToRetry = true;
-                }).catch(identity)
-              )
-            } else {
-              !opts.silent && !opts.silentErrors && console.error(err.get_message())
-            }
-            isError = true;
-          })
-          if (needToRetry) break;
-        }
-      });
+      if (instance.box.getCount()) {
+        await instance.parent.parent.box.chain(async el => {
+          for (const clientContext of clientContexts[el.Url]) {
+            await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+              if (/This operation can only be performed on a file;/.test(err.get_message())) {
+                const foldersToCreate = {};
+                await deep3Iterator({
+                  contextBox: instance.parent.parent.box,
+                  parentBox: instance.parent.box,
+                  elementBox: instance.box,
+                  bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
+                })(({ contextElement, parentElement, element }) => {
+                  const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
+                  foldersToCreate[getParentUrl(elementUrl)] = true;
+                })
+                await deep2Iterator({
+                  contextBox: instance.parent.parent.box,
+                  elementBox: instance.parent.box,
+                  bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
+                })(({ contextElement, element }) =>
+                  site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
+                    needToRetry = true;
+                  }).catch(identity)
+                )
+              } else {
+                !opts.silent && !opts.silentErrors && console.error(err.get_message())
+              }
+              isError = true;
+            })
+            if (needToRetry) break;
+          }
+        });
+      }
       if (needToRetry) {
         return create(opts)
       } else {
@@ -209,15 +213,18 @@ export default (parent, elements) => {
         elementBox: instance.box,
         bundleSize: REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE
       })(({ contextElement, clientContext, parentElement, element }) => {
-        const listUrl = parentElement.Url;
         const contextUrl = contextElement.Url;
+        const listUrl = parentElement.Url;
+        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+        if (!isStrictUrl(elementUrl)) return;
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
-        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
         const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, element))(getSPObject(elementUrl)(listSPObject).get_listItemAllFields())
         return load(clientContext)(spObject.get_folder())(opts)
       })
-      await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      if (instance.box.getCount()) {
+        await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      }
       listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
       return prepareResponseJSOM(opts)(result);
     },
@@ -233,10 +240,13 @@ export default (parent, elements) => {
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
         const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
+        if (!isStrictUrl(elementUrl)) return;
         const spObject = getSPObject(elementUrl)(listSPObject);
         !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
       });
-      await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      if (instance.box.getCount()) {
+        await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+      }
       listReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
       return prepareResponseJSOM(opts)(result);
     }
