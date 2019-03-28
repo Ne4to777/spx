@@ -161,10 +161,9 @@ const convertExpression = str => {
 	}
 	const operatorNorm = OPERATORS_MAPPED[operator];
 	const strSplits = str.split(new RegExp(operatorMatch, 'i'));
-	const columnStr = strSplits[0].replace(/\s\s+/g, ' ').trim();
-	let name = columnStr;
-	if (COLUMN_TYPES_REGEXP.test(columnStr)) {
-		const columnSplits = columnStr.split(' ');
+	let name = strSplits[0].replace(/\s\s+/g, ' ').trim();
+	if (COLUMN_TYPES_REGEXP.test(name)) {
+		const columnSplits = name.split(' ');
 		type = columnSplits.shift().toLowerCase();
 		name = columnSplits.join(' ');
 	} else {
@@ -176,7 +175,6 @@ const convertExpression = str => {
 		name = name.substring(0, name.length - 1);
 		fieldOption = ' LookupId="True"';
 	}
-
 	switch (type) {
 		case 'datetime':
 		case 'time':
@@ -187,6 +185,9 @@ const convertExpression = str => {
 			break;
 		case 'text':
 			if (TIME_STAMP_ISO_REGEXP.test(value)) valueOpts = 'StorageTZ="True"';
+			break;
+		case 'boolean':
+			value = /^(true|yes|1)$/.test(value) ? '1' : '0'
 			break;
 	}
 	const typeNorm = COLUMN_TYPES_MAPPED[type];
