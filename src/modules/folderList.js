@@ -118,7 +118,7 @@ export default parent => elements => {
     elementBox: instance.box,
     bundleSize
   })
-  const report = actionType => opts =>
+  const report = actionType => (opts = {}) =>
     listReport({ ...opts, NAME, actionType, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
 
   return {

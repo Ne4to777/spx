@@ -96,7 +96,8 @@ export default parent => elements => {
 		parentBox: instance.parent.box,
 		elementBox: instance.box
 	});
-	const report = actionType => opts => listReport({ ...opts, NAME, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box, actionType });
+	const report = actionType => (opts = {}) =>
+		listReport({ ...opts, NAME, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box, actionType });
 	return {
 
 		get: async opts => {

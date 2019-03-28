@@ -99,7 +99,7 @@ export default moduleType => parent => urls => {
     elementBox: instance.box
   });
 
-  const report = actionType => opts => webReport({ ...opts, NAME: moduleType, actionType, box: instance.box, contextBox: instance.parent.box });
+  const report = actionType => (opts = {}) => webReport({ ...opts, NAME: moduleType, actionType, box: instance.box, contextBox: instance.parent.box });
   const modules = {
     column: column(instance),
     folder: folder(instance),

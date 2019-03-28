@@ -84,7 +84,7 @@ export default urls => {
 		getSPObject,
 		getSPObjectCollection
 	};
-	const report = actionType => opts => contextReport({ ...opts, NAME, actionType, box: instance.box });
+	const report = actionType => (opts = {}) => contextReport({ ...opts, NAME, actionType, box: instance.box });
 	return {
 		recycleBin: recycleBin(instance),
 		// search: search(instance),

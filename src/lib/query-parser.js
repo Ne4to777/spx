@@ -331,7 +331,7 @@ export const getCamlView = (str = {}) => {
 	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
 }
 
-export const joinQueries = (joiner = '||') => operator => columns => values => {
+export const craftQuery = (joiner = '||') => operator => columns => values => {
 	const normalizedJoiner = normalizeOperator(joiner);
 	const columnsArray = getArray(columns);
 	const valuesArray = getArray(values);
@@ -374,12 +374,8 @@ const concat2Queries = (joiner = '||') => query1 => query2 => {
 	}
 }
 
-export const concatQueries = (joiner = '||') => (queries = []) => {
-	const concater = concat2Queries(joiner);
-	const head = arrayHead(queries);
-	const tail = arrayTail(queries);
-	return reduce(concater)(head)(tail);
-}
+export const concatQueries = (joiner = '||') => (queries = []) =>
+	reduce(concat2Queries(joiner))(arrayHead(queries))(arrayTail(queries));
 
 export const camlLog = str => console.log(str && DOMParser ? new DOMParser().parseFromString(str, 'text/xml') : str);
 

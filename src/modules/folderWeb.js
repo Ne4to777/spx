@@ -100,7 +100,7 @@ export default parent => elements => {
     elementBox: instance.box
   });
 
-  const report = actionType => opts => webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box });
+  const report = actionType => (opts = {}) => webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box });
   return {
     get: async opts => {
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
@@ -117,7 +117,7 @@ export default parent => elements => {
       return prepareResponseJSOM(opts)(result);
     },
 
-    create: async function create(opts) {
+    create: async function create(opts = {}) {
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
         if (!isStrictUrl(elementUrl)) return;

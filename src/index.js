@@ -13,7 +13,7 @@ import {
 	getCamlQuery,
 	getCamlView,
 	camlLog,
-	joinQueries,
+	craftQuery,
 	concatQueries,
 } from './lib/query-parser';
 import { log, executeJSOM, prepareResponseJSOM, prepareResponseREST, getClientContext, executorJSOM } from './lib/utility';
@@ -22,7 +22,7 @@ window.axios = axios;
 window.log = log;
 window.getCamlView = getCamlView;
 window.getCamlQuery = getCamlQuery;
-window.joinQueries = joinQueries;
+window.craftQuery = craftQuery;
 window.concatQueries = concatQueries;
 window.camlLog = camlLog;
 window.spx = spx;
@@ -546,3 +546,6 @@ const getPagesSPX = async _ => {
 }
 
 // getPagesSPX()
+
+const destructor = x => console.log(...x)
+// console.log(destructor());

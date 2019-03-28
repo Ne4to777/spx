@@ -35,7 +35,8 @@ import {
   MD5
 } from 'crypto-js';
 import {
-  joinQueries,
+  getCamlView,
+  craftQuery,
   camlLog,
   concatQueries
 } from './../lib/query-parser';
@@ -206,7 +207,7 @@ const cacheColumns = contextBox => elementBox =>
     }
   })
 
-const updateByQuery = iterator => module => async opts => {
+const updateByQuery = iterator => module => async (opts = {}) => {
   const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
     const { Folder, Query, Columns = {} } = element;
     if (Query === void 0) throw new Error('Query is missed');
@@ -254,7 +255,7 @@ const getEmpties = iteratorParent => module => async opts => {
   const columns = instance.box.value.map(prop('ID'));
   const { result } = await iteratorParent(async ({ contextElement, element }) =>
     site(contextElement.Url)[module](element.Url).item({
-      Query: `${joinQueries('or')('isnull')(columns)()}`,
+      Query: `${craftQuery('or')('isnull')(columns)()}`,
       Scope: 'allItems',
       Limit: MAX_ITEMS_LIMIT,
       Folder: element.Folder
@@ -325,7 +326,7 @@ export default parent => elements => {
     elementBox: instance.parent.box
   });
 
-  const report = actionType => opts =>
+  const report = actionType => (opts = {}) =>
     listReport({ ...opts, NAME: instance.NAME, actionType, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
   return {
     get: async (opts = {}) => {

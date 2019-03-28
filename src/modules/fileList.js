@@ -151,7 +151,7 @@ const iteratorParentREST = instance => deep2IteratorREST({
   elementBox: instance.parent.box
 })
 
-const report = instance => actionType => opts =>
+const report = instance => actionType => (opts = {}) =>
   listReport({ ...opts, NAME, actionType, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
 
 const createWithJSOM = instance => async (opts = {}) => {

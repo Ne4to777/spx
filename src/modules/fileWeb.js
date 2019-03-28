@@ -121,7 +121,7 @@ export default parent => elements => {
     box: getInstance(Box)(elements),
     parent,
   };
-  const report = actionType => opts => webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box });
+  const report = actionType => (opts = {}) => webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box });
   return {
     get: async (opts = {}) => {
       if (opts.asBlob) {
@@ -219,7 +219,7 @@ export default parent => elements => {
           for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
         })
       }
-      webReport({ ...opts, NAME, actionType: 'update', box: instance.box, contextBox: instance.parent.box });
+      report('update')(opts);
       return prepareResponseJSOM(opts)(result);
     },
 

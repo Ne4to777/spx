@@ -16,7 +16,7 @@ const getSPObjectCollection = parent => clientContext => parent.getSPObject(clie
 // Interface
 
 export default parent => {
-	const report = actionType => ({ silent }) => !silent && console.log(`${ACTION_TYPES[actionType]} ${NAME} at ${parent.box.join()}`)
+	const report = actionType => (opts = {}) => !opts.silent && console.log(`${ACTION_TYPES[actionType]} ${NAME} at ${parent.box.join()}`)
 	return {
 		get: async  opts => {
 			const result = await parent.box.chain(async element => {
