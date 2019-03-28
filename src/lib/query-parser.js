@@ -311,7 +311,6 @@ export const getCamlQuery = str => {
 export const getCamlView = (str = {}) => {
 	let orderBys;
 	let orderByStr = '';
-	let limitStr = '';
 	let scopeStr = '';
 	let { OrderBy, Scope, Limit, Query = '' } = str;
 	if (!isObject(str)) Query = str;
@@ -328,8 +327,8 @@ export const getCamlView = (str = {}) => {
 				? ' Scope="RecursiveAll"' : '';
 	const whereStr = Query ? `<Where>${getCamlQuery(Query)}</Where>` : '';
 	const queryStr = whereStr || orderByStr ? `<Query>${whereStr}${orderByStr}</Query>` : '';
-	if (Limit) limitStr = `<RowLimit>${Limit}</RowLimit>`;
-	return scopeStr || queryStr || limitStr ? `<View${scopeStr}>${queryStr + limitStr}</View>` : '';
+	const limitStr = `<RowLimit>${Limit || 160000}</RowLimit>`;
+	return `<View${scopeStr}>${queryStr}${limitStr}</View>`;
 }
 
 export const craftQuery = (joiner = '||') => operator => columns => values => {
