@@ -91,14 +91,16 @@ export default parent => elements => {
 		box: getInstance(Box)(elements),
 		parent
 	};
+	const iterator = deep3Iterator({
+		contextBox: instance.parent.parent.box,
+		parentBox: instance.parent.box,
+		elementBox: instance.box
+	});
+	const report = actionType => opts => listReport({ ...opts, NAME, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box, actionType });
 	return {
 
 		get: async opts => {
-			const { clientContexts, result } = await deep3Iterator({
-				contextBox: instance.parent.parent.box,
-				parentBox: instance.parent.box,
-				elementBox: instance.box
-			})(({ clientContext, parentElement, element }) => {
+			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
 				const elementUrl = element.Url;
@@ -113,11 +115,7 @@ export default parent => elements => {
 		},
 
 		create: async opts => {
-			const { clientContexts, result } = await deep3Iterator({
-				contextBox: instance.parent.parent.box,
-				parentBox: instance.parent.box,
-				elementBox: instance.box
-			})(({ clientContext, parentElement, element }) => {
+			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
 				const url = element.Title || element.Url;
 				if (!isStrictUrl(url)) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
@@ -214,16 +212,12 @@ export default parent => elements => {
 			if (instance.box.getCount()) {
 				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
 			}
-			listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			report('create')(opts);
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		update: async opts => {
-			const { clientContexts, result } = await deep3Iterator({
-				contextBox: instance.parent.parent.box,
-				parentBox: instance.parent.box,
-				elementBox: instance.box
-			})(({ clientContext, parentElement, element }) => {
+			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
 				if (!isStrictUrl(element.Url)) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
@@ -261,16 +255,12 @@ export default parent => elements => {
 			if (instance.box.getCount()) {
 				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
 			}
-			listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			report('update')(opts);
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		delete: async opts => {
-			const { clientContexts, result } = await deep3Iterator({
-				contextBox: instance.parent.parent.box,
-				parentBox: instance.parent.box,
-				elementBox: instance.box
-			})(({ clientContext, parentElement, element }) => {
+			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
 				const elementUrl = element.Url;
 				if (!isStrictUrl(elementUrl)) return;
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext);
@@ -281,7 +271,7 @@ export default parent => elements => {
 			if (instance.box.getCount()) {
 				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
 			}
-			listReport({ ...opts, NAME, actionType: 'delete', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+			report('delete')(opts);
 			return prepareResponseJSOM(opts)(result)
 		},
 	}

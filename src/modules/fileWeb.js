@@ -104,6 +104,16 @@ class Box extends AbstractBox {
   }
 }
 
+const iterator = instance => deep2Iterator({
+  contextBox: instance.parent.box,
+  elementBox: instance.box
+})
+
+const iteratorREST = instance => deep2IteratorREST({
+  contextBox: instance.parent.parent.box,
+  elementBox: instance.parent.box
+})
+
 // Inteface
 
 export default parent => elements => {
@@ -111,10 +121,11 @@ export default parent => elements => {
     box: getInstance(Box)(elements),
     parent,
   };
+  const report = actionType => opts => webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box });
   return {
     get: async (opts = {}) => {
       if (opts.asBlob) {
-        const result = await deep2IteratorREST(instance.parent.box)(instance.box)(({ contextElement, element }) => {
+        const result = await iteratorREST(instance)(({ contextElement, element }) => {
           const contextUrl = contextElement.Url;
           const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
           return executorREST(contextUrl)({
@@ -125,10 +136,7 @@ export default parent => elements => {
         return prepareResponseREST(opts)(result);
       } else {
         if (opts.asItem) opts.view = ['ListItemAllFields'];
-        const { clientContexts, result } = await deep2Iterator({
-          contextBox: instance.parent.box,
-          elementBox: instance.box
-        })(({ contextElement, clientContext, element }) => {
+        const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
           const contextUrl = contextElement.Url;
           const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
           const parentSPObject = parent.getSPObject(clientContext);
@@ -144,10 +152,7 @@ export default parent => elements => {
     },
 
     create: async function create(opts = {}) {
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
         if (!hasUrlFilename(elementUrl)) return;
@@ -174,10 +179,7 @@ export default parent => elements => {
             await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
               if (err.get_message() === 'File Not Found.') {
                 const foldersToCreate = {};
-                await deep2Iterator({
-                  contextBox: instance.parent.box,
-                  elementBox: instance.box
-                })(({ contextElement, element }) => {
+                await iterator(instance)(({ contextElement, element }) => {
                   const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
                   foldersToCreate[getFolderFromUrl(elementUrl)] = true;
                 })
@@ -195,16 +197,13 @@ export default parent => elements => {
       if (needToRetry) {
         return create(opts)
       } else {
-        webReport({ ...opts, NAME, actionType: 'create', box: instance.box, contextBox: instance.parent.box });
+        report('create')(opts);
         return prepareResponseJSOM(opts)(result);
       }
     },
 
     update: async opts => {
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
         const { Content, Url } = element;
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(Url);
@@ -226,10 +225,7 @@ export default parent => elements => {
 
     delete: async (opts = {}) => {
       const { noRecycle } = opts;
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
         if (!hasUrlFilename(elementUrl)) return;
@@ -240,15 +236,12 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      webReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, contextBox: instance.parent.box });
+      report(noRecycle ? 'delete' : 'recycle')(opts);
       return prepareResponseJSOM(opts)(result);
     },
 
     copy: async opts => {
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
         if (!hasUrlFilename(elementUrl)) return;
@@ -259,15 +252,12 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      webReport({ ...opts, NAME, actionType: 'copy', box: instance.box, contextBox: instance.parent.box });
+      report('copy')(opts);
       return prepareResponseJSOM(opts)(result);
     },
 
     move: async opts => {
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
         if (!hasUrlFilename(elementUrl)) return;
@@ -278,7 +268,7 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      webReport({ ...opts, NAME, actionType: 'move', box: instance.box, contextBox: instance.parent.box });
+      report('move')(opts);
       return prepareResponseJSOM(opts)(result);
     },
   }

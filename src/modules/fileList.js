@@ -45,7 +45,6 @@ import {
   stringTest,
   isUndefined,
   isBlob,
-  isStrictUrl,
   hasUrlFilename,
   removeEmptyFilenames
 } from './../lib/utility';
@@ -129,49 +128,69 @@ class Box extends AbstractBox {
   }
 }
 
+const iterator = instance => deep3Iterator({
+  contextBox: instance.parent.parent.box,
+  parentBox: instance.parent.box,
+  elementBox: instance.box,
+  // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
+})
+
+const iteratorREST = instance => deep3IteratorREST({
+  contextBox: instance.parent.parent.box,
+  parentBox: instance.parent.box,
+  elementBox: instance.box
+})
+
+const iteratorParent = instance => deep2Iterator({
+  contextBox: instance.parent.parent.box,
+  elementBox: instance.parent.box
+})
+
+const iteratorParentREST = instance => deep2IteratorREST({
+  contextBox: instance.parent.parent.box,
+  elementBox: instance.parent.box
+})
+
+const report = instance => actionType => opts =>
+  listReport({ ...opts, NAME, actionType, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+
 const createWithJSOM = instance => async (opts = {}) => {
   const { asItem } = opts;
   if (asItem) opts.view = ['ListItemAllFields'];
-  const { clientContexts, result } = await deep3Iterator({
-    contextBox: instance.parent.parent.box,
-    parentBox: instance.parent.box,
-    elementBox: instance.box,
-    // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-  })(
-    ({ contextElement, clientContext, parentElement, element }) => {
-      const {
-        Url,
-        Content = '',
-        Columns = {},
-        Overwrite = true
-      } = element
-      const listUrl = parentElement.Url;
-      const contextUrl = contextElement.Url;
-      const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
-      if (!hasUrlFilename(elementUrl)) return;
-      const contextSPObject = instance.parent.parent.getSPObject(clientContext);
-      const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
-      const spObjects = getSPObjectCollection(elementUrl)(listSPObject);
-      const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation);
-      setFields({
-        set_url: `/${contextUrl}/${listUrl}/${elementUrl}`,
-        set_content: convertFileContent(Content),
-        set_overwrite: Overwrite
-      })(fileCreationInfo)
-      const fieldsToCreate = {};
-      for (const fieldName in Columns) {
-        const field = Columns[fieldName];
-        fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
-      }
-      const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
-      setFields({
-        set_content: convertFileContent(Content),
-        set_fieldValues: fieldsToCreate
-      })(binaryInfo);
-      const spObject = spObjects.add(fileCreationInfo);
-      spObject.saveBinary(binaryInfo);
-      return load(clientContext)(spObject)(opts)
-    })
+  const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, parentElement, element }) => {
+    const {
+      Url,
+      Content = '',
+      Columns = {},
+      Overwrite = true
+    } = element
+    const listUrl = parentElement.Url;
+    const contextUrl = contextElement.Url;
+    const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+    if (!hasUrlFilename(elementUrl)) return;
+    const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+    const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+    const spObjects = getSPObjectCollection(elementUrl)(listSPObject);
+    const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation);
+    setFields({
+      set_url: `/${contextUrl}/${listUrl}/${elementUrl}`,
+      set_content: convertFileContent(Content),
+      set_overwrite: Overwrite
+    })(fileCreationInfo)
+    const fieldsToCreate = {};
+    for (const fieldName in Columns) {
+      const field = Columns[fieldName];
+      fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
+    }
+    const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
+    setFields({
+      set_content: convertFileContent(Content),
+      set_fieldValues: fieldsToCreate
+    })(binaryInfo);
+    const spObject = spObjects.add(fileCreationInfo);
+    spObject.saveBinary(binaryInfo);
+    return load(clientContext)(spObject)(opts)
+  })
   let needToRetry;
   if (instance.box.getCount()) {
     await instance.parent.parent.box.chain(async el => {
@@ -179,20 +198,11 @@ const createWithJSOM = instance => async (opts = {}) => {
         await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
           if (err.get_message() === 'File Not Found.') {
             const foldersToCreate = {};
-            await deep3Iterator({
-              contextBox: instance.parent.parent.box,
-              parentBox: instance.parent.box,
-              elementBox: instance.box,
-              // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-            })(({ contextElement, parentElement, element }) => {
+            await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
               const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
               foldersToCreate[getFolderFromUrl(elementUrl)] = true;
             })
-            await deep2Iterator({
-              contextBox: instance.parent.parent.box,
-              elementBox: instance.parent.box,
-              // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-            })(({ contextElement, element }) =>
+            await iteratorParentREST(instance)(({ contextElement, element }) =>
               site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity)
             )
             needToRetry = true;
@@ -207,17 +217,13 @@ const createWithJSOM = instance => async (opts = {}) => {
   if (needToRetry) {
     return createWithJSOM(instance)(opts)
   } else {
-    listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+    report(instance)('create')(opts);
     return prepareResponseJSOM(opts)(result);
   }
 }
 
 const createWithREST = instance => async opts => {
-  const res = await deep3IteratorREST({
-    contextBox: instance.parent.parent.box,
-    parentBox: instance.parent.box,
-    elementBox: instance.box
-  })(({ contextElement, parentElement, element }) => {
+  const res = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
     const contextUrl = contextElement.Url;
     const listUrl = parentElement.Url;
     const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
@@ -226,7 +232,7 @@ const createWithREST = instance => async opts => {
       ? createWithRESTFromBlob({ instance, contextUrl, listUrl, element })(opts)
       : createWithRESTFromString({ instance, contextUrl, listUrl, element })(opts)
   })
-  listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+  report(instance)('create')(opts);
   return res;
 }
 
@@ -252,18 +258,11 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
   await axios(request).catch(async err => {
     if (err.response.statusText === 'Not Found') {
       const foldersToCreate = {};
-      await deep3IteratorREST({
-        contextBox: instance.parent.parent.box,
-        parentBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, parentElement, element }) => {
+      await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
         const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
         foldersToCreate[getFolderFromUrl(elementUrl)] = true;
       })
-      await deep2IteratorREST({
-        contextBox: instance.parent.parent.box,
-        elementBox: instance.parent.box
-      })(({ contextElement, element }) =>
+      await iteratorParentREST(instance)(({ contextElement, element }) =>
         site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] })
           .then(_ => {
             needToRetry = true;
@@ -280,11 +279,11 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
     if (!isError) {
       let response;
       if (Columns) {
-        response = await site(contextUrl).list(listUrl).file({ Url: elementUrl, Columns }).update(opts)
+        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update(opts)
       } else if (needResponse) {
-        response = await site(contextUrl).list(listUrl).file(elementUrl).get(opts);
+        response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
-      listReport({ ...opts, NAME, actionType: 'create', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+      report(instance)('create')(opts);
       return response;
     }
   }
@@ -337,20 +336,13 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
   const response = await axios(request);
   if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
     const foldersToCreate = {};
-    await deep3IteratorREST({
-      contextBox: instance.parent.parent.box,
-      parentBox: instance.parent.box,
-      elementBox: instance.box
-    })(({ contextElement, parentElement, element }) => {
+    await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
       const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
       foldersToCreate[getFolderFromUrl(elementUrl)] = true;
     })
 
     isError = true;
-    await deep2IteratorREST({
-      contextBox: instance.parent.parent.box,
-      elementBox: instance.parent.box
-    })(({ contextElement, element }) =>
+    await iteratorParentREST(instance)(({ contextElement, element }) =>
       site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] })
         .then(_ => {
           needToRetry = true;
@@ -363,9 +355,9 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
     if (!isError) {
       let response;
       if (Columns) {
-        response = await site(contextUrl).list(listUrl).file({ Url: elementUrl, Columns }).update(opts)
+        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update(opts)
       } else if (needResponse) {
-        response = await site(contextUrl).list(listUrl).file(elementUrl).get(opts);
+        response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
       return response;
     }
@@ -373,11 +365,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
 }
 
 const copyOrMove = isMove => instance => async (opts = {}) => {
-  await deep3IteratorREST({
-    contextBox: instance.parent.parent.box,
-    parentBox: instance.parent.box,
-    elementBox: instance.box
-  })(async ({ contextElement, parentElement, element }) => {
+  await iteratorREST(instance)(async ({ contextElement, parentElement, element }) => {
     const { Url, To } = element;
     const contextUrl = contextElement.Url;
     const listUrl = parentElement.Url;
@@ -465,11 +453,7 @@ export default parent => elements => {
   return {
     get: async (opts = {}) => {
       if (opts.asBlob) {
-        const result = await deep3IteratorREST({
-          contextBox: instance.parent.parent.box,
-          parentBox: instance.parent.box,
-          elementBox: instance.box
-        })(({ contextElement, parentElement, element }) => {
+        const result = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
           const contextUrl = contextElement.Url;
           const listUrl = parentElement.Url;
           const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
@@ -481,11 +465,7 @@ export default parent => elements => {
         return prepareResponseREST(opts)(result);
       } else {
         if (opts.asItem) opts.view = ['ListItemAllFields'];
-        const { clientContexts, result } = await deep3Iterator({
-          contextBox: instance.parent.parent.box,
-          parentBox: instance.parent.box,
-          elementBox: instance.box
-        })(({ contextElement, clientContext, parentElement, element }) => {
+        const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, parentElement, element }) => {
           const listUrl = parentElement.Url;
           const elementUrl = getListRelativeUrl(contextElement.Url)(listUrl)(element.Url);
           const listSPObject = parent.getSPObject(listUrl)(parent.parent.getSPObject(clientContext));
@@ -505,54 +485,44 @@ export default parent => elements => {
       const { asItem } = opts;
       if (asItem) opts.view = ['ListItemAllFields'];
       await cacheColumns(instance.parent.parent.box)(instance.parent.box);
-      const { clientContexts, result } = await deep3Iterator({
-        contextBox: instance.parent.parent.box,
-        parentBox: instance.parent.box,
-        elementBox: instance.box,
-        // bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-      })(
-        ({ contextElement, clientContext, parentElement, element }) => {
-          const { Content, Columns, Url } = element;
-          const listUrl = parentElement.Url;
-          const contextUrl = contextElement.Url;
-          const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
-          if (!hasUrlFilename(elementUrl)) return;
-          const contextSPObject = instance.parent.parent.getSPObject(clientContext);
-          const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
-          let spObject;
-          if (isUndefined(Content)) {
-            spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, Columns))(getSPObject(elementUrl)(listSPObject).get_listItemAllFields())
-          } else {
-            const fieldsToUpdate = {};
-            for (const fieldName in Columns) {
-              const field = Columns[fieldName];
-              fieldsToUpdate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
-            }
-            const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
-            setFields({
-              set_content: convertFileContent(Content),
-              set_fieldValues: fieldsToUpdate
-            })(binaryInfo);
-            spObject = getSPObject(elementUrl)(listSPObject);
-            spObject.saveBinary(binaryInfo);
-            spObject = spObject.get_listItemAllFields()
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, parentElement, element }) => {
+        const { Content, Columns, Url } = element;
+        const listUrl = parentElement.Url;
+        const contextUrl = contextElement.Url;
+        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
+        if (!hasUrlFilename(elementUrl)) return;
+        const contextSPObject = instance.parent.parent.getSPObject(clientContext);
+        const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
+        let spObject;
+        if (isUndefined(Content)) {
+          spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, Columns))(getSPObject(elementUrl)(listSPObject).get_listItemAllFields())
+        } else {
+          const fieldsToUpdate = {};
+          for (const fieldName in Columns) {
+            const field = Columns[fieldName];
+            fieldsToUpdate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
           }
-          return load(clientContext)(spObject.get_file())(opts)
-        })
+          const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
+          setFields({
+            set_content: convertFileContent(Content),
+            set_fieldValues: fieldsToUpdate
+          })(binaryInfo);
+          spObject = getSPObject(elementUrl)(listSPObject);
+          spObject.saveBinary(binaryInfo);
+          spObject = spObject.get_listItemAllFields()
+        }
+        return load(clientContext)(spObject.get_file())(opts)
+      })
       if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      listReport({ ...opts, NAME, actionType: 'update', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+      report(instance)('update')(opts);
       return prepareResponseJSOM(opts)(result)
     },
 
     delete: async (opts = {}) => {
       const { noRecycle } = opts;
-      const { clientContexts, result } = await deep3Iterator({
-        contextBox: instance.parent.parent.box,
-        parentBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, parentElement, element }) => {
+      const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, parentElement, element }) => {
         const contextUrl = contextElement.Url;
         const listUrl = parentElement.Url;
         const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
@@ -564,7 +534,7 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      listReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+      report(instance)(noRecycle ? 'delete' : 'recycle')(opts);
       return prepareResponseJSOM(opts)(result);
     },
 

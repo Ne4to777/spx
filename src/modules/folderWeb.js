@@ -95,12 +95,15 @@ export default parent => elements => {
     box: getInstance(Box)(elements),
     parent,
   };
+  const iterator = deep2Iterator({
+    contextBox: instance.parent.box,
+    elementBox: instance.box
+  });
+
+  const report = actionType => opts => webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box });
   return {
     get: async opts => {
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const parentSPObject = instance.parent.getSPObject(clientContext);
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
@@ -115,10 +118,7 @@ export default parent => elements => {
     },
 
     create: async function create(opts) {
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
         if (!isStrictUrl(elementUrl)) return;
         const parentFolderUrl = getParentUrl(elementUrl);
@@ -133,10 +133,7 @@ export default parent => elements => {
             await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
               if (err.get_message() === 'File Not Found.') {
                 const foldersToCreate = {};
-                await deep2Iterator({
-                  contextBox: instance.parent.box,
-                  elementBox: instance.box
-                })(({ contextElement, element }) => {
+                await iterator(({ contextElement, element }) => {
                   const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
                   foldersToCreate[getParentUrl(elementUrl)] = true;
                 })
@@ -154,17 +151,14 @@ export default parent => elements => {
       if (needToRetry) {
         return create(opts)
       } else {
-        webReport({ ...opts, NAME, actionType: 'create', box: instance.box, contextBox: instance.parent.box });
+        report('create')(opts);
         return prepareResponseJSOM(opts)(result);
       }
     },
 
     delete: async (opts = {}) => {
       const { noRecycle } = opts;
-      const { clientContexts, result } = await deep2Iterator({
-        contextBox: instance.parent.box,
-        elementBox: instance.box
-      })(({ contextElement, clientContext, element }) => {
+      const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
         if (!isStrictUrl(elementUrl)) return;
@@ -175,7 +169,7 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      webReport({ ...opts, NAME, actionType: noRecycle ? 'delete' : 'recycle', box: instance.box, contextBox: instance.parent.box });
+      report(noRecycle ? 'delete' : 'recycle')(opts);
       return prepareResponseJSOM(opts)(result);
     }
   }

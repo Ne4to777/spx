@@ -84,10 +84,12 @@ export default urls => {
 		getSPObject,
 		getSPObjectCollection
 	};
+	const report = actionType => opts => contextReport({ ...opts, NAME, actionType, box: instance.box });
 	return {
 		recycleBin: recycleBin(instance),
 		// search: search(instance),
-		list: list(instance),
+		list: list('list')(instance),
+		library: list('library')(instance),
 		folder: folder(instance),
 		file: file(instance),
 
@@ -142,7 +144,7 @@ export default urls => {
 
 				return executeJSOM(clientContext)(spObject)(opts);
 			})
-			contextReport({ ...opts, NAME, actionType: 'create', box: instance.box });
+			report('create')(opts);
 			return prepareResponseJSOM(opts)(result)
 		},
 
@@ -176,7 +178,7 @@ export default urls => {
 				])(getSPObject(clientContext))
 				return await executeJSOM(clientContext)(spObject)(opts);
 			})
-			contextReport({ ...opts, NAME, actionType: 'update', box: instance.box });
+			report('update')(opts);
 			return prepareResponseJSOM(opts)(result)
 		},
 
@@ -189,7 +191,7 @@ export default urls => {
 				try { spObject.deleteObject() } catch (err) { new Error('Context url is wrong') }
 				return executorJSOM(clientContext)(opts);
 			})
-			contextReport({ ...opts, NAME, actionType: 'delete', box: instance.box });
+			report('delete')(opts);
 			return prepareResponseJSOM(opts)(result)
 		},
 

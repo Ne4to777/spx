@@ -1,5 +1,5 @@
 import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, filter, isObjectFilled, identity } from './../lib/utility';
+import { assertObject, assertCollection, testIsOk, assert, identity } from './../lib/utility';
 
 const PROPS = [
   'CheckInComment',
@@ -134,8 +134,8 @@ const assertCollectionProps = assertCollection(PROPS);
 const assertObjectItemProps = assertObject(ITEM_PROPS);
 const assertCollectionItemProps = assertCollection(ITEM_PROPS);
 
-const rootWebList = site().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
-const workingWebList = site('test/spx').list('Files');
+const rootWebList = site().library('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
+const workingWebList = site('test/spx').library('Files');
 
 const crud = async _ => {
   const folder = 'a';

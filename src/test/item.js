@@ -178,15 +178,15 @@ const crudCollection = async _ => {
 
 const crudBundle = async _ => {
   const itemsToCreate = [];
-  const budleList = site('test/spx').list('Bundle');
+  const bundleList = site('test/spx').list('Bundle');
   const folder = 'c/b';
-  await budleList.folder(folder).delete({ noRecycle: true }).catch(identity);
+  await bundleList.folder(folder).delete({ noRecycle: true }).catch(identity);
   for (let i = 0; i < 253; i++) itemsToCreate.push({ Title: `test ${i}`, Folder: folder })
-  const newItems = await budleList.item(itemsToCreate).create();
+  const newItems = await bundleList.item(itemsToCreate).create();
   const itemsToUpdate = reduce(acc => el => acc.concat({ ID: el.ID, Title: `${el.Title} updated` }))([])(newItems)
-  const updatedItems = await budleList.item(itemsToUpdate).update();
+  const updatedItems = await bundleList.item(itemsToUpdate).update();
   const itemsTodelete = map(prop('ID'))(updatedItems);
-  await budleList.item(itemsTodelete).delete({ noRecycle: true });
+  await bundleList.item(itemsTodelete).delete({ noRecycle: true });
 }
 
 const page = async _ => {
@@ -210,8 +210,8 @@ export default _ => Promise.all([
 
   crud(),
   crudCollection(),
-  // crudBundle(),
 
-  page()
+  page(),
+  // crudBundle(),
 
 ]).then(testIsOk('itemList'))

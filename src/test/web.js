@@ -57,7 +57,6 @@ const doesUserHavePermissions = async  _ => {
   assert(`user has wrong permissions for web`)(has)
 }
 
-// console.log(crud());
 export default _ => Promise.all([
   assertObjectProps('root web')(site().get()),
   assertCollectionProps('root webs')(site('/').get()),

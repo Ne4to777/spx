@@ -1,3 +1,7 @@
+import {
+	getCamlView
+} from './../lib/query-parser';
+
 //  ===============================================================================================================
 //  =============     =====    ====  =======  ===      ===        =====  =====  =======  ==        ===      =======
 //  ============  ===  ===  ==  ===   ======  ==  ====  =====  =======    ====   ======  =====  =====  ====  ======
@@ -489,7 +493,7 @@ export const isZero = x => x === 0;
 export const isNotZero = pipe([isZero, not]);
 export const isNaN = x => x !== x;
 export const isNotNaN = pipe([isNaN, not]);
-export const isNumberFilled = x => isNotZero(x) && isNotNaN(x);
+export const isNumberFilled = x => isNumber(x) && isNotZero(x) && isNotNaN(x);
 export const isStringEmpty = x => x === '';
 export const isStringFilled = pipe([isStringEmpty, not]);
 export const isArrayFilled = pipe([filter(isDefined), prop('length'), toBoolean]);
@@ -557,14 +561,14 @@ export const log = (...args) => {
 }
 
 export const contextReport = ({ NAME, detailed, silent, actionType, box }) =>
-	!silent && actionType && console.log(`${
+	!silent && console.log(`${
 		ACTION_TYPES[actionType]} ${
 		box.getCount()} ${
 		NAME}(s)${
 		detailed ? `: ${box.join()}` : ''}`)
 
 export const webReport = ({ NAME, detailed, silent, actionType, contextBox, box }) =>
-	!silent && actionType && console.log(`${
+	!silent && console.log(`${
 		ACTION_TYPES[actionType]} ${
 		box.getCount()} ${
 		NAME}(s) at ${
@@ -573,7 +577,7 @@ export const webReport = ({ NAME, detailed, silent, actionType, contextBox, box 
 
 
 export const listReport = ({ NAME, detailed, silent, actionType, box, listBox, contextBox }) => {
-	!silent && actionType && console.log(`${
+	!silent && console.log(`${
 		ACTION_TYPES[actionType]} ${
 		box.getCount(actionType)} ${
 		NAME}(s) in ${
@@ -633,6 +637,7 @@ export const grouper = pipe([getArray, flip(pipe([getArray, reduceDirty(flip(pip
 export const hasUrlTailSlash = stringTest(/\/$/);
 export const hasUrlFilename = stringTest(/\.[^\/]+$/);
 export const removeEmptyUrls = filter(x => !!x.Url);
+export const removeEmptyNumbers = filter(pipe([prop('ID'), isNumberFilled]));
 export const removeEmptyFilenames = filter(x => x.Url && hasUrlFilename(x.Url));
 export const removeDuplicatedUrls = pipe([reduce(acc => x => (acc[x.Url] = x, acc))({}), Object.values]);
 export const prependSlash = ifThen(stringTest(/^\//))([identity, sum('/')]);
@@ -1058,6 +1063,7 @@ export const setFields = source => target => {
 export const getContext = methodEmpty('get_context');
 
 export const getWeb = methodEmpty('get_web');
+
 
 //  =======================================================
 //  ===========        ==        ===      ===        ======
