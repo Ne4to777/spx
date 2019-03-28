@@ -87,7 +87,7 @@ const COLUMN_TYPES_MAPPED = {
 	number: 'Number',
 	integer: 'Text',
 	counter: 'Text',
-	boolean: 'Text',
+	boolean: 'Boolean',
 	lookup: 'Text',
 	user: 'Text',
 	datetime: 'Text',
