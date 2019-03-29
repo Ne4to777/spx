@@ -283,7 +283,6 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
       } else if (needResponse) {
         response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
-      report(instance)('create')(opts);
       return response;
     }
   }

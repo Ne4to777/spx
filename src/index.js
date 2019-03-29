@@ -1,5 +1,6 @@
 import test from './test/index.js'
 import axios from 'axios'
+
 // import S from 'sanctuary'
 
 // import * as utility from './utility';
@@ -549,3 +550,90 @@ const getPagesSPX = async _ => {
 
 const destructor = x => console.log(...x)
 // console.log(destructor());
+
+const copyPostImages = async _ => {
+	const newsLibrary = spx('News').library('NewsMedia');
+	const feedsLibrary = spx('Lenta').library('NewsMedia');
+	const postsLibrary = spx('app-list/articles/feed').library('Pictures');
+	const postsPromise = postsLibrary.item({ Scope: 'items' }).get({ view: ['FileLeafRef'], groupBy: ['FileLeafRef'] });
+
+	const newsPromise = newsLibrary.item().get({ view: ['FileLeafRef', 'FileRef'] })
+	const feedPrmoise = feedsLibrary.item().get({ view: ['FileLeafRef', 'FileRef'] })
+	const [news, feeds, posts] = await Promise.all([newsPromise, feedPrmoise, postsPromise])
+
+	console.log(posts);
+	console.log(news);
+	console.log(feeds);
+	const newsFiltered = news.filter(el => !posts[el.FileLeafRef]);
+	console.log(newsFiltered);
+	const feedsFiltered = feeds.filter(el => !posts[el.FileLeafRef]);
+	console.log(feedsFiltered);
+	await proceedImages(postsLibrary)([newsFiltered[0]]);
+	console.log('done');
+	// proceedImages(postsLibrary)(newsFiltered.concat(feedsFiltered));
+}
+
+const proceedImages = library => async items => {
+	let counter = items.length;
+	const uploader = uploadImage(library);
+	const body = document.getElementsByTagName('body')[0];
+	for (const item of items) {
+		body.innerHTML = `<div>${counter--}<div>`;
+		const url = `http://aura.dme.aero.corp${item.FileRef}`;
+		await uploader({
+			name: item.FileLeafRef.replace(/\.[^\.]+$/, '.jpg'),
+			full: await convertImage({ url, width: 1920 }),
+			thumb: await convertImage({ url, width: 190 })
+		})
+	}
+}
+
+
+const uploadImage = library => data => {
+	const creator = createFile(library);
+	return Promise.all([creator({
+		name: data.name,
+		canvas: data.full
+	}), creator({
+		name: data.name,
+		canvas: data.thumb,
+		folder: 't'
+	})])
+}
+
+const createFile = library => data => library.file({
+	Url: data.name,
+	Content: data.canvas.toDataURL('image/jpeg', .9).split('base64,')[1],
+	Folder: data.folder
+}).create()
+
+const convertImage = ({ url, width }) => new Promise((resolve, reject) => {
+	const image = new Image();
+	image.src = url;
+	image.onload = _ => {
+		const size = resizer({ w: image.width, h: image.height, maxWidth: width || 1920 });
+		const canvas = document.createElement('canvas');
+		canvas.width = size.width;
+		canvas.height = size.height;
+		resolve(canvas)
+		// pica().resize(image, canvas).then(resolve)
+	}
+	image.onerror = err => {
+		console.log(err, url);
+		resolve()
+	}
+})
+
+const resizer = ({ w, h, maxWidth }) => {
+	const k = maxWidth / w;
+	const size = {
+		width: w,
+		height: h
+	}
+	if (k < 1) {
+		size.width = maxWidth;
+		size.height *= k;
+	}
+	return size
+}
+// copyPostImages()
