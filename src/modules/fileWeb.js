@@ -187,7 +187,7 @@ export default parent => elements => {
                   needToRetry = true;
                 }).catch(identity);
               } else {
-                console.error(err.get_message())
+                if (!opts.silent && !opts.silentErrors) throw err
               }
             })
             if (needToRetry) break;

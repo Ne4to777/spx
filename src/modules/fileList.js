@@ -252,7 +252,7 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
           }).catch(identity)
       )
     } else {
-      console.error(err.response.statusText)
+      if (!opts.silent && !opts.silentErrors) throw err
     }
     isError = true;
   });

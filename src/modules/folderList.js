@@ -179,7 +179,7 @@ export default parent => elements => {
                   }).catch(identity)
                 )
               } else {
-                !opts.silent && !opts.silentErrors && console.error(err.get_message())
+                if (!opts.silent && !opts.silentErrors) throw err
               }
               isError = true;
             })
