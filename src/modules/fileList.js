@@ -282,6 +282,8 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
   }
 }
 
+
+
 const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => async (opts = {}) => {
   let founds;
   const inputs = [];
@@ -300,11 +302,11 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
     ctl00_PlaceHolderMain_ctl04_ctl01_uploadLocation: true,
     ctl00_PlaceHolderMain_UploadDocumentSection_ctl05_OverwriteSingle: true,
   }
-  const listGUID = (await site(contextUrl).list(listUrl).get({ cached: true, view: 'Id' })).Id.toString();
-  const res = await axios.get(`/${contextUrl}/_layouts/15/Upload.aspx?List={${listGUID}}`);
-  const formMatches = res.data.match(/<form(\w|\W)*<\/form>/);
+
+  const listGUID = cache.get(['listGUIDs', contextUrl, listUrl]);
+  const listFormMatches = cache.get(['listFormMatches', contextUrl, listUrl]);
   const inputRE = /<input[^<]*\/>/g;
-  while (founds = inputRE.exec(formMatches)) {
+  while (founds = inputRE.exec(listFormMatches)) {
     let item = founds[0];
     const id = item.match(/id=\"([^\"]+)\"/)[1];
     if (requiredInputs[id]) {
@@ -422,6 +424,26 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     NAME}(s)`);
 }
 
+const cacheListGUIDs = contextBox => elementBox =>
+  deep2Iterator({ contextBox, elementBox })(async ({ contextElement, element }) => {
+    const contextUrl = contextElement.Url;
+    const listUrl = element.Url;
+    if (!cache.get(['listGUIDs', contextUrl, listUrl])) {
+      const listProps = await site(contextUrl).list(listUrl).get({ view: 'Id' })
+      cache.set(listProps.Id.toString())(['listGUIDs', contextUrl, listUrl]);
+    }
+  })
+
+const cacheListFormMatches = contextBox => elementBox =>
+  deep2Iterator({ contextBox, elementBox })(async ({ contextElement, element }) => {
+    const contextUrl = contextElement.Url;
+    const listUrl = element.Url;
+    if (!cache.get(['listFormMatches', contextUrl, listUrl])) {
+      const listForms = await axios.get(`/${contextUrl}/_layouts/15/Upload.aspx?List={${cache.get(['listGUIDs', contextUrl, listUrl])}}`);
+      cache.set(listForms.data.match(/<form(\w|\W)*<\/form>/))(['listFormMatches', contextUrl, listUrl]);
+    }
+  })
+
 
 const cacheColumns = contextBox => elementBox =>
   deep2Iterator({ contextBox, elementBox })(async ({ contextElement, element }) => {
@@ -476,6 +498,9 @@ export default parent => elements => {
     },
 
     create: async (opts = {}) => {
+      await cacheListGUIDs(instance.parent.parent.box)(instance.parent.box);
+      await cacheListFormMatches(instance.parent.parent.box)(instance.parent.box);
+
       const res = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
         const contextUrl = contextElement.Url;
         const listUrl = parentElement.Url;
