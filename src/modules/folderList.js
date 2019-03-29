@@ -176,7 +176,11 @@ export default parent => elements => {
                 })(({ contextElement, element }) =>
                   site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).then(_ => {
                     needToRetry = true;
-                  }).catch(identity)
+                  }).catch(err => {
+                    if (/already exists/.test(err.get_message())) {
+                      needToRetry = true;
+                    }
+                  })
                 )
               } else {
                 if (!opts.silent && !opts.silentErrors) throw err

@@ -190,6 +190,7 @@ const crudAsBlob = async _ => {
   const createdFile = await workingWebList.file({ Url: url, Content: new Blob(['hi'], { type: 'text/csv' }) }).create({ needResponse: true });
   // console.log(createdFile);
   const newFile = await workingWebList.file(url).get({ asBlob: true });
+  // console.log(newFile);
   const content = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => resolve(e.srcElement.result);

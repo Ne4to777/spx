@@ -185,7 +185,11 @@ export default parent => elements => {
                 })
                 await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).then(_ => {
                   needToRetry = true;
-                }).catch(identity);
+                }).catch(err => {
+                  if (/already exists/.test(err.get_message())) {
+                    needToRetry = true;
+                  }
+                });
               } else {
                 if (!opts.silent && !opts.silentErrors) throw err
               }

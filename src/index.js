@@ -639,6 +639,6 @@ const uploadTestImage = async  _ => {
 }
 
 
-uploadTestImage();
+// uploadTestImage();
 // spx('Lenta').library('NewsMedia').file('/Lenta/NewsMedia/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
 // spx('test/spx').library('Files').file('/test/spx/Files/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
