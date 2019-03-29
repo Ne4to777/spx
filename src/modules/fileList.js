@@ -90,7 +90,7 @@ const getRESTObject = elementUrl => listUrl => contextUrl =>
 
 const getRESTObjectCollection = elementUrl => listUrl => contextUrl => {
   const folder = getFolderFromUrl(elementUrl);
-  return mergeSlashes(`/${contextUrl}/_api/web/lists/getbytitle('${listUrl}')/rootfolder${folder ? `/folders/getbyurl('${folder}')` : ''}/files`)
+  return mergeSlashes(`/${contextUrl}/_api/web/getbytitle('${listUrl}')/rootfolder${folder ? `/folders/getbyurl('${folder}')` : ''}/files`)
 }
 
 const liftFolderType = switchCase(typeOf)({
