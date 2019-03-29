@@ -46,7 +46,8 @@ import {
   isUndefined,
   isBlob,
   hasUrlFilename,
-  removeEmptyFilenames
+  removeEmptyFilenames,
+  isObjectFilled
 } from './../lib/utility';
 import axios from 'axios';
 import * as cache from './../lib/cache';
@@ -89,7 +90,8 @@ const getRESTObjectCollection = elementUrl => listUrl => contextUrl => {
 const liftFolderType = switchCase(typeOf)({
   object: (context) => {
     const newContext = Object.assign({}, context);
-    if (!context.Url) newContext.Url = context.ServerRelativeUrl || context.FileRef;
+    const name = context.Content ? context.Content.name : void 0;
+    if (!context.Url) newContext.Url = context.ServerRelativeUrl || context.FileRef || name;
     if (!context.ServerRelativeUrl) newContext.ServerRelativeUrl = context.Url || context.FileRef;
     return newContext
   },
@@ -141,11 +143,6 @@ const iteratorREST = instance => deep3IteratorREST({
   elementBox: instance.box
 })
 
-const iteratorParent = instance => deep2Iterator({
-  contextBox: instance.parent.parent.box,
-  elementBox: instance.parent.box
-})
-
 const iteratorParentREST = instance => deep2IteratorREST({
   contextBox: instance.parent.parent.box,
   elementBox: instance.parent.box
@@ -174,20 +171,22 @@ const createWithJSOM = instance => async (opts = {}) => {
     const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation);
     setFields({
       set_url: `/${contextUrl}/${listUrl}/${elementUrl}`,
-      set_content: convertFileContent(Content),
+      set_content: '',
       set_overwrite: Overwrite
     })(fileCreationInfo)
+    const spObject = spObjects.add(fileCreationInfo);
     const fieldsToCreate = {};
-    for (const fieldName in Columns) {
-      const field = Columns[fieldName];
-      fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
+    if (isObjectFilled(Columns)) {
+      for (const fieldName in Columns) {
+        const field = Columns[fieldName];
+        fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field);
+      }
     }
     const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation);
     setFields({
       set_content: convertFileContent(Content),
       set_fieldValues: fieldsToCreate
     })(binaryInfo);
-    const spObject = spObjects.add(fileCreationInfo);
     spObject.saveBinary(binaryInfo);
     return load(clientContext)(spObject)(opts)
   })
@@ -222,40 +221,24 @@ const createWithJSOM = instance => async (opts = {}) => {
   }
 }
 
-const createWithREST = instance => async opts => {
-  const res = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
-    const contextUrl = contextElement.Url;
-    const listUrl = parentElement.Url;
-    const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
-    if (!hasUrlFilename(elementUrl)) return;
-    return isBlob(element.Content)
-      ? createWithRESTFromBlob({ instance, contextUrl, listUrl, element })(opts)
-      : createWithRESTFromString({ instance, contextUrl, listUrl, element })(opts)
-  })
-  report(instance)('create')(opts);
-  return res;
-}
-
 const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) => async (opts = {}) => {
-  const { needResponse } = opts;
-  const { Url = '', Content = '', Overwrite = true, OnProgress = identity, Folder = '', Columns } = element;
-  const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
   let needToRetry;
   let isError;
+  const { needResponse } = opts;
+  const { Url = '', Content = '', Overwrite = true, Folder = '', Columns } = element;
+  const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(Url);
   const folder = getListRelativeUrl(contextUrl)(listUrl)(Folder) || getFolderFromUrl(elementUrl);
   const filename = getFilenameFromUrl(elementUrl);
   const filesUrl = getRESTObjectCollection(folder ? `${folder}/${filename}` : filename)(listUrl)(contextUrl);
-  const request = {
+  await axios({
     url: `${filesUrl}/add(url='${filename}',overwrite=${Overwrite})`,
     headers: {
       'accept': 'application/json;odata=verbose',
       'content-type': 'application/json;odata=verbose'
     },
     method: 'POST',
-    data: Content,
-    onUploadProgress: e => OnProgress(Math.floor((e.loaded * 100) / e.total))
-  }
-  await axios(request).catch(async err => {
+    data: Content
+  }).catch(async err => {
     if (err.response.statusText === 'Not Found') {
       const foldersToCreate = {};
       await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
@@ -279,7 +262,7 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
     if (!isError) {
       let response;
       if (Columns) {
-        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update(opts)
+        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update({ ...opts, silent: true })
       } else if (needResponse) {
         response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
@@ -307,7 +290,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
     ctl00_PlaceHolderMain_UploadDocumentSection_ctl05_OverwriteSingle: true,
   }
   const listGUID = (await site(contextUrl).list(listUrl).get({ cached: true, view: 'Id' })).Id.toString();
-  const res = await axios.get(`${contextUrl}/_layouts/15/Upload.aspx?List={${listGUID}}`);
+  const res = await axios.get(`/${contextUrl}/_layouts/15/Upload.aspx?List={${listGUID}}`);
   const formMatches = res.data.match(/<form(\w|\W)*<\/form>/);
   const inputRE = /<input[^<]*\/>/g;
   while (founds = inputRE.exec(formMatches)) {
@@ -326,13 +309,13 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
   form.innerHTML = join('')(inputs);
   const formData = new FormData(form);
   formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$InputFile', Content, filename);
-  const request = {
+
+  const response = await axios({
     url: `/${contextUrl}/_layouts/15/UploadEx.aspx?List={${listGUID}}`,
     method: 'POST',
     data: formData,
     onUploadProgress: e => OnProgress(Math.floor((e.loaded * 100) / e.total))
-  }
-  const response = await axios(request);
+  });
   if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
     const foldersToCreate = {};
     await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
@@ -478,7 +461,19 @@ export default parent => elements => {
       }
     },
 
-    create: (opts = {}) => opts.fromString ? createWithJSOM(instance)(opts) : createWithREST(instance)(opts),
+    create: async (opts = {}) => {
+      const res = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
+        const contextUrl = contextElement.Url;
+        const listUrl = parentElement.Url;
+        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+        if (!hasUrlFilename(elementUrl) && (element.Content && !element.Content.name)) return;
+        return isBlob(element.Content)
+          ? createWithRESTFromBlob({ instance, contextUrl, listUrl, element })(opts)
+          : createWithRESTFromString({ instance, contextUrl, listUrl, element })(opts)
+      })
+      report(instance)('create')(opts);
+      return res;
+    },
 
     update: async (opts = {}) => {
       const { asItem } = opts;

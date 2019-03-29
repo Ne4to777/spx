@@ -466,7 +466,10 @@ export const isFunction = x => typeOf(x) === 'function';
 export const isIterator = x => typeOf(x) === 'iterator';
 export const isArray = x => typeOf(x) === 'array';
 export const isObject = x => typeOf(x) === 'object';
-export const isBlob = x => typeOf(x) === 'blob';
+export const isBlob = x => {
+	const type = typeOf(x);
+	return type === 'blob' || type === 'file';
+};
 export const isGUID = stringTest(/^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/);
 
 //  ========================================================================================================
@@ -959,6 +962,49 @@ export const convertFileContent = switchCase(typeOf)({
 	]),
 	default: tryCatch(btoa)(err => identity)
 })
+
+export const base64ToBlob = ({ data, type }) => {
+	const chunkSize = 512;
+	const byteCharacters = atob(data);
+	const byteArrays = [];
+	const length = byteCharacters.length;
+	for (let offset = 0; offset < length; offset += chunkSize) {
+		const chunk = byteCharacters.slice(offset, offset + chunkSize);
+		const chunkLength = chunk.length;
+		const byteNumbers = [];
+		for (let i = 0; i < chunkLength; i++) byteNumbers.push(chunk.charCodeAt(i));
+		byteArrays.push(new Uint8Array(byteNumbers));
+	}
+	return new Blob(byteArrays, {
+		type: type || 'application/octet-stream'
+	})
+}
+
+export const blobToDataUrl = blob => new Promise((resolve, reject) => {
+	const reader = new FileReader();
+	reader.onloadend = _ => resolve(reader.result)
+	reader.readAsDataURL(blob);
+})
+
+export const blobToArrayBuffer = blob => new Promise((resolve, reject) => {
+	const reader = new FileReader();
+	reader.onloadend = _ => resolve(reader.result)
+	reader.readAsArrayBuffer(blob);
+})
+
+export const blobToBase64 = async blob => (await blobToDataUrl(blob)).replace(/[^,]+base64,/, '');
+
+export const dataUrlToBinary = dataUrl => {
+	const BASE64_MARKER = ';base64,';
+	const base64Index = dataUrl.indexOf(BASE64_MARKER) + BASE64_MARKER.length;
+	const raw = window.atob(dataUrl.substring(base64Index));
+	const rawLength = raw.length;
+	const array = new Uint8Array(new ArrayBuffer(rawLength));
+	for (let i = 0; i < rawLength; i++) {
+		array[i] = raw.charCodeAt(i);
+	}
+	return array;
+}
 
 //  ===============================================================================================
 //  ============      ===       =====    ====      ========    ==        ====     ===        ======

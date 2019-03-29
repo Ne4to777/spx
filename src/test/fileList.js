@@ -155,7 +155,7 @@ const crudAsSting = async _ => {
   const filename = 'singleAsString.txt';
   const url = `${folder}/${filename}`;
   await workingWebList.folder(folder).delete({ noRecycle: true }).catch(identity)
-  const createdFile = await workingWebList.file({ Url: url, Content: 'hi', Columns: { Title: 'new file' } }).create({ fromString: true });
+  const createdFile = await workingWebList.file({ Url: url, Content: 'hi', Columns: { Title: 'new file' } }).create();
   assert(`Title is not a "new file"`)(createdFile.Title === 'new file');
   const newFile = await workingWebList.file(url).get({ asBlob: true });
   const content = await new Promise((resolve, reject) => {

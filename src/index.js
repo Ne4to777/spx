@@ -1,5 +1,6 @@
 import test from './test/index.js'
-import axios from 'axios'
+import axios from 'axios';
+import $ from 'jquery';
 
 // import S from 'sanctuary'
 
@@ -130,10 +131,11 @@ test()
 // spx('/test/spx').file('Files/a/test.txt').get({ asBlob: true }).then(log)
 // spx('/test/spx').file('/test.txt').create().then(log)
 
-// $('#send').click(e => {
-// 	e.preventDefault();
-// 	spx('/test/spx').list('Files').file({ Content: $('#file').get(0).files[0], OnProgress: console.log, Folder: 'a' }).create().then(log);
-// });
+$('#send').click(e => {
+	e.preventDefault();
+	console.log($('#file').get(0).files[0]);
+	spx('/test/spx').library('Files').file({ Content: $('#file').get(0).files[0], OnProgress: console.log, Folder: 'a' }).create().then(log);
+});
 
 const getFile = _ => {
 	const clientContext = new SP.ClientContext('/test/spx');
@@ -552,60 +554,44 @@ const destructor = x => console.log(...x)
 // console.log(destructor());
 
 const copyPostImages = async _ => {
-	const newsLibrary = spx('News').library('NewsMedia');
 	const feedsLibrary = spx('Lenta').library('NewsMedia');
-	const postsLibrary = spx('app-list/articles/feed').library('Pictures');
+	const postsLibrary = spx('test/spx').library('Files');
 	const postsPromise = postsLibrary.item({ Scope: 'items' }).get({ view: ['FileLeafRef'], groupBy: ['FileLeafRef'] });
 
-	const newsPromise = newsLibrary.item().get({ view: ['FileLeafRef', 'FileRef'] })
 	const feedPrmoise = feedsLibrary.item().get({ view: ['FileLeafRef', 'FileRef'] })
-	const [news, feeds, posts] = await Promise.all([newsPromise, feedPrmoise, postsPromise])
+	const [feeds, posts] = await Promise.all([feedPrmoise, postsPromise])
 
 	console.log(posts);
-	console.log(news);
 	console.log(feeds);
-	const newsFiltered = news.filter(el => !posts[el.FileLeafRef]);
-	console.log(newsFiltered);
 	const feedsFiltered = feeds.filter(el => !posts[el.FileLeafRef]);
 	console.log(feedsFiltered);
-	await proceedImages(postsLibrary)([newsFiltered[0]]);
+	await proceedImages(postsLibrary)([feedsFiltered[0]]);
 	console.log('done');
 	// proceedImages(postsLibrary)(newsFiltered.concat(feedsFiltered));
 }
 
 const proceedImages = library => async items => {
 	let counter = items.length;
-	const uploader = uploadImage(library);
 	const body = document.getElementsByTagName('body')[0];
 	for (const item of items) {
 		body.innerHTML = `<div>${counter--}<div>`;
 		const url = `http://aura.dme.aero.corp${item.FileRef}`;
-		await uploader({
-			name: item.FileLeafRef.replace(/\.[^\.]+$/, '.jpg'),
-			full: await convertImage({ url, width: 1920 }),
-			thumb: await convertImage({ url, width: 190 })
+		const source = await spx('Lenta').library('NewsMedia').file(item.FileLeafRef).get({ asBlob: true });
+		const reader = new FileReader();
+		reader.readAsDataURL(source);
+		const base64 = await new Promise((resolve, reject) => {
+			reader.onloadend = _ => resolve(reader.result)
 		})
+		console.log(source);
+		// console.log(base64);
+		await library.file({
+			Url: `/test/spx/Files${item.FileLeafRef}`,
+			Content: base64.split('base64,')[1].split('base64,')[1],
+			// Columns: { Title: 'hi' }
+		}).create()
 	}
 }
 
-
-const uploadImage = library => data => {
-	const creator = createFile(library);
-	return Promise.all([creator({
-		name: data.name,
-		canvas: data.full
-	}), creator({
-		name: data.name,
-		canvas: data.thumb,
-		folder: 't'
-	})])
-}
-
-const createFile = library => data => library.file({
-	Url: data.name,
-	Content: data.canvas.toDataURL('image/jpeg', .9).split('base64,')[1],
-	Folder: data.folder
-}).create()
 
 const convertImage = ({ url, width }) => new Promise((resolve, reject) => {
 	const image = new Image();
@@ -637,3 +623,20 @@ const resizer = ({ w, h, maxWidth }) => {
 	return size
 }
 // copyPostImages()
+
+const uploadTestImage = async  _ => {
+	const name = '1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg';
+	const url = `/Lenta/NewsMedia/${name}`;
+	const blob = await spx('Lenta').library('NewsMedia').file(url).get({ asBlob: true });
+
+	await spx('test/spx').library('Files').file({
+		// Url:name,
+		Url: 'binary.txt',
+		Content: 'hi',
+		// Content: await blobToArrayBuffer(blob),
+		Columns: { Title: 'hi1' }
+	}).create({ fromString: true })
+}
+// uploadTestImage();
+// spx('Lenta').library('NewsMedia').file('/Lenta/NewsMedia/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
+// spx('test/spx').library('Files').file('/test/spx/Files/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
