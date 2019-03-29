@@ -183,7 +183,7 @@ export default parent => elements => {
                   const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
                   foldersToCreate[getFolderFromUrl(elementUrl)] = true;
                 })
-                await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
+                await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).then(_ => {
                   needToRetry = true;
                 }).catch(identity);
               } else {

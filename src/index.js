@@ -635,8 +635,11 @@ const uploadTestImage = async  _ => {
 		Content: 'hi',
 		// Content: await blobToArrayBuffer(blob),
 		Columns: { Title: 'hi1' }
-	}).create({ fromString: true })
+	}).create({ silent: true })
 }
+
+const a = false;
+if (a) throw new Error()
 // uploadTestImage();
 // spx('Lenta').library('NewsMedia').file('/Lenta/NewsMedia/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
 // spx('test/spx').library('Files').file('/test/spx/Files/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)

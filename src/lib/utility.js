@@ -559,15 +559,15 @@ export const log = (...args) => {
 	return args.length > 1 ? args : args[0]
 }
 
-export const contextReport = ({ NAME, detailed, silent, actionType, box }) =>
-	!silent && console.log(`${
+export const contextReport = ({ NAME, detailed, silent, silentInfo, actionType, box }) =>
+	!silent && !silentInfo && console.log(`${
 		ACTION_TYPES[actionType]} ${
 		box.getCount()} ${
 		NAME}(s)${
 		detailed ? `: ${box.join()}` : ''}`)
 
-export const webReport = ({ NAME, detailed, silent, actionType, contextBox, box }) =>
-	!silent && console.log(`${
+export const webReport = ({ NAME, detailed, silent, silentInfo, actionType, contextBox, box }) =>
+	!silent && !silentInfo && console.log(`${
 		ACTION_TYPES[actionType]} ${
 		box.getCount()} ${
 		NAME}(s) at ${

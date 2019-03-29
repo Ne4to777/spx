@@ -47,7 +47,8 @@ import {
   isBlob,
   hasUrlFilename,
   removeEmptyFilenames,
-  isObjectFilled
+  isObjectFilled,
+  prependSlash
 } from './../lib/utility';
 import axios from 'axios';
 import * as cache from './../lib/cache';
@@ -57,6 +58,17 @@ import site from './../modules/site';
 //Internal
 
 const NAME = 'file';
+
+const getRequestDigest = contextUrl => new Promise((resolve, reject) =>
+  axios({
+    url: `${prependSlash(contextUrl)}/_api/contextinfo`,
+    headers: {
+      'Accept': 'application/json; odata=verbose'
+    },
+    method: 'POST'
+  })
+    .then(res => resolve(res.data.d.GetContextWebInformation.FormDigestValue))
+    .catch(reject))
 
 export const getColumns = webUrl => listUrl => site(webUrl).list(listUrl).column().get({
   view: ['TypeAsString', 'InternalName', 'Title', 'Hidden'],
@@ -202,7 +214,7 @@ const createWithJSOM = instance => async (opts = {}) => {
               foldersToCreate[getFolderFromUrl(elementUrl)] = true;
             })
             await iteratorParentREST(instance)(({ contextElement, element }) =>
-              site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity)
+              site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).catch(identity)
             )
             needToRetry = true;
           } else {
@@ -234,7 +246,8 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
     url: `${filesUrl}/add(url='${filename}',overwrite=${Overwrite})`,
     headers: {
       'accept': 'application/json;odata=verbose',
-      'content-type': 'application/json;odata=verbose'
+      'content-type': 'application/json;odata=verbose',
+      'X-RequestDigest': await getRequestDigest()
     },
     method: 'POST',
     data: Content
@@ -246,7 +259,7 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
         foldersToCreate[getFolderFromUrl(elementUrl)] = true;
       })
       await iteratorParentREST(instance)(({ contextElement, element }) =>
-        site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] })
+        site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
           .then(_ => {
             needToRetry = true;
           }).catch(identity)
@@ -262,7 +275,7 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
     if (!isError) {
       let response;
       if (Columns) {
-        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update({ ...opts, silent: true })
+        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
       } else if (needResponse) {
         response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
@@ -271,7 +284,7 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
   }
 }
 
-const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => async opts => {
+const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => async (opts = {}) => {
   let founds;
   const inputs = [];
   const { needResponse } = opts;
@@ -325,7 +338,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
 
     isError = true;
     await iteratorParentREST(instance)(({ contextElement, element }) =>
-      site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] })
+      site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
         .then(_ => {
           needToRetry = true;
         }).catch(identity)
@@ -337,7 +350,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
     if (!isError) {
       let response;
       if (Columns) {
-        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update(opts)
+        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
       } else if (needResponse) {
         response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
@@ -389,10 +402,10 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
       const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
       const spObject = getSPObject(elementUrl)(listSPObject);
       const folder = getFolderFromUrl(targetFileUrl);
-      if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silent: true, expanded: true, view: ['Name'] }).catch(identity);
+      if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silentInfo: true, expanded: true, view: ['Name'] }).catch(identity);
       spObject[isMove ? 'moveTo' : 'copyTo'](mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`));
       await executeJSOM(clientContext)(spObject)(opts);
-      await spxTargetList.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate }).update({ silent: true })
+      await spxTargetList.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate }).update({ silentInfo: true })
     } else {
       await spxTargetList.file({
         Url: fullTargetFileUrl,
@@ -400,7 +413,7 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
         OnProgress: element.OnProgress,
         Overwrite: element.Overwrite,
         Columns: existedColumnsToUpdate
-      }).create({ silent: true });
+      }).create({ silentInfo: true });
       isMove && await spxSourceFile.delete()
     }
   })
@@ -411,7 +424,8 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     NAME}(s)`);
 }
 
-export const cacheColumns = contextBox => elementBox =>
+
+const cacheColumns = contextBox => elementBox =>
   deep2Iterator({ contextBox, elementBox })(async ({ contextElement, element }) => {
     const contextUrl = contextElement.Url;
     const listUrl = element.Url;
@@ -423,6 +437,8 @@ export const cacheColumns = contextBox => elementBox =>
       cache.set(columns)(['columns', contextUrl, listUrl]);
     }
   })
+
+
 
 
 // Inteface

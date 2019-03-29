@@ -174,7 +174,7 @@ export default parent => elements => {
                   elementBox: instance.parent.box,
                   bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
                 })(({ contextElement, element }) =>
-                  site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silent: true, expanded: true, view: ['Name'] }).then(_ => {
+                  site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).then(_ => {
                     needToRetry = true;
                   }).catch(identity)
                 )
