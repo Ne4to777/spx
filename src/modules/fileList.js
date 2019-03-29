@@ -70,12 +70,6 @@ const getRequestDigest = contextUrl => new Promise((resolve, reject) =>
     .then(res => resolve(res.data.d.GetContextWebInformation.FormDigestValue))
     .catch(reject))
 
-export const getColumns = webUrl => listUrl => site(webUrl).list(listUrl).column().get({
-  view: ['TypeAsString', 'InternalName', 'Title', 'Hidden'],
-  groupBy: 'InternalName',
-  cached: true
-})
-
 const getSPObject = elementUrl => spObject => {
   const filename = getFilenameFromUrl(elementUrl);
   const folder = getFolderFromUrl(elementUrl);

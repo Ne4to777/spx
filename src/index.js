@@ -630,16 +630,15 @@ const uploadTestImage = async  _ => {
 	const blob = await spx('Lenta').library('NewsMedia').file(url).get({ asBlob: true });
 
 	await spx('test/spx').library('Files').file({
-		// Url:name,
-		Url: 'binary.txt',
-		Content: 'hi',
-		// Content: await blobToArrayBuffer(blob),
-		Columns: { Title: 'hi1' }
-	}).create({ silent: true })
+		Url: name,
+		// Url: 'binary.txt',
+		// Content: 'hi',
+		Content: blob,
+		Columns: { Title: 'hi' }
+	}).create()
 }
 
-const a = false;
-if (a) throw new Error()
-// uploadTestImage();
+
+uploadTestImage();
 // spx('Lenta').library('NewsMedia').file('/Lenta/NewsMedia/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
 // spx('test/spx').library('Files').file('/test/spx/Files/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)

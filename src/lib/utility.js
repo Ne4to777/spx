@@ -575,8 +575,8 @@ export const webReport = ({ NAME, detailed, silent, silentInfo, actionType, cont
 		detailed ? `: ${box.join()}` : ''}`)
 
 
-export const listReport = ({ NAME, detailed, silent, actionType, box, listBox, contextBox }) => {
-	!silent && console.log(`${
+export const listReport = ({ NAME, detailed, silent, silentInfo, actionType, box, listBox, contextBox }) => {
+	!silent && !silentInfo && console.log(`${
 		ACTION_TYPES[actionType]} ${
 		box.getCount(actionType)} ${
 		NAME}(s) in ${
