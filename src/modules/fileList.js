@@ -358,9 +358,9 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     if (!hasUrlFilename(elementUrl)) return;
     let targetWebUrl, targetListUrl, targetFileUrl;
     if (isObject(To)) {
-      targetWebUrl = To.Web;
-      targetListUrl = To.List;
-      targetFileUrl = To.File || '';
+      targetWebUrl = To.WebUrl;
+      targetListUrl = To.ListUrl;
+      targetFileUrl = getListRelativeUrl(To.WebUrl)(To.ListUrl)(To);
     } else {
       targetWebUrl = contextUrl;
       targetListUrl = listUrl;
@@ -375,7 +375,7 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     const spxSourceFile = spxSourceList.file(elementUrl);
     const spxTargetList = site(targetWebUrl).list(targetListUrl);
     const sourceFileData = await spxSourceFile.get({ asItem: true });
-    const fullTargetFileUrl = /\./.test(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
+    const fullTargetFileUrl = hasUrlFilename(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
     const columnsToUpdate = {};
     for (let columnName in sourceFileData) {
       if (!LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
