@@ -329,7 +329,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
   })
 
   const errorMsgMatches = response.data.match(/id="ctl00_PlaceHolderMain_LabelMessage">([^<]*)<\/span>/);
-  errorMsgMatches && !silent && !silentErrors && console.error(errorMsgMatches[1]);
+  isArray(errorMsgMatches) && !silent && !silentErrors && console.error(errorMsgMatches[1]);
   if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
     isError = true;
     needToRetry = await createNonexistedFolder(instance);
