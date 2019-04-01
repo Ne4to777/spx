@@ -642,3 +642,27 @@ const uploadTestImage = async  _ => {
 // uploadTestImage();
 // spx('Lenta').library('NewsMedia').file('/Lenta/NewsMedia/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
 // spx('test/spx').library('Files').file('/test/spx/Files/1c905841d5dd82b76894d42cbd3ab9140A09620803741846129.jpeg').get().then(log)
+
+
+const testUpload = async _ => {
+	const data = {
+		Columns: { Title: 'hi' },
+		Folder: 'bulk'
+	};
+	const library = spx('test/spx').library('Files');
+	for (const a of [0, 1, 2]) {
+		const files = await library.file(['test.txt', 'test1.txt']).get({ asBlob: true });
+		console.log(files);
+		await library.file([{
+			...data,
+			Url: 'bulk1.txt',
+			Content: files[0]
+		}, {
+			...data,
+			Url: 'bulk2.txt',
+			Content: files[1]
+		}]).create();
+	}
+}
+
+testUpload()

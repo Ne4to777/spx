@@ -16,6 +16,7 @@ export const REQUEST_BUNDLE_MAX_SIZE = 252;
 export const REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE = 126;
 export const REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE = 82;
 export const REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE = 240;
+export const CACHE_RETRIES_LIMIT = 3;
 export const ACTION_TYPES = {
 	create: 'created',
 	update: 'updated',
@@ -652,19 +653,34 @@ export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash
 export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL]);
 export const isStrictUrl = url => isStringFilled(url) && !hasUrlTailSlash(url);
 
-export const getListRelativeUrl = webUrl => listUrl => elementUrl =>
-	elementUrl && stringTest(/\//)(elementUrl)
-		? (elementUrl === '/'
-			? '/'
-			: shiftSlash(arrayLast(stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl))))))
-		: elementUrl
+export const getListRelativeUrl = webUrl => listUrl => (element = {}) => {
+	const { Url, Folder } = element;
+	if (Folder) {
+		const folder = shiftSlash(Folder);
+		return Url ? `${folder}/${getTitleFromUrl(Url)}` : folder
+	} else {
+		return Url && stringTest(/\//)(Url)
+			? (Url === '/'
+				? '/'
+				: shiftSlash(arrayLast(stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(Url))))))
+			: Url
+	}
 
-export const getWebRelativeUrl = webUrl => elementUrl =>
-	elementUrl && stringTest(/\//)(elementUrl)
-		? (elementUrl === '/'
-			? '/'
-			: shiftSlash(arrayLast(stringSplit('@web@')(stringReplace(shiftSlash(webUrl))('@web@')(elementUrl)))))
-		: elementUrl
+}
+
+export const getWebRelativeUrl = webUrl => (element = {}) => {
+	const { Url, Folder } = element;
+	if (Folder) {
+		const folder = shiftSlash(Folder);
+		return Url ? `${folder}/${getTitleFromUrl(Url)}` : folder
+	} else {
+		return Url && stringTest(/\//)(Url) ?
+			(Url === '/'
+				? '/'
+				: shiftSlash(arrayLast(stringSplit('@web@')(stringReplace(shiftSlash(webUrl))('@web@')(Url)))))
+			: Url
+	}
+}
 
 export class AbstractBox {
 	constructor(value) {
@@ -739,7 +755,7 @@ export const deep2IteratorREST = ({ contextBox, elementBox }) => f =>
 	contextBox.chain(contextElement => elementBox.chain(async element => await f({ contextElement, element })));
 
 export const deep3IteratorREST = ({ contextBox, parentBox, elementBox }) => f =>
-	contextBox.chain(contextElement => parentBox.chain(parentElement => elementBox.chain(async element => await f({ contextElement, parentElement, element }))));
+	contextBox.chain(contextElement => parentBox.chain(parentElement => elementBox.chain(async element => f({ contextElement, parentElement, element }))));
 
 
 //  ========================================================================================
@@ -1105,6 +1121,7 @@ export const setFields = source => target => {
 export const getContext = methodEmpty('get_context');
 
 export const getWeb = methodEmpty('get_web');
+
 
 
 //  =======================================================

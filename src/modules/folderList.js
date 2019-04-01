@@ -2,6 +2,7 @@ import {
   REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE,
   REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE,
   REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE,
+  CACHE_RETRIES_LIMIT,
   AbstractBox,
   getInstance,
   prepareResponseJSOM,
@@ -16,7 +17,6 @@ import {
   getSPFolderByUrl,
   pipe,
   popSlash,
-  identity,
   getListRelativeUrl,
   switchCase,
   typeOf,
@@ -29,6 +29,7 @@ import {
   getParentUrl,
   deep2Iterator,
   deep3Iterator,
+  deep3IteratorREST,
   listReport,
   getTitleFromUrl,
   isStrictUrl
@@ -128,7 +129,7 @@ export default parent => elements => {
       const { clientContexts, result } = await iterator()(({ contextElement, clientContext, parentElement, element }) => {
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
-        const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
+        const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element);
         const isCollection = hasUrlTailSlash(elementUrl);
         const spObject = isCollection
           ? getSPObjectCollection(elementUrl)(listSPObject)
@@ -143,10 +144,11 @@ export default parent => elements => {
       const { asItem } = opts;
       if (asItem) opts.view = ['ListItemAllFields'];
       await cacheColumns(instance.parent.parent.box)(instance.parent.box);
+      cache.set(CACHE_RETRIES_LIMIT)(['folderCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()]);
       const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(({ contextElement, clientContext, parentElement, element }) => {
         const listUrl = parentElement.Url;
         const contextUrl = contextElement.Url;
-        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element);
         if (!isStrictUrl(elementUrl)) return;
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
@@ -163,29 +165,37 @@ export default parent => elements => {
         await instance.parent.parent.box.chain(async el => {
           for (const clientContext of clientContexts[el.Url]) {
             await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-              if (/This operation can only be performed on a file;/.test(err.get_message())) {
+              const msg = err.get_message();
+              if (/already exists/.test(msg)) return;
+              isError = true;
+              if (/This operation can only be performed on a file;/.test(msg)) {
                 const foldersToCreate = {};
                 await iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(({ contextElement, parentElement, element }) => {
-                  const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
+                  const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element);
                   foldersToCreate[getParentUrl(elementUrl)] = true;
                 })
                 await deep2Iterator({
                   contextBox: instance.parent.parent.box,
                   elementBox: instance.parent.box,
                   bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-                })(({ contextElement, element }) =>
-                  site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).then(_ => {
-                    needToRetry = true;
-                  }).catch(err => {
-                    if (/already exists/.test(err.get_message())) {
-                      needToRetry = true;
-                    }
-                  })
-                )
+                })(async ({ contextElement, element }) => {
+                  const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
+                    .then(_ => {
+                      const cacheUrl = ['folderCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+                      const retries = cache.get(cacheUrl);
+                      if (retries) {
+                        cache.set(retries - 1)(cacheUrl)
+                        return true
+                      }
+                    })
+                    .catch(err => {
+                      if (/already exists/.test(err.get_message())) return true
+                    })
+                  if (res) needToRetry = true;
+                })
               } else {
-                if (!opts.silent && !opts.silentErrors) throw err
+                throw err
               }
-              isError = true;
             })
             if (needToRetry) break;
           }
@@ -208,7 +218,7 @@ export default parent => elements => {
       const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE)(({ contextElement, clientContext, parentElement, element }) => {
         const contextUrl = contextElement.Url;
         const listUrl = parentElement.Url;
-        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element.Url);
+        const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element);
         if (!isStrictUrl(elementUrl)) return;
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
@@ -227,7 +237,7 @@ export default parent => elements => {
       const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE)(({ contextElement, clientContext, parentElement, element }) => {
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
-        const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Url);
+        const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element);
         if (!isStrictUrl(elementUrl)) return;
         const spObject = getSPObject(elementUrl)(listSPObject);
         !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)

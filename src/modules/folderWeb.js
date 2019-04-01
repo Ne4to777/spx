@@ -1,5 +1,6 @@
 import {
   AbstractBox,
+  CACHE_RETRIES_LIMIT,
   getInstance,
   methodEmpty,
   prepareResponseJSOM,
@@ -7,7 +8,6 @@ import {
   executorJSOM,
   switchCase,
   getTitleFromUrl,
-  identity,
   popSlash,
   getParentUrl,
   method,
@@ -25,7 +25,8 @@ import {
   removeDuplicatedUrls,
   deep2Iterator,
   webReport,
-  isStrictUrl
+  isStrictUrl,
+  deep2IteratorREST
 } from './../lib/utility';
 import site from './../modules/site';
 
@@ -106,7 +107,7 @@ export default parent => elements => {
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const parentSPObject = instance.parent.getSPObject(clientContext);
         const contextUrl = contextElement.Url;
-        const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
+        const elementUrl = getWebRelativeUrl(contextUrl)(element);
         const isCollection = hasUrlTailSlash(elementUrl);
         const spObject = isCollection
           ? getSPObjectCollection(elementUrl)(parentSPObject)
@@ -118,34 +119,44 @@ export default parent => elements => {
     },
 
     create: async function create(opts = {}) {
+      let needToRetry, isError;
+      cache.set(CACHE_RETRIES_LIMIT)(['folderCreationRetries', instance.parent.box.join(), instance.box.join()]);
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
-        const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
+        const elementUrl = getWebRelativeUrl(contextElement.Url)(element);
         if (!isStrictUrl(elementUrl)) return;
         const parentFolderUrl = getParentUrl(elementUrl);
         const spObject = getSPObjectCollection(`${parentFolderUrl}/`)(instance.parent.getSPObject(clientContext)).add(getTitleFromUrl(elementUrl));
         return load(clientContext)(spObject)(opts);
       });
 
-      let needToRetry;
       if (instance.box.getCount()) {
         await instance.parent.box.chain(async el => {
           for (const clientContext of clientContexts[el.Url]) {
             await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-              if (err.get_message() === 'File Not Found.') {
+              const msg = err.get_message();
+              if (/already exists/.test(msg)) return;
+              isError = true;
+              if (msg === 'File Not Found.') {
                 const foldersToCreate = {};
                 await iterator(({ contextElement, element }) => {
-                  const elementUrl = getWebRelativeUrl(contextElement.Url)(element.Url);
+                  const elementUrl = getWebRelativeUrl(contextElement.Url)(element);
                   foldersToCreate[getParentUrl(elementUrl)] = true;
                 })
-                await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] }).then(_ => {
-                  needToRetry = true;
-                }).catch(err => {
-                  if (/already exists/.test(err.get_message())) {
-                    needToRetry = true;
-                  }
-                })
+                const res = await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
+                  .then(_ => {
+                    const cacheUrl = ['folderCreationRetries', instance.parent.box.join(), instance.box.join()];
+                    const retries = cache.get(cacheUrl);
+                    if (retries) {
+                      cache.set(retries - 1)(cacheUrl)
+                      return true
+                    }
+                  })
+                  .catch(err => {
+                    if (/already exists/.test(err.get_message())) return true
+                  })
+                if (res) needToRetry = true;
               } else {
-                if (!opts.silent && !opts.silentErrors) throw err
+                throw err
               }
             })
             if (needToRetry) break;
@@ -155,8 +166,10 @@ export default parent => elements => {
       if (needToRetry) {
         return create(opts)
       } else {
-        report('create')(opts);
-        return prepareResponseJSOM(opts)(result);
+        if (!isError) {
+          report('create')(opts);
+          return prepareResponseJSOM(opts)(result);
+        }
       }
     },
 
@@ -164,7 +177,7 @@ export default parent => elements => {
       const { noRecycle } = opts;
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
-        const elementUrl = getWebRelativeUrl(contextUrl)(element.Url);
+        const elementUrl = getWebRelativeUrl(contextUrl)(element);
         if (!isStrictUrl(elementUrl)) return;
         const parentSPObject = instance.parent.getSPObject(clientContext);
         const spObject = getSPObject(elementUrl)(parentSPObject);
