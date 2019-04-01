@@ -133,6 +133,11 @@ export const LIBRARY_STANDART_COLUMN_NAMES = {
 	_SourceUrl: true,
 	_UIVersion: true,
 	_UIVersionString: true,
+
+	ImageHeight: true,
+	ImageWidth: true,
+	PreviewExists: true,
+	ThumbnailExists: true
 }
 
 export const ROOT_WEB_DUMMY = '@ROOT_WEB@';

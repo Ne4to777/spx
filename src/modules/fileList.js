@@ -287,7 +287,7 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
 const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => async (opts = {}) => {
   let founds, needToRetry, isError;
   const inputs = [];
-  const { needResponse } = opts;
+  const { needResponse, silent, silentErrors } = opts;
   const { Content = '', Overwrite, OnProgress = identity, Folder = '', Columns } = element;
   const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element);
   const folder = Folder || getFolderFromUrl(elementUrl);
@@ -327,6 +327,9 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
     data: formData,
     onUploadProgress: e => OnProgress(Math.floor((e.loaded * 100) / e.total))
   })
+
+  const errorMsgMatches = response.data.match(/id="ctl00_PlaceHolderMain_LabelMessage">([^<]*)<\/span>/);
+  errorMsgMatches && !silent && !silentErrors && console.error(errorMsgMatches[1]);
   if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
     isError = true;
     needToRetry = await createNonexistedFolder(instance);
@@ -339,7 +342,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
     } else {
       let response;
       const list = site(contextUrl).library(listUrl);
-      if (Columns) {
+      if (isObjectFilled(Columns)) {
         response = await list.file({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
       } else if (needResponse) {
         response = await list.file({ Url: elementUrl }).get(opts);
@@ -351,7 +354,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
 
 const copyOrMove = isMove => instance => async (opts = {}) => {
   await iteratorREST(instance)(async ({ contextElement, parentElement, element }) => {
-    const { To } = element;
+    const { To, OnlyContent } = element;
     const contextUrl = contextElement.Url;
     const listUrl = parentElement.Url;
     const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element);
@@ -360,31 +363,31 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     if (isObject(To)) {
       targetWebUrl = To.WebUrl;
       targetListUrl = To.ListUrl;
-      targetFileUrl = getListRelativeUrl(To.WebUrl)(To.ListUrl)(To);
+      targetFileUrl = getListRelativeUrl(To.WebUrl)(To.ListUrl)(To) || '';
     } else {
       targetWebUrl = contextUrl;
       targetListUrl = listUrl;
       targetFileUrl = To;
     }
-
     if (!targetWebUrl) throw new Error('Target WebUrl is missed');
     if (!targetListUrl) throw new Error('Target ListUrl is missed');
     if (!elementUrl) throw new Error('Source file Url is missed');
-
-    const spxSourceList = site(contextUrl).list(listUrl);
+    const spxSourceList = site(contextUrl).library(listUrl);
     const spxSourceFile = spxSourceList.file(elementUrl);
-    const spxTargetList = site(targetWebUrl).list(targetListUrl);
-    const sourceFileData = await spxSourceFile.get({ asItem: true });
-    const fullTargetFileUrl = hasUrlFilename(targetFileUrl) ? targetFileUrl : (targetFileUrl + '/' + sourceFileData.FileLeafRef);
+    const spxTargetList = site(targetWebUrl).library(targetListUrl);
+    const fullTargetFileUrl = hasUrlFilename(targetFileUrl) ? targetFileUrl : `${targetFileUrl}/${getFilenameFromUrl(elementUrl)}`;
     const columnsToUpdate = {};
-    for (let columnName in sourceFileData) {
-      if (!LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
-    }
-
     const existedColumnsToUpdate = {};
-    if (Object.keys(columnsToUpdate).length) {
-      for (let columnName in columnsToUpdate) {
-        existedColumnsToUpdate[columnName] = sourceFileData[columnName];
+    if (!OnlyContent) {
+      const sourceFileData = await spxSourceFile.get({ asItem: true });
+      for (let columnName in sourceFileData) {
+        if (!LIBRARY_STANDART_COLUMN_NAMES[columnName] && sourceFileData[columnName] !== null) columnsToUpdate[columnName] = sourceFileData[columnName];
+      }
+
+      if (Object.keys(columnsToUpdate).length) {
+        for (let columnName in columnsToUpdate) {
+          existedColumnsToUpdate[columnName] = sourceFileData[columnName];
+        }
       }
     }
     if (!opts.forced && contextUrl === targetWebUrl) {
@@ -392,7 +395,7 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
       const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
       const spObject = getSPObject(elementUrl)(listSPObject);
       const folder = getFolderFromUrl(targetFileUrl);
-      if (folder) await site(contextUrl).list(listUrl).folder(folder).create({ silentInfo: true, expanded: true, view: ['Name'] }).catch(identity);
+      if (folder) await site(contextUrl).library(listUrl).folder(folder).create({ silentInfo: true, expanded: true, view: ['Name'] }).catch(identity);
       spObject[isMove ? 'moveTo' : 'copyTo'](mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`));
       await executeJSOM(clientContext)(spObject)(opts);
       await spxTargetList.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate }).update({ silentInfo: true })
