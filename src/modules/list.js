@@ -32,7 +32,8 @@ import {
   map,
   method,
   removeEmptyUrls,
-  removeDuplicatedUrls
+  removeDuplicatedUrls,
+  getListRelativeUrl
 } from './../lib/utility';
 import site from './../modules/site';
 import column from './../modules/column';
@@ -291,7 +292,7 @@ export default moduleType => parent => urls => {
           if (!targetColumn && !sourceColumn.FromBaseType) acc.push(Object.assign({}, sourceColumn));
           return acc
         }, []);
-        return targetSPXList.column(columnsToCreate).create();
+        return columnsToCreate.length ? targetSPXList.column(columnsToCreate).create() : void 0;
       })
       console.log('cloning layout done!');
     },
@@ -309,7 +310,6 @@ export default moduleType => parent => urls => {
       await iterator(async ({ contextElement, element }) => {
         const contextUrl = contextElement.Url;
         let targetWebUrl, targetListUrl;
-        const foldersToCreate = [];
         const { Title, To } = element;
         if (isString(To)) {
           targetWebUrl = contextUrl;
@@ -338,33 +338,13 @@ export default moduleType => parent => urls => {
           sourceSPXList.item({ Query: 'FSObjType eq 1', Scope: 'all' }).get(),
           sourceSPXList.item({ Query: '', Scope: 'allItems' }).get()
         ])
-        const foldersMapped = sourceFoldersData.map(folder => folder.FileRef.split(`${sourceListUrl}/`)[1]);
 
-        for (let folder of sourceFoldersData) {
-          const props = {};
-          for (let prop in folder) {
-            const folderProp = folder[prop];
-            if (!sourceColumnsData[prop].ReadOnlyField && !columnsToExclude[prop] && folderProp !== null) props[prop] = folderProp;
-          }
-          props.Url = folder.FileRef.split(`${sourceListUrl}/`)[1];
-          let isSubfolder;
-          for (let folderUrl of foldersMapped) {
-            if (new RegExp(`^${props.Url}\\/`).test(folderUrl)) {
-              isSubfolder = true;
-              break;
-            }
-          }
-          !isSubfolder && foldersToCreate.push(props);
-        }
-        foldersToCreate.length && await targetSPXList.folder(foldersToCreate).create({ silentErrors: true }).catch(identity);
         if (sourceListData.BaseType) {
           for (const fileItem of sourceItemsData) {
-            const fileUrl = fileItem.FileRef.split(`${sourceListUrl}/`)[1];
-            await sourceSPXList.file({
-              Url: fileUrl,
+            await sourceSPX.library(sourceListUrl).file({
+              Url: getListRelativeUrl(contextUrl)(sourceListUrl)({ Url: fileItem.FileRef }),
               To: {
                 WebUrl: targetWebUrl,
-                Url: fileUrl,
                 ListUrl: targetListUrl
               }
             }).copy(opts)
@@ -372,11 +352,15 @@ export default moduleType => parent => urls => {
         } else {
           const itemsToCreate = sourceItemsData.map(item => {
             const newItem = {};
-            const folder = item.FileDirRef.split(`${sourceListUrl}/`)[1];
+            const folder = getListRelativeUrl(contextUrl)(sourceListUrl)({ Url: item.FileDirRef });
             if (folder) newItem.Folder = folder;
             for (const prop in item) {
               const value = item[prop];
-              if (!sourceColumnsData[prop].ReadOnlyField && !columnsToExclude[prop] && isExists(value)) newItem[prop] = value;
+              const sourceColumns = sourceColumnsData[prop];
+              if (sourceColumns) {
+                const sourceColumn = sourceColumns[0];
+                if (!sourceColumn.ReadOnlyField && !columnsToExclude[prop] && isExists(value)) newItem[prop] = value;
+              }
             }
             return newItem;
           })
