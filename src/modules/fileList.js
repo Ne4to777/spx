@@ -49,7 +49,8 @@ import {
   hasUrlFilename,
   removeEmptyFilenames,
   isObjectFilled,
-  prependSlash
+  prependSlash,
+  isNumberFilled
 } from './../lib/utility';
 import axios from 'axios';
 import * as cache from './../lib/cache';
@@ -493,7 +494,8 @@ export default parent => elements => {
     create: async (opts = {}) => {
       await cacheListGUIDs(instance.parent.parent.box)(instance.parent.box);
       await cacheListFormMatches(instance.parent.parent.box)(instance.parent.box);
-      cache.set(CACHE_RETRIES_LIMIT)(['fileCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()]);
+      const cacheUrl = ['fileCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+      !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const res = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
         const contextUrl = contextElement.Url;
         const listUrl = parentElement.Url;

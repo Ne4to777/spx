@@ -29,7 +29,7 @@ import {
   getParentUrl,
   deep2Iterator,
   deep3Iterator,
-  deep3IteratorREST,
+  isNumberFilled,
   listReport,
   getTitleFromUrl,
   isStrictUrl
@@ -144,7 +144,8 @@ export default parent => elements => {
       const { asItem } = opts;
       if (asItem) opts.view = ['ListItemAllFields'];
       await cacheColumns(instance.parent.parent.box)(instance.parent.box);
-      cache.set(CACHE_RETRIES_LIMIT)(['folderCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()]);
+      const cacheUrl = ['folderCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+      !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(({ contextElement, clientContext, parentElement, element }) => {
         const listUrl = parentElement.Url;
         const contextUrl = contextElement.Url;

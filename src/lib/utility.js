@@ -503,7 +503,7 @@ export const isStringEmpty = x => x === '';
 export const isStringFilled = pipe([isStringEmpty, not]);
 export const isArrayFilled = pipe([filter(isDefined), prop('length'), toBoolean]);
 export const isArrayEmpty = pipe([isArrayFilled, not]);
-export const isObjectFilled = pipe([keys, isArrayFilled]);
+export const isObjectFilled = ifThen(isObject)([pipe([keys, isArrayFilled]), FALSE]);
 export const isObjectEmpty = pipe([keys, isArrayEmpty]);
 export const isExists = x => isDefined(x) && isNotNull(x);
 export const isNotExists = pipe([isExists, not]);

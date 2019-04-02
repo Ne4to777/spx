@@ -33,7 +33,8 @@ import {
   deep2IteratorREST,
   webReport,
   removeEmptyFilenames,
-  hasUrlFilename
+  hasUrlFilename,
+  isNumberFilled
 } from './../lib/utility';
 
 import site from './../modules/site';
@@ -153,7 +154,8 @@ export default parent => elements => {
 
     create: async function create(opts = {}) {
       let needToRetry, isError;
-      cache.set(CACHE_RETRIES_LIMIT)(['fileCreationRetries', instance.parent.box.join(), instance.box.join()]);
+      const cacheUrl = ['fileCreationRetries', instance.parent.box.join(), instance.box.join()];
+      !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
         const contextUrl = contextElement.Url;
         const elementUrl = getWebRelativeUrl(contextUrl)(element);

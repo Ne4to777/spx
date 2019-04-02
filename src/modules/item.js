@@ -1,5 +1,6 @@
 import {
   MAX_ITEMS_LIMIT,
+  CACHE_RETRIES_LIMIT,
   AbstractBox,
   prepareResponseJSOM,
   load,
@@ -27,7 +28,8 @@ import {
   hasUrlTailSlash,
   removeEmptyNumbers,
   isNumberFilled,
-
+  isObjectFilled,
+  getArray
 } from './../lib/utility';
 
 import * as cache from './../lib/cache';
@@ -160,7 +162,7 @@ const operateDuplicates = instance => async (opts = {}) => {
       Scope: 'allItems',
       Limit: MAX_ITEMS_LIMIT
     }).get({
-      view: ['ID', 'FSObjType', 'Modified', ...instance.box.value.map(prop('ID'))]
+      view: ['ID', 'FSObjType', 'Modified', ...instance.box.join()]
     });
     const itemsMap = new Map;
     const getHashedColumnName = itemData => {
@@ -207,7 +209,8 @@ const cacheColumns = contextBox => elementBox =>
     }
   })
 
-const updateByQuery = iterator => module => async (opts = {}) => {
+const updateByQuery = instance => iterator => async (opts = {}) => {
+  const module = instance.parent.NAME;
   const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
     const { Folder, Query, Columns = {} } = element;
     if (Query === void 0) throw new Error('Query is missed');
@@ -225,7 +228,8 @@ const updateByQuery = iterator => module => async (opts = {}) => {
   return result;
 }
 
-const deleteByQuery = iterator => module => async opts => {
+const deleteByQuery = instance => iterator => async opts => {
+  const module = instance.parent.NAME;
   const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
     if (element === void 0) throw new Error('Query is missed');
     const list = site(contextElement.Url)[module](parentElement.Url);
@@ -238,22 +242,25 @@ const deleteByQuery = iterator => module => async opts => {
   return result;
 }
 
-const erase = iterator => module => async opts => {
-  const { clientContexts, result } = await iterator(({ contextElement, parentElement, element }) => {
+const erase = instance => iterator => async opts => {
+  const module = instance.parent.NAME;
+  const { result } = await iterator(({ contextElement, parentElement, element }) => {
     const { Query = '', Folder, Columns } = element;
     if (!Columns) return;
-    return site(contextElement.Url)[module](parentElement.Url).item({ Folder, Query, Columns: Columns.reduce((acc, el) => (acc[el] = null, acc), {}) }).updateByQuery(opts);
+    const columns = getArray(Columns);
+    return site(contextElement.Url)[module](parentElement.Url).item({
+      Folder,
+      Query,
+      Columns: columns.reduce((acc, el) => (acc[el] = null, acc), {})
+    }).updateByQuery(opts);
   })
-  if (isFilled(result)) {
-    await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))));
-  }
-  report('erase')(opts);
   return prepareResponseJSOM(opts)(result);
 }
 
-const getEmpties = iteratorParent => module => async opts => {
+const getEmpties = instance => iterator => async opts => {
+  const module = instance.parent.NAME;
   const columns = instance.box.value.map(prop('ID'));
-  const { result } = await iteratorParent(async ({ contextElement, element }) =>
+  const { result } = await iterator(async ({ contextElement, element }) =>
     site(contextElement.Url)[module](element.Url).item({
       Query: `${craftQuery('or')('isnull')(columns)()}`,
       Scope: 'allItems',
@@ -263,7 +270,8 @@ const getEmpties = iteratorParent => module => async opts => {
   return result;
 }
 
-const merge = iterator => module => async opts =>
+const merge = instance => iterator => async opts => {
+  const module = instance.parent.NAME;
   iterator(async ({ contextElement, parentElement, element }) => {
     const { Key, Forced, To, From, Mediator = _ => identity } = element;
     if (!Key) throw new Error('Key is missed');
@@ -305,6 +313,7 @@ const merge = iterator => module => async opts =>
     }))
     return itemsToMerge.length && list.item(itemsToMerge).update(opts);
   })
+}
 
 // Inteface
 
@@ -328,6 +337,7 @@ export default parent => elements => {
 
   const report = actionType => (opts = {}) =>
     listReport({ ...opts, NAME: instance.NAME, actionType, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
+
   return {
     get: async (opts = {}) => {
       const { showCaml } = opts;
@@ -345,6 +355,8 @@ export default parent => elements => {
     create: instance.parent.NAME === 'list'
       ? async function create(opts = {}) {
         await cacheColumns(instance.parent.parent.box)(instance.parent.box);
+        const cacheUrl = ['itemCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+        !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
         const { clientContexts, result } = await iterator(({ contextElement, clientContext, parentElement, element }) => {
           const contextUrl = contextElement.Url;
           const listUrl = parentElement.Url;
@@ -352,31 +364,49 @@ export default parent => elements => {
           const contextSPObject = instance.parent.parent.getSPObject(clientContext);
           const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
           const { Folder, Columns } = element;
-          const newElement = Object.assign({}, Columns || element);
+          let folder = Folder;
+          let newElement
+          if (isObjectFilled(Columns)) {
+            if (Columns.Folder) folder = Columns.Folder;
+            newElement = Object.assign({}, Columns);
+          } else {
+            newElement = Object.assign({}, element);
+          }
           delete newElement.ID;
           delete newElement.Folder;
-          Folder && itemCreationInfo.set_folderUrl(`/${contextUrl}/Lists/${listUrl}/${getListRelativeUrl(contextUrl)(listUrl)(Folder)}`);
+          folder && itemCreationInfo.set_folderUrl(`/${contextUrl}/Lists/${listUrl}/${getListRelativeUrl(contextUrl)(listUrl)({ Folder: folder })}`);
           const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(newElement)(listSPObject.addItem(itemCreationInfo))
           return load(clientContext)(spObject)(opts)
         })
-        let needToRetry;
-        let isError;
+        let needToRetry, isError;
         await instance.parent.parent.box.chain(async el => {
           for (const clientContext of clientContexts[el.Url]) {
             await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
               if (/There is no file with URL/.test(err.get_message())) {
                 const foldersToCreate = {};
                 await iterator(({ contextElement, parentElement, element }) => {
-                  const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element.Folder);
+                  const { Folder, Columns = {} } = element;
+                  const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)({ Folder: Folder || Columns.Folder });
                   foldersToCreate[elementUrl] = true;
                 })
-                await iteratorParent(({ contextElement, element }) =>
-                  site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] }).then(_ => {
-                    needToRetry = true;
-                  }).catch(identity)
-                )
+                await iteratorParent(async ({ contextElement, element }) => {
+                  const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] })
+                    .then(_ => {
+                      const cacheUrl = ['itemCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+                      const retries = cache.get(cacheUrl);
+                      if (retries) {
+                        cache.set(retries - 1)(cacheUrl)
+                        return true
+                      }
+                    })
+                    .catch(err => {
+                      console.log(err);
+                      if (/already exists/.test(err.get_message())) return true
+                    })
+                  if (res) needToRetry = true;
+                })
               } else {
-                !opts.silent && !opts.silentErrors && console.error(err.get_message())
+                throw err
               }
               isError = true;
             })
@@ -414,7 +444,7 @@ export default parent => elements => {
       return prepareResponseJSOM(opts)(result);
     },
 
-    updateByQuery: updateByQuery(iterator)(instance.parent.NAME),
+    updateByQuery: updateByQuery(instance)(iterator),
 
     delete: async (opts = {}) => {
       const { noRecycle } = opts;
@@ -432,12 +462,12 @@ export default parent => elements => {
       return prepareResponseJSOM(opts)(result);
     },
 
-    deleteByQuery: deleteByQuery(iterator)(instance.parent.NAME),
+    deleteByQuery: deleteByQuery(instance)(iterator),
 
     getDuplicates: operateDuplicates(instance),
     deleteDuplicates: (opts = {}) => operateDuplicates(instance)({ ...opts, delete: true }),
 
-    getEmpties: getEmpties(iteratorParent)(instance.parent.NAME),
+    getEmpties: getEmpties(instance)(iteratorParent),
     deleteEmpties: async opts => {
       const columns = instance.box.value.map(prop('ID'));
       const { result } = await iteratorParent(async ({ contextElement, element }) => {
@@ -447,9 +477,9 @@ export default parent => elements => {
       return result;
     },
 
-    merge: merge(iterator)(instance.parent.NAME),
+    merge: merge(instance)(iterator),
 
-    erase: erase(iterator)(instance.parent.NAME),
+    erase: erase(instance)(iterator),
 
     createDiscussion: async (opts = {}) => {
       const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {

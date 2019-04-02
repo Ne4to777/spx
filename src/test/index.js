@@ -22,7 +22,7 @@ export default async _ => {
   // await column();
   // await folderList();
   // await fileList();
-  // await item()
-  // await queryParser()
+  // await item();
+  // await queryParser();
   testIsOk('whole test')()
 }

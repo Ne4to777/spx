@@ -597,3 +597,59 @@ const copyPostImages = async _ => {
 }
 
 // copyPostImages()
+
+const getTagRefItemsToInstall = ({ webUrl, listUrl, sourceColumn, targetColumn }) =>
+	spx(webUrl).list(listUrl).item({ Scope: 'allItems', Query: `${sourceColumn} IsNotNull and ${targetColumn} IsNull` }).get({
+		view: ['ID', sourceColumn, targetColumn]
+	})
+
+
+const installTagRefItemsByTextColumn = async ({ webUrl, listUrl, sourceColumn, targetColumn }) => {
+	const tagsList = spx('Intellect').list('TagsAggregator');
+	const targetList = spx(webUrl).list(listUrl);
+
+	const tagsData = await getTagRefItemsToInstall({ webUrl, listUrl, sourceColumn, targetColumn });
+	for (const tagData of tagsData) {
+		const tags = JSON.parse(tagData[sourceColumn]);
+		if (tags && tags.length) {
+			const tagsToCreate = await Promise.all([...tags.map(async rawTag => {
+				const tag = rawTag.toLowerCase().replace(/[^a-zа-яё0-9\-]/gi, ' ').replace(/\s+/gi, ' ').trim();
+				let tagFolder = await tagsList.folder(tag).get({ asItem: true, silentErrors: true })
+					.catch(_ => tagsList.folder(tag).create({ asItem: true, detailed: true }));
+
+				if (tag) {
+					return {
+						Folder: tag,
+						Columns: {
+							Title: tag,
+							refId: tagData.ID,
+							tag: tagFolder.ID,
+							refListData: listUrl
+						}
+					}
+				}
+			})])
+			if (tagsToCreate.length) {
+				const newTags = await tagsList.item(tagsToCreate).create({ detailed: true });
+				await targetList.item({
+					ID: tagData.ID,
+					[targetColumn]: newTags.map(el => el.ID)
+				}).update();
+			}
+		}
+	}
+}
+
+const installTestTagRefItemsByTextColumn = _ => installTagRefItemsByTextColumn({
+	webUrl: 'test/spx',
+	listUrl: 'Test',
+	sourceColumn: 'tagsText',
+	targetColumn: 'tags'
+})
+
+const eraseTestTagColumn = _ => spx('test/spx').list('Test').item({ Columns: 'tags' }).erase();
+
+(async _ => {
+	// await eraseTestTagColumn()
+	await installTestTagRefItemsByTextColumn()
+})()

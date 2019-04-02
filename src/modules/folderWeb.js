@@ -26,7 +26,7 @@ import {
   deep2Iterator,
   webReport,
   isStrictUrl,
-  deep2IteratorREST
+  isNumberFilled
 } from './../lib/utility';
 import site from './../modules/site';
 
@@ -120,7 +120,8 @@ export default parent => elements => {
 
     create: async function create(opts = {}) {
       let needToRetry, isError;
-      cache.set(CACHE_RETRIES_LIMIT)(['folderCreationRetries', instance.parent.box.join(), instance.box.join()]);
+      const cacheUrl = ['folderCreationRetries', instance.parent.box.join(), instance.box.join()];
+      !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const elementUrl = getWebRelativeUrl(contextElement.Url)(element);
         if (!isStrictUrl(elementUrl)) return;
