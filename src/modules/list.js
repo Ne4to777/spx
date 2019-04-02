@@ -264,8 +264,8 @@ export default moduleType => parent => urls => {
           targetWebUrl = contextUrl;
           targetListUrl = To;
         } else {
-          targetWebUrl = To.Web;
-          targetListUrl = To.List;
+          targetWebUrl = To.WebUrl;
+          targetListUrl = To.ListUrl;
         }
         const sourceListUrl = Title || Url;
         if (!targetWebUrl) throw new Error('Target webUrl is missed');
@@ -315,8 +315,8 @@ export default moduleType => parent => urls => {
           targetWebUrl = contextUrl;
           targetListUrl = To;
         } else {
-          targetWebUrl = To.Web;
-          targetListUrl = To.List;
+          targetWebUrl = To.WebUrl;
+          targetListUrl = To.ListUrl;
         }
         const sourceListUrl = Title || Url;
         if (!targetWebUrl) throw new Error('Target webUrl is missed');
@@ -363,9 +363,9 @@ export default moduleType => parent => urls => {
             await sourceSPXList.file({
               Url: fileUrl,
               To: {
-                Web: targetWebUrl,
-                File: fileUrl,
-                List: targetListUrl
+                WebUrl: targetWebUrl,
+                Url: fileUrl,
+                ListUrl: targetListUrl
               }
             }).copy(opts)
           }

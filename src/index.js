@@ -596,4 +596,4 @@ const copyPostImages = async _ => {
 	await copyFiles({ from: { webUrl: 'Lenta', listUrl: 'NewsMedia' }, to: { webUrl: 'app-list/articles/feed', listUrl: 'Pictures' }, onProgress, onlyContent: true });
 }
 
-copyPostImages()
+// copyPostImages()

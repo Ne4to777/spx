@@ -275,7 +275,7 @@ const merge = iterator => module => async opts =>
     if (!targetColumn) throw new Error('To Column is missed');
     const list = site(contextUrl)[module](listUrl);
     const [sourceItems, targetItems] = await Promise.all([
-      site(From.Web || contextUrl)[module](From.List || listUrl).item({
+      site(From.WebUrl || contextUrl)[module](From.List || listUrl).item({
         Query: concatQueries()([`${Key} IsNotNull`, From.Query]),
         Scope: 'allItems',
         Limit: MAX_ITEMS_LIMIT
