@@ -332,10 +332,9 @@ export default moduleType => parent => urls => {
 
         await sourceSPX.list(element).cloneLayout();
         console.log('cloning items...');
-        const [sourceListData, sourceColumnsData, sourceFoldersData, sourceItemsData] = await Promise.all([
+        const [sourceListData, sourceColumnsData, sourceItemsData] = await Promise.all([
           sourceSPXList.get(),
           sourceSPXList.column().get({ groupBy: 'InternalName', view: ['ReadOnlyField', 'InternalName'] }),
-          sourceSPXList.item({ Query: 'FSObjType eq 1', Scope: 'all' }).get(),
           sourceSPXList.item({ Query: '', Scope: 'allItems' }).get()
         ])
 
