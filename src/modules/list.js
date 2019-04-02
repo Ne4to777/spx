@@ -257,18 +257,18 @@ export default moduleType => parent => urls => {
     cloneLayout: async  _ => {
       console.log('cloning layout in progress...');
       await iterator(async ({ contextElement, element }) => {
+        let targetListUrl;
         const contextUrl = contextElement.Url;
-        let targetWebUrl, targetListUrl;
+        let targetWebUrl = contextUrl;
         const { Title, Url, To } = element;
         if (isString(To)) {
           targetWebUrl = contextUrl;
           targetListUrl = To;
         } else {
-          targetWebUrl = To.WebUrl;
+          targetWebUrl = To.WebUrl || contextUrl;
           targetListUrl = To.ListUrl;
         }
         const sourceListUrl = Title || Url;
-        if (!targetWebUrl) throw new Error('Target webUrl is missed');
         if (!targetListUrl) throw new Error('Target listUrl is missed');
         if (!sourceListUrl) throw new Error('Source list Title is missed');
         const targetTitle = getTitleFromUrl(targetListUrl);
