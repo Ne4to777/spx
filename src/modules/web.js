@@ -189,7 +189,8 @@ export default urls => {
 				const clientContext = getClientContext(elementUrl);
 				const spObject = getSPObject(clientContext);
 				try { spObject.deleteObject() } catch (err) { new Error('Context url is wrong') }
-				return executorJSOM(clientContext)(opts);
+				await executorJSOM(clientContext)(opts);
+				return elementUrl
 			})
 			report('delete')(opts);
 			return prepareResponseJSOM(opts)(result)

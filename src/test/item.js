@@ -182,12 +182,16 @@ const crudBundle = async _ => {
   const bundleList = site('test/spx').list('Bundle');
   const folder = 'c/b';
   await bundleList.folder(folder).delete({ noRecycle: true }).catch(identity);
-  for (let i = 0; i < 253; i++) itemsToCreate.push({ Title: `test ${i}`, Folder: folder })
+  for (let i = 0; i < 1000; i++) itemsToCreate.push({ Title: `test ${i}`, Folder: folder })
   const newItems = await bundleList.item(itemsToCreate).create();
+  newItems.map(el => assert(`Title does not contain a "test"`)(/test/.test(el.Title)));
   const itemsToUpdate = reduce(acc => el => acc.concat({ ID: el.ID, Title: `${el.Title} updated` }))([])(newItems)
   const updatedItems = await bundleList.item(itemsToUpdate).update();
+  updatedItems.map(el => assert(`Title does not contain a "updated"`)(/updated/.test(el.Title)));
   const itemsTodelete = map(prop('ID'))(updatedItems);
-  await bundleList.item(itemsTodelete).delete({ noRecycle: true });
+  const deleted = await bundleList.item(itemsTodelete).delete({ noRecycle: true, expanded: true });
+  const deletedItems = await bundleList.item({ Folder: folder }).get();
+  assert(`items are not deleted`)(!deletedItems.length);
 }
 
 const page = async _ => {
@@ -210,9 +214,9 @@ export default _ => Promise.all([
   assertCollectionProps('web d, e list item')(workingWebList.item([{ Folder: 'd' }, { Folder: 'e' }]).get()),
 
   crud(),
-  // crudCollection(),
+  crudCollection(),
 
-  // page(),
+  page(),
   // crudBundle(),
 
 ]).then(testIsOk('itemList'))

@@ -40,7 +40,7 @@ export default parent => {
 				const clientContext = getClientContext(element.Url);
 				const spObject = getSPObjectCollection(parent)(clientContext);
 				spObject.deleteAll();
-				return executeJSOM(clientContext)(spObject)(opts);;
+				return executeJSOM(clientContext)(spObject)(opts);
 			})
 			report('delete')(opts);
 			return prepareResponseJSOM(opts)(result)

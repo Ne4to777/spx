@@ -649,7 +649,15 @@ const installTestTagRefItemsByTextColumn = _ => installTagRefItemsByTextColumn({
 
 const eraseTestTagColumn = _ => spx('test/spx').list('Test').item({ Columns: 'tags' }).erase();
 
-(async _ => {
-	// await eraseTestTagColumn()
-	await installTestTagRefItemsByTextColumn()
-})()
+// (async _ => {
+// 	// await eraseTestTagColumn()
+// 	await installTestTagRefItemsByTextColumn()
+// })()
+
+const getRecycled = async _ => {
+	const items = await spx.recycleBin.get().then(log);
+	const filtered = items.filter(el => /PritokDiplomas/.test(el.DirName))
+	console.log(filtered);
+}
+
+// getRecycled()

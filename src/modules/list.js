@@ -246,7 +246,8 @@ export default moduleType => parent => urls => {
         if (!isStrictUrl(elementUrl)) return;
         const parentSPObject = instance.parent.getSPObject(clientContext);
         const spObject = getSPObject(elementUrl)(parentSPObject);
-        methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+        methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject);
+        return elementUrl;
       });
       if (instance.box.getCount()) {
         await instance.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))

@@ -241,7 +241,8 @@ export default parent => elements => {
         const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element);
         if (!isStrictUrl(elementUrl)) return;
         const spObject = getSPObject(elementUrl)(listSPObject);
-        !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+        !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject);
+        return elementUrl;
       });
       if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))

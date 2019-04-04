@@ -268,6 +268,7 @@ export default parent => elements => {
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
 				const spObject = getSPObject(elementUrl)(listSPObject)
 				spObject.deleteObject();
+				return elementUrl;
 			})
 			if (instance.box.getCount()) {
 				await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))

@@ -557,7 +557,8 @@ export default parent => elements => {
         if (!hasUrlFilename(elementUrl)) return;
         const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
         const spObject = getSPObject(elementUrl)(listSPObject);
-        methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+        methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject);
+        return elementUrl;
       });
       if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))

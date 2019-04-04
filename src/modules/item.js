@@ -449,13 +449,16 @@ export default parent => elements => {
     delete: async (opts = {}) => {
       const { noRecycle } = opts;
       const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
-        if (!element.Url) return;
+        const elementUrl = element.Url;
+        if (!elementUrl) return;
         const contextSPObject = instance.parent.parent.getSPObject(clientContext);
         const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject);
         const spObject = getSPObject(element)(parentElement.Url)(listSPObject);
-        !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+        !spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject);
+        return elementUrl;
       });
-      if (isFilled(result)) {
+
+      if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
       report(noRecycle ? 'delete' : 'recycle')(opts);
