@@ -188,7 +188,7 @@ const operateDuplicates = instance => async (opts = {}) => {
     }
     const duplicatedsFiltered = duplicatedsSorted.map(arrayInit)
     if (opts.delete) {
-      await list.item([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])]).delete(opts);
+      await list.item([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])]).delete({ ...opts, isSerial: true });
     } else {
       return duplicatedsFiltered
     }
@@ -235,7 +235,7 @@ const deleteByQuery = instance => iterator => async opts => {
     const list = site(contextElement.Url)[module](parentElement.Url);
     const items = await list.item(element).get(opts);
     if (items.length) {
-      await list.item(items.map(prop('ID'))).delete();
+      await list.item(items.map(prop('ID'))).delete({ isSerial: true });
       return items
     }
   })
@@ -447,7 +447,7 @@ export default parent => elements => {
     updateByQuery: updateByQuery(instance)(iterator),
 
     delete: async (opts = {}) => {
-      const { noRecycle } = opts;
+      const { noRecycle, isSerial } = opts;
       const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
         const elementUrl = element.Url;
         if (!elementUrl) return;
@@ -459,7 +459,15 @@ export default parent => elements => {
       });
 
       if (instance.box.getCount()) {
-        await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+        if (isSerial) {
+          await instance.parent.parent.box.chain(async el => {
+            for (const clientContext of clientContexts[el.Url]) {
+              await executorJSOM(clientContext)(opts);
+            }
+          })
+        } else {
+          await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
+        }
       }
       report(noRecycle ? 'delete' : 'recycle')(opts);
       return prepareResponseJSOM(opts)(result);
@@ -475,7 +483,7 @@ export default parent => elements => {
       const columns = instance.box.value.map(prop('ID'));
       const { result } = await iteratorParent(async ({ contextElement, element }) => {
         const list = site(contextElement.Url).list(element.Url);
-        return list.item((await list.item(columns).getEmpties(opts)).map(prop('ID'))).delete()
+        return list.item((await list.item(columns).getEmpties(opts)).map(prop('ID'))).delete({ isSerial: true })
       })
       return result;
     },

@@ -182,7 +182,7 @@ const crudBundle = async _ => {
   const bundleList = site('test/spx').list('Bundle');
   const folder = 'c/b';
   await bundleList.folder(folder).delete({ noRecycle: true }).catch(identity);
-  for (let i = 0; i < 1000; i++) itemsToCreate.push({ Title: `test ${i}`, Folder: folder })
+  for (let i = 0; i < 2000; i++) itemsToCreate.push({ Title: `test ${i}`, Folder: folder })
   const newItems = await bundleList.item(itemsToCreate).create();
   newItems.map(el => assert(`Title does not contain a "test"`)(/test/.test(el.Title)));
   const itemsToUpdate = reduce(acc => el => acc.concat({ ID: el.ID, Title: `${el.Title} updated` }))([])(newItems)

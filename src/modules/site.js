@@ -8,7 +8,7 @@ import {
 import site from './../modules/web'
 import recycleBin from './../modules/recycleBin'
 import user from './../modules/user'
-// import tag from './../modules/tag'
+import tag from './../modules/tag'
 
 // Internal
 
@@ -25,7 +25,7 @@ class Box {
     return f(this.value);
   }
   join() {
-    return this.value;
+    return this.value.Url;
   }
 }
 
@@ -33,7 +33,7 @@ const box = getInstance(Box)('/');
 
 // Interface
 
-// site.tag = tag;
+site.tag = tag({ box, getSPObject });
 site.user = user;
 site.recycleBin = recycleBin({ box, getSPObject });
 

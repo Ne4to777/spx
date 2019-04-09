@@ -605,9 +605,9 @@ export const listReport = ({ NAME, detailed, silent, silentInfo, actionType, box
 
 const groupSimple = by => reduce(acc => el => {
 	const elValue = el[by];
-	const trueValue = elValue === void 0 ? '' : elValue.get_lookupId ? elValue.get_lookupId() : elValue;
+	const trueValue = isExists(elValue) ? (elValue.get_lookupId ? elValue.get_lookupId() : elValue) : null;
 	const groupValue = acc[trueValue];
-	acc[trueValue] = groupValue === void 0
+	acc[trueValue] = isUndefined(groupValue)
 		? [el] : isArray(groupValue)
 			? concat(groupValue)(el) : [groupValue, el];
 	return acc
