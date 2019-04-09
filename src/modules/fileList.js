@@ -168,7 +168,7 @@ const createNonexistedFolder = async instance => {
   return await iteratorParentREST(instance)(async ({ contextElement, element }) =>
     site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
       .then(_ => {
-        const cacheUrl = ['fileCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+        const cacheUrl = ['fileCreationRetries', instance.parent.parent.id];
         const retries = cache.get(cacheUrl);
         if (retries) {
           cache.set(retries - 1)(cacheUrl)
@@ -494,7 +494,7 @@ export default parent => elements => {
     create: async (opts = {}) => {
       await cacheListGUIDs(instance.parent.parent.box)(instance.parent.box);
       await cacheListFormMatches(instance.parent.parent.box)(instance.parent.box);
-      const cacheUrl = ['fileCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+      const cacheUrl = ['fileCreationRetries', instance.parent.parent.id];
       !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const res = await iteratorREST(instance)(({ contextElement, parentElement, element }) => {
         const contextUrl = contextElement.Url;

@@ -120,7 +120,7 @@ export default parent => elements => {
 
     create: async function create(opts = {}) {
       let needToRetry, isError;
-      const cacheUrl = ['folderCreationRetries', instance.parent.box.join(), instance.box.join()];
+      const cacheUrl = ['folderCreationRetries', instance.parent.id];
       !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const { clientContexts, result } = await iterator(({ contextElement, clientContext, element }) => {
         const elementUrl = getWebRelativeUrl(contextElement.Url)(element);
@@ -145,7 +145,6 @@ export default parent => elements => {
                 })
                 const res = await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
                   .then(_ => {
-                    const cacheUrl = ['folderCreationRetries', instance.parent.box.join(), instance.box.join()];
                     const retries = cache.get(cacheUrl);
                     if (retries) {
                       cache.set(retries - 1)(cacheUrl)

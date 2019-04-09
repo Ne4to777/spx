@@ -144,7 +144,7 @@ export default parent => elements => {
       const { asItem } = opts;
       if (asItem) opts.view = ['ListItemAllFields'];
       await cacheColumns(instance.parent.parent.box)(instance.parent.box);
-      const cacheUrl = ['folderCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+      const cacheUrl = ['folderCreationRetries', instance.parent.parent.id];
       !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
       const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(({ contextElement, clientContext, parentElement, element }) => {
         const listUrl = parentElement.Url;
@@ -182,7 +182,6 @@ export default parent => elements => {
                 })(async ({ contextElement, element }) => {
                   const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
                     .then(_ => {
-                      const cacheUrl = ['folderCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
                       const retries = cache.get(cacheUrl);
                       if (retries) {
                         cache.set(retries - 1)(cacheUrl)

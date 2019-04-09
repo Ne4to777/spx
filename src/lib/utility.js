@@ -642,7 +642,7 @@ export const grouper = pipe([getArray, flip(pipe([getArray, reduceDirty(flip(pip
 export const hasUrlTailSlash = stringTest(/\/$/);
 export const hasUrlFilename = stringTest(/\.[^\/]+$/);
 export const removeEmptyUrls = filter(x => !!x.Url);
-export const removeEmptyNumbers = filter(pipe([prop('ID'), isNumberFilled]));
+export const removeEmptyIDs = filter(pipe([prop('ID'), isNumberFilled]));
 export const removeEmptyFilenames = filter(x => x.Url && hasUrlFilename(x.Url));
 export const removeDuplicatedUrls = pipe([reduce(acc => x => (acc[x.Url] = x, acc))({}), Object.values]);
 export const prependSlash = ifThen(stringTest(/^\//))([identity, sum('/')]);

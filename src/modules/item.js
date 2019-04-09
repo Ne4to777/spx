@@ -130,6 +130,19 @@ const liftItemType = switchCase(typeOf)({
   })
 })
 
+const hasObjectProperties = o => {
+  let newObject;
+  if (o.Columns) {
+    newObject = Object.assign({}, o.Columns);
+  } else {
+    newObject = Object.assign({}, o);
+    delete newObject.Folder;
+    delete newObject.ID;
+    delete newObject.Url;
+  }
+  return !!Object.keys(newObject).length
+}
+
 class Box extends AbstractBox {
   constructor(value) {
     super(value);
@@ -143,11 +156,11 @@ class Box extends AbstractBox {
   }
   getCount(actionType) {
     if (this.isArray) {
-      return actionType !== 'create'
-        ? removeEmptyNumbers(this.value).length
+      return actionType === 'create'
+        ? this.value.filter(hasObjectProperties).length
         : this.value.length
     } else {
-      return actionType !== 'create' ? (isNumberFilled(this.value.ID) ? 1 : 0) : 1
+      return actionType === 'create' ? (hasObjectProperties(this.value) ? 1 : 0) : 1
     }
   }
 }
@@ -355,7 +368,7 @@ export default parent => elements => {
     create: instance.parent.NAME === 'list'
       ? async function create(opts = {}) {
         await cacheColumns(instance.parent.parent.box)(instance.parent.box);
-        const cacheUrl = ['itemCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
+        const cacheUrl = ['itemCreationRetries', instance.parent.parent.id];
         !isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl);
         const { clientContexts, result } = await iterator(({ contextElement, clientContext, parentElement, element }) => {
           const contextUrl = contextElement.Url;
@@ -371,48 +384,51 @@ export default parent => elements => {
             newElement = Object.assign({}, Columns);
           } else {
             newElement = Object.assign({}, element);
+            delete newElement.ID;
+            delete newElement.Url;
+            delete newElement.Folder;
           }
-          delete newElement.ID;
-          delete newElement.Folder;
+          if (!isObjectFilled(newElement)) return;
           folder && itemCreationInfo.set_folderUrl(`/${contextUrl}/Lists/${listUrl}/${getListRelativeUrl(contextUrl)(listUrl)({ Folder: folder })}`);
           const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(newElement)(listSPObject.addItem(itemCreationInfo))
           return load(clientContext)(spObject)(opts)
         })
         let needToRetry, isError;
-        await instance.parent.parent.box.chain(async el => {
-          for (const clientContext of clientContexts[el.Url]) {
-            await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-              if (/There is no file with URL/.test(err.get_message())) {
-                const foldersToCreate = {};
-                await iterator(({ contextElement, parentElement, element }) => {
-                  const { Folder, Columns = {} } = element;
-                  const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)({ Folder: Folder || Columns.Folder });
-                  foldersToCreate[elementUrl] = true;
-                })
-                await iteratorParent(async ({ contextElement, element }) => {
-                  const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] })
-                    .then(_ => {
-                      const cacheUrl = ['itemCreationRetries', instance.parent.parent.box.join(), instance.parent.box.join(), instance.box.join()];
-                      const retries = cache.get(cacheUrl);
-                      if (retries) {
-                        cache.set(retries - 1)(cacheUrl)
-                        return true
-                      }
-                    })
-                    .catch(err => {
-                      console.log(err);
-                      if (/already exists/.test(err.get_message())) return true
-                    })
-                  if (res) needToRetry = true;
-                })
-              } else {
-                throw err
-              }
-              isError = true;
-            })
-            if (needToRetry) break;
-          }
-        });
+        if (instance.box.getCount()) {
+          await instance.parent.parent.box.chain(async el => {
+            for (const clientContext of clientContexts[el.Url]) {
+              await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+                if (/There is no file with URL/.test(err.get_message())) {
+                  const foldersToCreate = {};
+                  await iterator(({ contextElement, parentElement, element }) => {
+                    const { Folder, Columns = {} } = element;
+                    const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)({ Folder: Folder || Columns.Folder });
+                    foldersToCreate[elementUrl] = true;
+                  })
+                  await iteratorParent(async ({ contextElement, element }) => {
+                    const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] })
+                      .then(_ => {
+                        const retries = cache.get(cacheUrl);
+                        if (retries) {
+                          cache.set(retries - 1)(cacheUrl)
+                          return true
+                        }
+                      })
+                      .catch(err => {
+                        console.log(err);
+                        if (/already exists/.test(err.get_message())) return true
+                      })
+                    if (res) needToRetry = true;
+                  })
+                } else {
+                  throw err
+                }
+                isError = true;
+              })
+              if (needToRetry) break;
+            }
+          });
+        }
         if (needToRetry) {
           return create(opts)
         } else {

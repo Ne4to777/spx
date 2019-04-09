@@ -28,6 +28,10 @@ import {
 	isStrictUrl
 } from './../lib/utility'
 
+import {
+	MD5
+} from 'crypto-js';
+
 // import search from './../modules/search'
 import list from './../modules/list'
 import folder from './../modules/folderWeb'
@@ -82,7 +86,8 @@ export default urls => {
 	const instance = {
 		box: getInstance(Box)(urls),
 		getSPObject,
-		getSPObjectCollection
+		getSPObjectCollection,
+		id: MD5(new Date().getTime()).toString()
 	};
 	const report = actionType => (opts = {}) => contextReport({ ...opts, NAME, actionType, box: instance.box });
 	return {
