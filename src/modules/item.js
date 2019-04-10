@@ -20,13 +20,11 @@ import {
   switchCase,
   typeOf,
   shiftSlash,
-  mergeSlashes,
   ifThen,
   isArrayFilled,
   map,
   constant,
   hasUrlTailSlash,
-  removeEmptyNumbers,
   isNumberFilled,
   isObjectFilled,
   getArray
@@ -114,7 +112,7 @@ const liftItemType = switchCase(typeOf)({
     return newItem
   },
   string: (item = '') => {
-    const url = shiftSlash(mergeSlashes(item));
+    const url = shiftSlash(item);
     return {
       Url: url,
       ID: url,
