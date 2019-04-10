@@ -273,7 +273,7 @@ const getEmpties = instance => iterator => async opts => {
   const columns = instance.box.value.map(prop('ID'));
   const { result } = await iterator(async ({ contextElement, element }) =>
     site(contextElement.Url)[module](element.Url).item({
-      Query: `${craftQuery('or')('isnull')(columns)()}`,
+      Query: craftQuery({ operator: 'isnull', columns }),
       Scope: 'allItems',
       Limit: MAX_ITEMS_LIMIT,
       Folder: element.Folder
