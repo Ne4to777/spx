@@ -796,4 +796,23 @@ function OnClickOfSubmitButton() {
 	} // EnsureKeywordMethod ends
 } // submit button event handler ends
 
+const LISTS = {
+	oldFeed: '/Lenta/Posts',
+	oldNews: '/News/News Enabled',
+	newPosts: '/app-list/articles/feed/Posts',
+	action: '/app/Action',
+	comments: '/app/Comment'
+}
+const concat = arr => Array.prototype.concat.apply([], arr);
 
+const getListCaml = list => `iLibrary Eq ${list}`;
+const listComments = spx('app').list('Comment');
+const getComments = items => listComments.item(items).get;
+const getCommentsByList = list => opts => getComments(getListCaml(list))(opts);
+const getActions = items => listComments.item(items).get;
+window.getOldNewsComments = getCommentsByList(LISTS.oldNews);
+window.getOldFeedComments = getCommentsByList(LISTS.oldFeed);
+window.getOldPostsComments = opts => Promise.all([getOldNewsComments(opts), getOldFeedComments(opts)]).then(concat);
+window.getCommentActionsByIds = ids => getActions(`iLibrary Eq ${LISTS.comments} and number iID In ${ids}`);
+window.getOldPostsCommentIds = _ => getOldPostsComments({ view: 'ID' }).then(items => items.map(el => el.ID))
+window.getOldCommentsActions = async _ => getCommentActionsByIds(await getOldPostsCommentIds())({ showCaml: true });

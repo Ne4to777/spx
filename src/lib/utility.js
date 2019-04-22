@@ -383,15 +383,18 @@ export const arrayLast = xs => xs[xs.length - 1];
 export const arrayInit = slice(0, -1);
 export const EMPTY_ARRAY = _ => [];
 export const arrayHas = x => pipe([filter(isEqual(x)), isArrayFilled]);
-export const chunkArrayFrom = i => size => reduce(acc => x => {
-	acc[i] === void 0 && (acc[i] = []);
-	const chunk = acc[i];
-	chunk.push(x);
-	chunk.length === size && i++;
-	return acc;
-})([])
+export const chunkArrayFrom = (start = 0) => size => value => {
+	let i = start;
+	return reduce(acc => x => {
+		acc[i] === void 0 && (acc[i] = []);
+		const chunk = acc[i];
+		chunk.push(x);
+		chunk.length === size && i++;
+		return acc;
+	})([])(value);
+}
 
-export const chunkArray = chunkArrayFrom(0);
+export const chunkArray = chunkArrayFrom();
 
 //  ===========================================================================
 //  =============    ====      ========    ==        ====     ===        ======
