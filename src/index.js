@@ -807,9 +807,10 @@ const concat = arr => Array.prototype.concat.apply([], arr);
 
 const getListCaml = list => `iLibrary Eq ${list}`;
 const listComments = spx('app').list('Comment');
+const listAction = spx('app').list('Action');
 const getComments = items => listComments.item(items).get;
 const getCommentsByList = list => opts => getComments(getListCaml(list))(opts);
-const getActions = items => listComments.item(items).get;
+const getActions = items => listAction.item(items).get;
 window.getOldNewsComments = getCommentsByList(LISTS.oldNews);
 window.getOldFeedComments = getCommentsByList(LISTS.oldFeed);
 window.getOldPostsComments = opts => Promise.all([getOldNewsComments(opts), getOldFeedComments(opts)]).then(concat);

@@ -201,7 +201,6 @@ const convertExpression = str => {
 			for (const valueItem of value) valueStrings.push(`<Value Type="${typeNorm}"${valueOpts}>${valueItem}</Value>`);
 			if (value.length > IN_CHUNK_SIZE) {
 				const chunks = chunkArray(IN_CHUNK_SIZE)(valueStrings);
-				console.log(chunks);
 				for (let i = chunks.length - 1; i >= 0; i--) valueChunks.push(`<In><FieldRef Name="${name}"${fieldOption}/><Values>${chunks[i].join('')}</Values></In>`);
 				let itemsStr = '<IsNull><FieldRef Name="ID"/></IsNull>';
 				for (const valueChunk of valueChunks) itemsStr = `<Or>${valueChunk}${itemsStr}</Or>`;
