@@ -796,24 +796,42 @@ function OnClickOfSubmitButton() {
 	} // EnsureKeywordMethod ends
 } // submit button event handler ends
 
-const LISTS = {
-	oldFeed: '/Lenta/Posts',
-	oldNews: '/News/News Enabled',
-	newPosts: '/app-list/articles/feed/Posts',
-	action: '/app/Action',
-	comments: '/app/Comment'
-}
-const concat = arr => Array.prototype.concat.apply([], arr);
 
-const getListCaml = list => `iLibrary Eq ${list}`;
-const listComments = spx('app').list('Comment');
-const listAction = spx('app').list('Action');
-const getComments = items => listComments.item(items).get;
-const getCommentsByList = list => opts => getComments(getListCaml(list))(opts);
-const getActions = items => listAction.item(items).get;
-window.getOldNewsComments = getCommentsByList(LISTS.oldNews);
-window.getOldFeedComments = getCommentsByList(LISTS.oldFeed);
-window.getOldPostsComments = opts => Promise.all([getOldNewsComments(opts), getOldFeedComments(opts)]).then(concat);
-window.getCommentActionsByIds = ids => getActions(`iLibrary Eq ${LISTS.comments} and number iID In ${ids}`);
-window.getOldPostsCommentIds = _ => getOldPostsComments({ view: 'ID' }).then(items => items.map(el => el.ID))
-window.getOldCommentsActions = async _ => getCommentActionsByIds(await getOldPostsCommentIds())({ showCaml: true });
+
+
+const groupSimple = by => reduce(reducer(by))({})
+
+const ensureMethodEmpty = name => o => isFunction(o[name]) ? o[name]() : o;
+
+const reducer = by => acc => el => pipe([
+	ifThen(isExists)([ensureMethodEmpty('get_lookupId'), NULL]),
+	split(pipe([
+		propI(acc),
+		ifThen(isUndefined)([constant[el]], ifThen(isArray)([concatI(el), concat([el])]))
+	])),
+	join(prop => value => setProp(prop)(value)),
+	constant(acc)
+])(el[by])
+
+
+const testSplit1 = x => {
+	const a = x + 1;
+	return x + a;
+}
+
+// console.log(testSplit1(2));
+
+
+const sum = x => y => x + y;
+const inc = sum(1);
+const split = f => x => [x, f(x)];
+const join = f => args => args.reduce((acc, x) => acc(x), f)
+
+const testSplit2 = pipe([
+	split(inc),
+	join(sum)
+])
+
+// console.log(testSplit2(2));
+
+// spx('test/spx').list('Test').item().get({ groupBy: ['FSObjType', 'Title', 'ID'] }).then(log)

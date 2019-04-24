@@ -313,6 +313,8 @@ export const switchCase = condition => cases => x => {
 	return caseF ? caseF(x) : cases.default ? cases.default(x) : void 0
 }
 
+export const switchType = switchCase(typeOf);
+
 
 //  ===============================================================================
 //  ===========  =======  ==  ====  ==  =====  ==      ====        ==       =======
@@ -370,12 +372,12 @@ export const join = delim => xs => xs.join(delim);
 export const removeEmpties = filter(x => !!x);
 export const removeUndefineds = filter(x => x !== void 0);
 export const concat = array => x => array.concat(x);
-export const reduce = f => init => xs => xs.reduce(curry(f), switchCase(typeOf)({
+export const reduce = f => init => xs => xs.reduce(curry(f), switchType({
 	object: constant({}),
 	array: constant([]),
 	default: identity
 })(init));
-export const reduceDirty = f => init => xs => xs.reduce(curry(f), init);
+export const reduceDirty = f => init => xs => getArray(xs).reduce(curry(flip(f)), getArray(init));
 export const flatten = reduce(acc => pipe([ifThen(isArray)([flatten, identity]), concat(acc)]))([]);
 export const arrayHead = xs => xs[0];
 export const arrayTail = ([h, ...t]) => t;
@@ -511,7 +513,7 @@ export const isObjectEmpty = pipe([keys, isArrayEmpty]);
 export const isExists = x => isDefined(x) && isNotNull(x);
 export const isNotExists = pipe([isExists, not]);
 export const isFilled = ifThen(isExists)([
-	switchCase(typeOf)({
+	switchType({
 		number: isNumberFilled,
 		string: isStringFilled,
 		array: isArrayFilled,
@@ -608,7 +610,7 @@ export const listReport = ({ NAME, detailed, silent, silentInfo, actionType, box
 
 const groupSimple = by => reduce(acc => el => {
 	const elValue = el[by];
-	const trueValue = isExists(elValue) ? (elValue.get_lookupId ? elValue.get_lookupId() : elValue) : null;
+	const trueValue = isExists(elValue) && elValue.get_lookupId ? elValue.get_lookupId() : elValue;
 	const groupValue = acc[trueValue];
 	acc[trueValue] = isUndefined(groupValue)
 		? [el] : isArray(groupValue)
@@ -616,7 +618,7 @@ const groupSimple = by => reduce(acc => el => {
 	return acc
 })({})
 
-const mapper = f => fix(fR => acc => switchCase(typeOf)({
+const groupMapper = f => fix(fR => acc => switchType({
 	array: f,
 	object: el => {
 		for (let prop in el) {
@@ -628,7 +630,16 @@ const mapper = f => fix(fR => acc => switchCase(typeOf)({
 	default: identity
 }))({})
 
-export const grouper = pipe([getArray, flip(pipe([getArray, reduceDirty(flip(pipe([groupSimple, mapper])))]))]);
+// const grouper = pipe([getArray, flip(pipe([getArray, reduceDirty(pipe([groupSimple, groupMapper]))]))]);
+
+const grouper = flip(reduceDirty(pipe([groupSimple, groupMapper])));
+
+const mapper = by => xs => reduce(acc => el => {
+	const elValue = el[by];
+	acc[isExists(elValue) && elValue.get_lookupId ? elValue.get_lookupId() : elValue] = el
+	return acc
+})({})(getArray(xs))
+
 
 //  =============================================
 //  ===========  ====  ==       ===  ============
@@ -844,7 +855,8 @@ export const prepareResponseJSOM = (opts = {}) =>
 				pipe([
 					map(getSPObjectValues(opts.asItem)),
 					ifThen(constant(opts.groupBy))([
-						grouper(opts.groupBy)
+						grouper(opts.groupBy),
+						ifThen(constant(opts.mapBy))([mapper(opts.mapBy)])
 					])
 				])
 			])
@@ -859,12 +871,11 @@ export const prepareResponseREST = (opts = {}) => ifThen(isArray)([
 	pipe([
 		flatten,
 		pipe([
-			ifThen(constant(opts.expanded))([
-				identity
-			]),
+			ifThen(constant(opts.expanded))([identity]),
 			map(getRESTValues),
 			ifThen(constant(opts.groupBy))([
-				grouper(opts.groupBy)
+				grouper(opts.groupBy),
+				ifThen(constant(opts.mapBy))([mapper(opts.mapBy)])
 			])
 		])
 	]),
@@ -978,7 +989,7 @@ export const executorREST = contextUrl => (opts = {}) => pipe([
 //  ===========      ====  ====  ===      ===        ====     =========  ========
 //  =============================================================================
 
-export const convertFileContent = switchCase(typeOf)({
+export const convertFileContent = switchType({
 	arraybuffer: pipe([
 		getInstance(Uint8Array),
 		reduce(functionSum(String.fromCharCode))(''),
