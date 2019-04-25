@@ -695,14 +695,12 @@ function OnClickOfSubmitButton() {
 	}
 }
 
-spx('test/spx').list('Keywords').column('TaxKeyword').get().then(log)
-spx('test/spx').list('Keywords').item(2).get().then(item => {
-	console.log(item);
+// spx('test/spx').list('Keywords').column('TaxKeyword').get().then(log)
+// spx('test/spx').list('Keywords').item(2).get().then(item => {
+console.log(item);
 	// 'TaxKeywordTaxHTField': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b' 
 	// spx('test/spx').list('Keywords').item({ 'TaxKeyword': item.TaxKeyword }).create().then(log)
 	// spx('test/spx').list('Keywords').item({ 'TaxKeyword': ['a|b1bcd272-e0e4-47b0-9560-a63c0be091ad', 'b2b|34e20559-f098-48f1-b9af-93ac54b0841b'] }).create().then(log)
 	// spx('test/spx').list('Keywords').item({ 'TaxKeyword': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b' }).create().then(log)
-})
+// })
 
-
-// spx('test/spx').list('Keywords').item({ TaxKeyword: '-1;#test|67d3e0ab-d4c0-41e6-b4e3-6e9e715d2464' }).create().then(log)
