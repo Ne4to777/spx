@@ -5,7 +5,6 @@ import {
   getInstance,
   prepareResponseJSOM,
   executorJSOM,
-  isString,
   switchCase,
   typeOf,
   shiftSlash,
@@ -102,14 +101,6 @@ const get = instance => isExact => async opts => {
 
 // Interface
 
-// const sessionTermSPObject = sessionSPObject.getTerm('c80b4506-8930-47c5-962b-4f371f9d9698');
-// const termSPObject = termsSPObject.getByName('Авиация');
-
-// const sessionSPObject = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext);
-// const keywordsStoreSPObject = sessionSPObject.getDefaultKeywordsTermStore();
-// const termSetSPObject = keywordsStoreSPObject.get_keywordsTermSet();
-// const termsSPObject = termSetSPObject.getAllTerms();
-
 export default parent => urls => {
   const instance = {
     box: getInstance(Box)(urls),
@@ -169,33 +160,6 @@ export default parent => urls => {
       }
       report('delete')(opts);
       return prepareResponseJSOM(opts)(result);
-    },
-
-
-    update_: opts => {
-      var keyword;
-      var keywordsMerged = [];
-      const elements = instance.box.chain(element => {
-
-      })
-      isString(listData) && (listData = this.getListData(listData));
-      var clientContext = new SP.ClientContext(listData.path);
-      for (var i = 0; i < keywords.length; i++) {
-        keyword = keywords[i];
-        keywordsMerged.push('-1;#' + keyword.value + '|' + keyword.id);
-      }
-      var list = clientContext.get_web().get_lists().getByTitle(listData.title);
-      var listItem = list.getItemById(id);
-      var field = list.get_fields().getByInternalNameOrTitle(columnName);
-      var txField = clientContext.castTo(field, SP.Taxonomy.TaxonomyField);
-      var termValues = new SP.Taxonomy.TaxonomyFieldValueCollection(clientContext, keywordsMerged.join(';#'), txField);
-      txField.setFieldValueByValueCollection(listItem, termValues);
-      listItem.update();
-      clientContext.load(listItem);
-      this.execute(clientContext, function () {
-        console.log('updated keywords: ' + id);
-        cb && cb(listItem);
-      }, this.onQueryFailed);
     }
   }
 }

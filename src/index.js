@@ -671,129 +671,38 @@ const getRecycled = async _ => {
 
 
 
-var siteUrl;
-var clientContext;
-var oList;
-var itemCreateInfo;
-var oListItem;
-var keyword1;
-var ic = 0;
-//Executes on click of submit button
 function OnClickOfSubmitButton() {
-	var termValueString = null;
-	//Get Enterprise Keyword Data from text box
-	if (keyword1 != '') {
-		var newarr = encodeURIComponent(keyword1);
-		keyword2 = newarr.replace(/%3B%C2%A0%E2%80%8B/, '');
-		keyword2 = keyword2.replace(/%3B%E2%80%8B/, '');
-		var newarr1 = decodeURIComponent(keyword2);
-		Karray = newarr1.split('; ');
-		var trimmed = Karray.map(Function.prototype.call, String.prototype.trim);
-		var limit = trimmed.length;
-		var termsArray = new Array();
-		EnsureKeywordMethod(trimmed[ic]);
-		function funcComplete(termId) {
-			if (termId != null) {
-				// The term exists or was created
-				termsArray.push('-1; #' + trimmed[ic] + '|' + termId);
-				termValueString = termsArray.join('; #');
-				if (ic == trimmed.length - 1)
-					CreateListItem(termValueString);
-			}
-			else {
-				alert('Term does not exist or could not create a new term');
-			}
-		} // funcComplete Call ends
-	} //if ends
-	else {
+	function funcComplete(termId) {
+		termsArray.push('-1; #' + trimmed[ic] + '|' + termId);
+		termValueString = termsArray.join('; #');
 		CreateListItem(termValueString);
 	}
+
 	function CreateListItem(termString) {
-		siteUrl = 'Site_URL';
-		clientContext = new SP.ClientContext(siteUrl);
-		oList = clientContext.get_web().get_lists().getByTitle('List Title');
 		itemCreateInfo = new SP.ListItemCreationInformation();
 		this.oListItem = oList.addItem(itemCreateInfo);
-		//Extracts the title entered by user
-		this.oListItem.set_item('Title', title1);
-		//Extracts the description multiline rich text entered by user
-		this.oListItem.set_item('Body', description);
-		//Extracts Expires date entered by user
 
-		if (ExpiresDate != '') {
-			this.oListItem.set_item('Expires', ExpiresDate);
-		}
-		// Load list column- keywords
-		if (termString != null) {
-			var field = oList.get_fields().getByInternalNameOrTitle('Enterprise Keywords');
-			var txField = clientContext.castTo(field, SP.Taxonomy.TaxonomyField);
-			clientContext.load(txField);
-			// update the taxonomy field value for column
-			var termValues = new SP.Taxonomy.TaxonomyFieldValueCollection(clientContext, termString, txField);
-			txField.setFieldValueByValueCollection(this.oListItem, termValues);
-		}
-		// create item finally
+		var field = oList.get_fields().getByInternalNameOrTitle('Enterprise Keywords');
+		var txField = clientContext.castTo(field, SP.Taxonomy.TaxonomyField);
+		clientContext.load(txField);
+
+		var termValues = new SP.Taxonomy.TaxonomyFieldValueCollection(clientContext, termString, txField);
+		txField.setFieldValueByValueCollection(this.oListItem, termValues);
+
 		this.oListItem.update();
 		clientContext.load(this.oListItem);
 		clientContext.executeQueryAsync(Function.createDelegate(this, onCreateListItemSuccess), Function.createDelegate(this, onCreateListItemFailed));
-		function onCreateListItemSuccess() {
-			alert('Whats New Item added successfully');
-		}
-		function onCreateListItemFailed(sender, args) {
-			alert('Whats New item could not be created because: ' + args.get_message());
-		}
-	} // CreateListItem ends
-	// check term and return Id else create term and return Id
-	function EnsureKeywordMethod(termInput) {
-		var termSetName = 'Keywords';
-		var locale = 1033;
-		// To be used while create term if it does not exist
-		localTerm = termInput;
-		clientContext = new SP.ClientContext('Add Site URL');
-		var taxonomySession = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext);
-		var termStore = taxonomySession.getDefaultKeywordsTermStore();
-		var termSets = termStore.getTermSetsByName(termSetName, locale);
-		var termSet = termSets.getByName(termSetName);
-		var terms = termSet.getAllTerms();
-		term = terms.getByName(termInput);
-		clientContext.load(term);
-		clientContext.executeQueryAsync(Function.createDelegate(this, GetTermExecuteOnSuccess), Function.createDelegate(this, GetTermExecuteOnFailure));
-		// Found term – SUCCESS
-		function GetTermExecuteOnSuccess(sender, args) {
-			//Run the delegate function with the term id found;
-			funcComplete(term.get_id().toString());
-			ic++;
-			EnsureKeywordMethod(trimmed[ic]);
-		}
-		// Found term – FAILURE
-		function GetTermExecuteOnFailure(sender, args) {
-			// Create term in term set
-			var termSetName = 'Keywords';
-			var locale = 1033;
-			clientContext = new SP.ClientContext('Add Site URL');
-			var taxonomySession = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext);
-			var termStore = taxonomySession.getDefaultKeywordsTermStore();
-			var termSets = termStore.getTermSetsByName(termSetName, locale);
-			var termSet = termSets.getByName(termSetName);
-			var newGuid = new SP.Guid.newGuid();
-			newTerm = termSet.createTerm(localTerm, 1033, newGuid.toString());
-			clientContext.load(termSet);
-			clientContext.load(newTerm);
-			clientContext.executeQueryAsync(Function.createDelegate(this, CreateTermExecuteOnSuccess), Function.createDelegate(this, CreateTermExecuteOnFailure));
-		}
-		// Create term – SUCCESS
-		function CreateTermExecuteOnSuccess(sender, args) {
-			//Run the delegate function with the term id found;
-			funcComplete(newTerm.get_id().toString());
-			ic++;
-			EnsureKeywordMethod(trimmed[ic]);
-		}
-		// Create term- FAILURE
-		function CreateTermExecuteOnFailure(sender, args) {
-			//Run the delegate function and return null because there was no match.
-			funcComplete(null);
-		}
-	} // EnsureKeywordMethod ends
-} // submit button event handler ends
+	}
+}
 
-spx('test/spx').list('Test').item(1931).attachment().get().then(log)
+spx('test/spx').list('Keywords').column('TaxKeyword').get().then(log)
+spx('test/spx').list('Keywords').item(2).get().then(item => {
+	console.log(item);
+	// 'TaxKeywordTaxHTField': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b' 
+	// spx('test/spx').list('Keywords').item({ 'TaxKeyword': item.TaxKeyword }).create().then(log)
+	// spx('test/spx').list('Keywords').item({ 'TaxKeyword': ['a|b1bcd272-e0e4-47b0-9560-a63c0be091ad', 'b2b|34e20559-f098-48f1-b9af-93ac54b0841b'] }).create().then(log)
+	// spx('test/spx').list('Keywords').item({ 'TaxKeyword': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b' }).create().then(log)
+})
+
+
+// spx('test/spx').list('Keywords').item({ TaxKeyword: '-1;#test|67d3e0ab-d4c0-41e6-b4e3-6e9e715d2464' }).create().then(log)

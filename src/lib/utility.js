@@ -1102,10 +1102,10 @@ export const getSPFolderByUrl = url => ifThen(constant(url))([
 
 
 export const setItem = fieldsInfo => fields => spObject => {
-	for (const prop in fields) {
-		const fieldInfoArray = fieldsInfo[prop];
+	for (const name in fields) {
+		const fieldInfoArray = fieldsInfo[name];
 		if (fieldInfoArray) {
-			const fieldValues = fields[prop];
+			const fieldValues = fields[name];
 			const fieldInfo = fieldInfoArray[0];
 			const set = setItemSP(fieldInfo.InternalName)(spObject);
 			const setLookupAndUser = f => constructor => pipe([f(constructor), set]);
@@ -1114,6 +1114,13 @@ export const setItem = fieldsInfo => fields => spObject => {
 				case 'LookupMulti': setLookupAndUser(setLookupMulti)(SP.FieldLookupValue)(getArray(fieldValues)); break;
 				case 'User': setLookupAndUser(setLookup)(SP.FieldUserValue)(fieldValues); break;
 				case 'UserMulti': setLookupAndUser(setLookupMulti)(SP.FieldUserValue)(getArray(fieldValues)); break;
+				case 'TaxonomyFieldTypeMulti':
+					switchType({
+						object: pipe([prop('$2_1'), pipe([reduce(acc => el => acc.concat(`-1;#${el.get_label()}|${el.get_termGuid()}`))([]), join(';#'), set])]),
+						array: pipe([join(';'), setItemSP('TaxKeywordTaxHTField')(spObject)]),
+						string: setItemSP('TaxKeywordTaxHTField')(spObject)
+					})(fieldValues)
+					break;
 				default: set(fieldValues);
 			}
 		}
