@@ -596,6 +596,16 @@ export const listReport = ({ NAME, detailed, silent, silentInfo, actionType, box
 		detailed ? `: ${box.join()}` : ''}`)
 }
 
+export const itemReport = ({ NAME, detailed, silent, silentInfo, actionType, box, itemBox, listBox, contextBox }) => {
+	!silent && !silentInfo && console.log(`${
+		ACTION_TYPES[actionType]} ${
+		box.getCount(actionType)} ${
+		NAME}(s) in ${
+		listBox.join()} at ${
+		contextBox.join()}${
+		detailed ? `: ${box.join()}` : ''}`)
+}
+
 //  =====================================================================================
 //  ============      ===       =====    ====  ====  ==       ===        ==       =======
 //  ===========   ==   ==  ====  ===  ==  ===  ====  ==  ====  ==  ========  ====  ======
@@ -684,7 +694,6 @@ export const getListRelativeUrl = webUrl => listUrl => (element = {}) => {
 				: shiftSlash(arrayLast(stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(Url))))))
 			: Url
 	}
-
 }
 
 export const getWebRelativeUrl = webUrl => (element = {}) => {
@@ -770,11 +779,34 @@ export const deep3Iterator = ({ contextBox, parentBox, elementBox, bundleSize = 
 	return { clientContexts, result }
 }
 
+export const deep4Iterator = ({ contextBox, listBox, parentBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async f => {
+	const clientContexts = {};
+	const result = await contextBox.chain(contextElement => {
+		let totalElements = 0;
+		const contextUrl = contextElement.Url;
+		let clientContext = getClientContext(contextUrl);
+		clientContexts[contextUrl] = [clientContext];
+		return listBox.chain(listElement => parentBox.chain(parentElement => elementBox.chain(element => {
+			if (++totalElements >= bundleSize) {
+				clientContext = getClientContext(contextUrl);
+				clientContexts[contextUrl].push(clientContext);
+				totalElements = 0;
+			}
+			return f({ contextElement, clientContext, listElement, parentElement, element })
+		})))
+	});
+	return { clientContexts, result }
+}
+
 export const deep2IteratorREST = ({ contextBox, elementBox }) => f =>
 	contextBox.chain(contextElement => elementBox.chain(async element => await f({ contextElement, element })));
 
 export const deep3IteratorREST = ({ contextBox, parentBox, elementBox }) => f =>
 	contextBox.chain(contextElement => parentBox.chain(parentElement => elementBox.chain(async element => f({ contextElement, parentElement, element }))));
+
+export const deep4IteratorREST = ({ contextBox, listBox, parentBox, elementBox }) => f =>
+	contextBox.chain(contextElement => listBox.chain(listElement => parentBox.chain(parentElement => elementBox.chain(async element =>
+		f({ contextElement, listElement, parentElement, element })))));
 
 
 //  ========================================================================================

@@ -41,6 +41,7 @@ import {
   concatQueries
 } from './../lib/query-parser';
 import site from './../modules/site';
+import attachment from './../modules/attachment';
 
 // Internal
 
@@ -335,6 +336,7 @@ export default parent => elements => {
     parent
   }
   const getSPObject = getTypedSPObject(instance.parent.NAME === 'list' ? 'Lists/' : '');
+  instance.getSPObject = getSPObject;
   const iterator = deep3Iterator({
     contextBox: instance.parent.parent.box,
     parentBox: instance.parent.box,
@@ -350,6 +352,7 @@ export default parent => elements => {
     listReport({ ...opts, NAME: instance.NAME, actionType, box: instance.box, listBox: instance.parent.box, contextBox: instance.parent.parent.box });
 
   return {
+    attachment: attachment(instance),
     get: async (opts = {}) => {
       const { showCaml } = opts;
       const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {

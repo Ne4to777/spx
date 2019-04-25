@@ -796,42 +796,4 @@ function OnClickOfSubmitButton() {
 	} // EnsureKeywordMethod ends
 } // submit button event handler ends
 
-
-
-
-const groupSimple = by => reduce(reducer(by))({})
-
-const ensureMethodEmpty = name => o => isFunction(o[name]) ? o[name]() : o;
-
-const reducer = by => acc => el => pipe([
-	ifThen(isExists)([ensureMethodEmpty('get_lookupId'), NULL]),
-	split(pipe([
-		propI(acc),
-		ifThen(isUndefined)([constant[el]], ifThen(isArray)([concatI(el), concat([el])]))
-	])),
-	join(prop => value => setProp(prop)(value)),
-	constant(acc)
-])(el[by])
-
-
-const testSplit1 = x => {
-	const a = x + 1;
-	return x + a;
-}
-
-// console.log(testSplit1(2));
-
-
-const sum = x => y => x + y;
-const inc = sum(1);
-const split = f => x => [x, f(x)];
-const join = f => args => args.reduce((acc, x) => acc(x), f)
-
-const testSplit2 = pipe([
-	split(inc),
-	join(sum)
-])
-
-// console.log(testSplit2(2));
-
-// spx('test/spx').list('Test').item().get({ groupBy: ['FSObjType', 'Title', 'ID'] }).then(log)
+spx('test/spx').list('Test').item(1931).attachment().get().then(log)

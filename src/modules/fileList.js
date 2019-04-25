@@ -462,6 +462,7 @@ export default parent => elements => {
     box: getInstance(Box)(elements),
     parent,
   };
+  const instancedReport = report(instance);
   return {
     get: async (opts = {}) => {
       if (opts.asBlob) {
@@ -505,7 +506,7 @@ export default parent => elements => {
           ? createWithRESTFromBlob({ instance, contextUrl, listUrl, element })(opts)
           : createWithRESTFromString({ instance, contextUrl, listUrl, element })(opts)
       })
-      report(instance)('create')(opts);
+      instancedReport('create')(opts);
       return res;
     },
 
@@ -544,7 +545,7 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      report(instance)('update')(opts);
+      instancedReport('update')(opts);
       return prepareResponseJSOM(opts)(result)
     },
 
@@ -563,7 +564,7 @@ export default parent => elements => {
       if (instance.box.getCount()) {
         await instance.parent.parent.box.chain(el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))))
       }
-      report(instance)(noRecycle ? 'delete' : 'recycle')(opts);
+      instancedReport(noRecycle ? 'delete' : 'recycle')(opts);
       return prepareResponseJSOM(opts)(result);
     },
 
