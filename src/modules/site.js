@@ -9,6 +9,7 @@ import site from './../modules/web'
 import recycleBin from './../modules/recycleBin'
 import user from './../modules/user'
 import tag from './../modules/tag'
+import mail from './../modules/mail'
 
 // Internal
 
@@ -36,6 +37,7 @@ const box = getInstance(Box)('/');
 site.tag = tag({ box, getSPObject });
 site.user = user;
 site.recycleBin = recycleBin({ box, getSPObject });
+site.mail = mail;
 
 site.get = async opts => {
   const clientContext = getClientContext('/');

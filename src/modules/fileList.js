@@ -61,16 +61,13 @@ import site from './../modules/site';
 
 const NAME = 'file';
 
-const getRequestDigest = contextUrl => new Promise((resolve, reject) =>
-  axios({
-    url: `${prependSlash(contextUrl)}/_api/contextinfo`,
-    headers: {
-      'Accept': 'application/json; odata=verbose'
-    },
-    method: 'POST'
-  })
-    .then(res => resolve(res.data.d.GetContextWebInformation.FormDigestValue))
-    .catch(reject))
+const getRequestDigest = contextUrl => axios({
+  url: `${prependSlash(contextUrl)}/_api/contextinfo`,
+  headers: {
+    Accept: 'application/json; odata=verbose'
+  },
+  method: 'POST'
+}).then(res => res.data.d.GetContextWebInformation.FormDigestValue)
 
 const getSPObject = elementUrl => spObject => {
   const filename = getFilenameFromUrl(elementUrl);
