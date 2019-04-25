@@ -129,6 +129,7 @@ const assertCollectionUserProps = assertCollection(USER_PROPS);
 
 const userWebList = site().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
 const workingWebList = site('test/spx').list('Items');
+const workingTagWebList = site('test/spx').list('Keywords');
 
 const crud = async _ => {
   const folder = 'a';
@@ -139,6 +140,17 @@ const crud = async _ => {
   const updatedItem = await workingWebList.item({ ID: newItem.ID, Title: 'updated item' }).update();
   assert(`Title is not a "updated item"`)(updatedItem.Title === 'updated item');
   await workingWebList.item(newItem.ID).delete({ noRecycle: true });
+};
+
+const crudTags = async _ => {
+  const folder = 'a';
+  await workingTagWebList.folder(folder).delete({ noRecycle: true }).catch(identity);
+  const newItem = await workingTagWebList.item({ Folder: folder, Columns: { TaxKeyword: ['b2b|34e20559-f098-48f1-b9af-93ac54b0841b'] } }).create({ view: ['ID', 'TaxKeyword', 'FileDirRef'] });
+  assert(`Title is not a b2b"`)(newItem.TaxKeyword.$2_1[0].$0_1 === 'b2b');
+  assert(`FileDirRef is not a "/test/spx/Lists/Keywords/a"`)(newItem.FileDirRef === '/test/spx/Lists/Keywords/a');
+  const updatedItem = await workingTagWebList.item({ ID: newItem.ID, TaxKeyword: ['a|b1bcd272-e0e4-47b0-9560-a63c0be091ad'] }).update();
+  assert(`Title is not a "a"`)(updatedItem.TaxKeyword.$2_1[0].$0_1 === 'a');
+  await workingTagWebList.item(newItem.ID).delete({ noRecycle: true });
 };
 
 
@@ -215,6 +227,8 @@ export default _ => Promise.all([
 
   crud(),
   crudCollection(),
+
+  crudTags(),
 
   page(),
   // crudBundle(),
