@@ -236,3 +236,6 @@ const removeGroups = async _ => {
 // })
 
 // spx.mail.send({ from: 'AlekseyAlekseew@dme.ru', to: ['AlekseyAlekseew@dme.ru'], subject: 'Test Subject', body: 'Test body' }).then(console.log)
+
+
+// spx.time.get().then(log)

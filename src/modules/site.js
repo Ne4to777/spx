@@ -3,7 +3,7 @@ import {
   prepareResponseJSOM,
   executeJSOM,
   methodEmpty,
-  getInstance,
+  getInstance
 } from './../lib/utility'
 import site from './../modules/web'
 import recycleBin from './../modules/recycleBin'
@@ -60,5 +60,21 @@ site.getWebTemplates = async opts => {
   const currentSPObjects = await executeJSOM(clientContext)(templates)(opts);
   return prepareResponseJSOM(opts)(currentSPObjects);
 }
+
+site.time = {
+  getCurrent: _ => new Promise((resolve, reject) => new SP.RequestExecutor('/').executeAsync({
+    url: `/_api/web/RegionalSettings/TimeZone`,
+    success: function (res) {
+      resolve(new Date(res.headers.DATE));
+    },
+    error: reject
+  })),
+  getZone: async opts => {
+    const clientContext = getClientContext('/');
+    const result = await executeJSOM(clientContext)(clientContext.get_web().get_regionalSettings().get_timeZone())(opts);
+    return prepareResponseJSOM(opts)(result);
+  }
+}
+
 
 export default site;
