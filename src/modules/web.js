@@ -40,7 +40,6 @@ import recycleBin from './../modules/recycleBin'
 
 // Internal
 
-const APP_WEB_TEMPLATE = '{E2A30D74-39CB-429E-A5E0-4C775BE848CE}#Default'
 const NAME = 'web';
 
 const getSPObject = methodEmpty('get_web');
@@ -123,7 +122,7 @@ export default urls => {
 						set_language: 1033,
 						set_url: element.Title || void 0,
 						set_useSamePermissionsAsParentSite: true,
-						set_webTemplate: element.WebTemplate || APP_WEB_TEMPLATE
+						set_webTemplate: element.WebTemplate
 					}),
 					methodI('add')(getSPObjectCollection(clientContext)),
 					overstep(setFields({

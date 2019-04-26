@@ -28,7 +28,7 @@ import {
   isStrictUrl,
   isNumberFilled
 } from './../lib/utility';
-import site from './../modules/site';
+import web from './../modules/web';
 
 //Internal
 
@@ -143,7 +143,7 @@ export default parent => elements => {
                   const elementUrl = getWebRelativeUrl(contextElement.Url)(element);
                   foldersToCreate[getParentUrl(elementUrl)] = true;
                 })
-                const res = await site(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
+                const res = await web(clientContext.get_url()).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
                   .then(_ => {
                     const retries = cache.get(cacheUrl);
                     if (retries) {

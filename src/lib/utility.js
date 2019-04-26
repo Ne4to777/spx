@@ -27,7 +27,8 @@ export const ACTION_TYPES = {
 	move: 'moved',
 	restore: 'restored',
 	clear: 'cleared',
-	erase: 'erased'
+	erase: 'erased',
+	send: 'sent'
 }
 export const IS_DELETE_ACTION = {
 	delete: true,
@@ -51,14 +52,6 @@ export const TYPES = {
 		100: 'genericList',
 		101: 'documentLibrary'
 	}
-}
-
-export const ACTION_TYPES_TO_UNSET = {
-	create: true,
-	update: true,
-	delete: true,
-	recycle: true,
-	restore: true
 }
 
 export const FILE_LIST_TEMPLATES = {

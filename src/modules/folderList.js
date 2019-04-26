@@ -36,7 +36,7 @@ import {
 } from './../lib/utility';
 import * as cache from './../lib/cache';
 
-import site from './../modules/site';
+import web from './../modules/web';
 
 // Internal
 
@@ -98,7 +98,7 @@ export const cacheColumns = contextBox => elementBox =>
     const contextUrl = contextElement.Url;
     const listUrl = element.Url;
     if (!cache.get(['columns', contextUrl, listUrl])) {
-      const columns = await site(contextUrl).list(listUrl).column().get({
+      const columns = await web(contextUrl).list(listUrl).column().get({
         view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
         groupBy: 'InternalName'
       })
@@ -180,7 +180,7 @@ export default parent => elements => {
                   elementBox: instance.parent.box,
                   bundleSize: REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
                 })(async ({ contextElement, element }) => {
-                  const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
+                  const res = await web(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
                     .then(_ => {
                       const retries = cache.get(cacheUrl);
                       if (retries) {

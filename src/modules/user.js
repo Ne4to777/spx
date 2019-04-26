@@ -6,120 +6,82 @@ import {
 	flatten,
 	isArray,
 	isNumber,
-	typeOf
+	typeOf,
+	reduce
 } from './../lib/utility'
 
-import site from './../modules/site';
+import web from './../modules/web';
 
-const USER_WEB = 'AM';
-const USER_LIST = 'UsersAD';
-const USER_LIST_GUID = 'b327d30a-b9bf-4728-a3c1-a6b4f0253ff2';
+const USER_LIST = web('AM').list('UsersAD');
+const USER_SP_LIST = web().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2');
 
 const NAME = 'user';
 
 const getByUid = isUsersArray => items => async (opts = {}) => {
-	let users;
-	const userIds = [];
-	const { isSP } = opts;
-	for (const item of items) {
+	const userIds = reduce(acc => item => {
 		switch ((item).constructor.getName()) {
 			case 'String':
-			case 'Number': userIds.push(item); break;
-			case 'Object': item.uid && userIds.push(item.uid); break;
-			case 'SP.User': userIds.push(item.get_id()); break;
-			case 'SP.FieldUserValue': userIds.push(item.get_lookupId()); break;
-			case 'SP.ListItem':
-				const uid = item.get_item('uid');
-				uid && userIds.push(uid);
+			case 'Number': acc.push(item); break;
+			case 'Object': item.uid && acc.push(item.uid); break;
+			case 'SP.User': acc.push(item.get_id()); break;
+			case 'SP.FieldUserValue': acc.push(item.get_lookupId()); break;
+			case 'SP.ListItem': const uid = item.get_item('uid'); uid && acc.push(uid);
 		}
-	}
-	if (isSP) {
-		users = site().list(USER_LIST_GUID).item(userIds)
-	} else {
-		users = site(USER_WEB).list(USER_LIST).item(`Number uid In ${userIds}`);
-	}
+		return acc;
+	})([])(items);
+	const users = opts.isSP ? USER_SP_LIST.item(userIds) : USER_LIST.item(`Number uid In ${userIds}`);
 	const elements = await users.get(opts);
 	return isUsersArray || elements.length > 1 ? elements : elements[0];
 }
 
 const getByLogin = isUsersArray => items => async (opts = {}) => {
-	let users;
-	const userLogins = [];
-	const { isSP } = opts;
-	for (const item of items) {
+	const userLogins = reduce(acc => item => {
 		switch ((item).constructor.getName()) {
-			case 'String': userLogins.push(item); break;
-			case 'Object': item.Login && userLogins.push(item.Login); break;
-			case 'SP.User': userLogins.push(item.get_loginName()); break;
-			case 'SP.ListItem':
-				const login = item.get_item('Login');
-				login && userLogins.push(login);
+			case 'String': acc.push(item); break;
+			case 'Object': item.Login && acc.push(item.Login); break;
+			case 'SP.User': acc.push(item.get_loginName()); break;
+			case 'SP.ListItem': const login = item.get_item('Login'); login && acc.push(login);
 		}
-	}
-	if (isSP) {
-		users = site().list(USER_LIST_GUID).item(`LoginName In ${userLogins}`)
-	} else {
-		users = site(USER_WEB).list(USER_LIST).item(`Login In ${userLogins}`);
-	}
+		return acc;
+	})([])(items);
+	const users = opts.isSP ? USER_SP_LIST.item(`LoginName In ${userLogins}`) : USER_LIST.item(`Login In ${userLogins}`);
 	const elements = await users.get(opts);
 	return isUsersArray || elements.length > 1 ? elements : elements[0];
 }
 
 const getByName = items => (opts = {}) => {
-	let list;
-	const userNames = [];
-	const { isSP } = opts;
-	for (const item of items) {
+	const userNames = reduce(acc => item => {
 		switch ((item).constructor.getName()) {
-			case 'String': userNames.push(item); break;
-			case 'Object': item.Title && userNames.push(item.Title); break;
-			case 'SP.User': userNames.push(item.get_title()); break;
-			case 'SP.ListItem':
-				const title = item.get_item('Title');
-				title && userNames.push(title);
+			case 'String': acc.push(item); break;
+			case 'Object': item.Title && acc.push(item.Title); break;
+			case 'SP.User': acc.push(item.get_title()); break;
+			case 'SP.ListItem': const title = item.get_item('Title'); title && acc.push(title);
 		}
-	}
-	if (isSP) {
-		list = site().list(USER_LIST_GUID)
-	} else {
-		list = site(USER_WEB).list(USER_LIST)
-	}
+		return acc;
+	})([])(items);
+	const list = opts.isSP ? USER_SP_LIST : USER_LIST;
 	return list.item(`Title BeginsWith ${userNames}`).get(opts);
 }
 
 const getByEMail = isUsersArray => items => async (opts = {}) => {
-	let list;
-	const userEMails = [];
-	const { isSP } = opts;
-	for (const item of items) {
+	const userEMails = reduce(acc => item => {
 		switch ((item).constructor.getName()) {
-			case 'String': userEMails.push(item); break;
-			case 'Object': item.EMail && userEMails.push(item.EMail); break;
-			case 'SP.User': userEMails.push(item.get_email()); break;
+			case 'String': acc.push(item); break;
+			case 'Object': item.EMail && acc.push(item.EMail); break;
+			case 'SP.User': acc.push(item.get_email()); break;
 			case 'SP.ListItem':
 				const title = item.get_item('EMail');
-				title && userEMails.push(title);
+				title && acc.push(title);
 		}
-	}
-	if (isSP) {
-		list = site().list(USER_LIST_GUID)
-	} else {
-		list = site(USER_WEB).list(USER_LIST)
-	}
+		return acc;
+	})([])(items);
+	const list = opts.isSP ? USER_SP_LIST : USER_LIST;
 	const elements = await list.item(`EMail In ${userEMails}`).get(opts);
 	return isUsersArray || elements.length > 1 ? elements : elements[0];
 }
 
-const getAll = (opts = {}) => {
-	const { isSP } = opts;
-	if (isSP) {
-		list = site().list(USER_LIST_GUID);
-	} else {
-		list = site(USER_WEB).list(USER_LIST);
-		caml = `Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`
-	}
-	return list.item(caml).get(opts);
-}
+const getAll = (opts = {}) =>
+	(opts.isSP ? USER_SP_LIST.item() : USER_LIST.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`)).get(opts);
 
 // Interface
 
@@ -135,7 +97,7 @@ const user = users => {
 					? getByUid(isUsersArray)(values)(opts)
 					: /\s/.test(el) || /[а-яА-ЯЁё]/.test(el)
 						? getByName(values)(opts)
-						: /@/.test(el)
+						: /@.+\./.test(el)
 							? getByEMail(isUsersArray)(values)(opts)
 							: getByLogin(isUsersArray)(values)(opts);
 			} else {
@@ -145,8 +107,8 @@ const user = users => {
 		create: (elements => opts => {
 			const usersToCreate = elements.filter(el => el.uid && el.Title);
 			return usersToCreate.length
-				? site(USER_WEB).list(USER_LIST).item(elements).create(opts)
-				: new Promise((resolve, reject) => reject(new Error('missing uid or Title')));
+				? USER_LIST.item(elements).create(opts)
+				: new Promise((resolve, reject) => reject('missing uid or Title'));
 		})(elements),
 		getByUid: getByUid(isUsersArray)(elements),
 		getByLogin: getByLogin(isUsersArray)(elements),
@@ -164,12 +126,12 @@ const user = users => {
 					}
 					return acc;
 				}, []);
-				const results = await site().list(USER_LIST_GUID).item(usersToUpdate).update(opts);
+				const results = await USER_SP_LIST.item(usersToUpdate).update(opts);
 				return isUsersArray || results.length > 1 ? results : results[0];
 			} else {
 				const ids = elements.filter(el => !!el.uid);
 				if (ids.length) {
-					const users = await site.user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' });
+					const users = await web.user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' });
 					const usersToUpdate = elements.reduce((acc, el) => {
 						const userID = users[el.uid] ? users[el.uid].ID : void 0;
 						if (userID) {
@@ -179,29 +141,29 @@ const user = users => {
 						}
 						return acc
 					}, [])
-					const results = await site(USER_WEB).list(USER_LIST).item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] });
+					const results = await USER_LIST.item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] });
 					return isUsersArray || results.length > 1 ? results : results[0];
 				} else {
-					return new Promise((resolve, reject) => { reject(new Error('missing uid')) });
+					return new Promise((resolve, reject) => { reject('missing uid') });
 				}
 			}
 		})(isUsersArray)(elements),
 		deleteWithMissedUid: async opts => {
-			const users = await site(USER_WEB).list(USER_LIST).item('Number uid IsNull').get(opts);
-			return site(USER_WEB).list(USER_LIST).item(users.map(prop('ID'))).delete(opts);
+			const users = await USER_LIST.item('Number uid IsNull').get(opts);
+			return USER_LIST.item(users.map(prop('ID'))).delete(opts);
 		}
 	}
 }
 
 user.get = async (opts = {}) => {
-	const { fromSP } = opts;
-	if (fromSP) {
+	const { isSP } = opts;
+	if (isSP) {
 		const clientContext = getClientContext('/');
 		const user = clientContext.get_web().get_currentUser();
 		return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(user)(opts));
 	} else {
-		const uid = window._spPageContextInfo ? window._spPageContextInfo.userId : (await user.get({ view: 'Id', fromSP: true })).Id;
-		return (await site(USER_WEB).list(USER_LIST).item(`Number uid Eq ${uid}`).get(opts))[0];
+		const uid = window._spPageContextInfo ? window._spPageContextInfo.userId : (await user.get({ view: 'Id', isSP: true })).Id;
+		return (await USER_LIST.item(`Number uid Eq ${uid}`).get(opts))[0];
 	}
 }
 

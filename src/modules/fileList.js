@@ -55,7 +55,7 @@ import {
 import axios from 'axios';
 import * as cache from './../lib/cache';
 
-import site from './../modules/site';
+import web from './../modules/web';
 
 //Internal
 
@@ -163,7 +163,7 @@ const createNonexistedFolder = async instance => {
   })
 
   return await iteratorParentREST(instance)(async ({ contextElement, element }) =>
-    site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
+    web(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
       .then(_ => {
         const cacheUrl = ['fileCreationRetries', instance.parent.parent.id];
         const retries = cache.get(cacheUrl);
@@ -271,9 +271,9 @@ const createWithRESTFromString = ({ instance, contextUrl, listUrl, element }) =>
     } else {
       let response;
       if (Columns) {
-        response = await site(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
+        response = await web(contextUrl).library(listUrl).file({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
       } else if (needResponse) {
-        response = await site(contextUrl).library(listUrl).file(elementUrl).get(opts);
+        response = await web(contextUrl).library(listUrl).file(elementUrl).get(opts);
       }
       return response;
     }
@@ -339,7 +339,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
       throw new Error(`can't create file "${elementUrl}" at ${contextUrl}/${listUrl}`)
     } else {
       let response;
-      const list = site(contextUrl).library(listUrl);
+      const list = web(contextUrl).library(listUrl);
       if (isObjectFilled(Columns)) {
         response = await list.file({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
       } else if (needResponse) {
@@ -370,9 +370,9 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
     if (!targetWebUrl) throw new Error('Target WebUrl is missed');
     if (!targetListUrl) throw new Error('Target ListUrl is missed');
     if (!elementUrl) throw new Error('Source file Url is missed');
-    const spxSourceList = site(contextUrl).library(listUrl);
+    const spxSourceList = web(contextUrl).library(listUrl);
     const spxSourceFile = spxSourceList.file(elementUrl);
-    const spxTargetList = site(targetWebUrl).library(targetListUrl);
+    const spxTargetList = web(targetWebUrl).library(targetListUrl);
     const fullTargetFileUrl = hasUrlFilename(targetFileUrl) ? targetFileUrl : `${targetFileUrl}/${getFilenameFromUrl(elementUrl)}`;
     const columnsToUpdate = {};
     const existedColumnsToUpdate = {};
@@ -393,7 +393,7 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
       const listSPObject = instance.parent.getSPObject(listUrl)(instance.parent.parent.getSPObject(clientContext));
       const spObject = getSPObject(elementUrl)(listSPObject);
       const folder = getFolderFromUrl(targetFileUrl);
-      if (folder) await site(contextUrl).library(listUrl).folder(folder).create({ silentInfo: true, expanded: true, view: ['Name'] }).catch(identity);
+      if (folder) await web(contextUrl).library(listUrl).folder(folder).create({ silentInfo: true, expanded: true, view: ['Name'] }).catch(identity);
       spObject[isMove ? 'moveTo' : 'copyTo'](mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`));
       await executeJSOM(clientContext)(spObject)(opts);
       await spxTargetList.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate }).update({ silentInfo: true })
@@ -420,7 +420,7 @@ const cacheListGUIDs = contextBox => elementBox =>
     const contextUrl = contextElement.Url;
     const listUrl = element.Url;
     if (!cache.get(['listGUIDs', contextUrl, listUrl])) {
-      const listProps = await site(contextUrl).list(listUrl).get({ view: 'Id' })
+      const listProps = await web(contextUrl).list(listUrl).get({ view: 'Id' })
       cache.set(listProps.Id.toString())(['listGUIDs', contextUrl, listUrl]);
     }
   })
@@ -441,7 +441,7 @@ const cacheColumns = contextBox => elementBox =>
     const contextUrl = contextElement.Url;
     const listUrl = element.Url;
     if (!cache.get(['columns', contextUrl, listUrl])) {
-      const columns = await site(contextUrl).list(listUrl).column().get({
+      const columns = await web(contextUrl).list(listUrl).column().get({
         view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
         groupBy: 'InternalName'
       })

@@ -15,7 +15,6 @@ import {
   overstep,
   hasUrlTailSlash,
   getTitleFromUrl,
-  identity,
   isExists,
   isString,
   isArray,
@@ -35,7 +34,7 @@ import {
   removeDuplicatedUrls,
   getListRelativeUrl
 } from './../lib/utility';
-import site from './../modules/site';
+import web from './../modules/web';
 import column from './../modules/column';
 import folder from './../modules/folderList';
 import file from './../modules/fileList';
@@ -274,8 +273,8 @@ export default moduleType => parent => urls => {
         if (!targetListUrl) throw new Error('Target listUrl is missed');
         if (!sourceListUrl) throw new Error('Source list Title is missed');
         const targetTitle = getTitleFromUrl(targetListUrl);
-        const targetSPX = site(targetWebUrl);
-        const sourceSPX = site(contextUrl);
+        const targetSPX = web(targetWebUrl);
+        const sourceSPX = web(contextUrl);
         const targetSPXList = targetSPX.list(targetListUrl);
         const sourceSPXList = sourceSPX.list(sourceListUrl);
         await targetSPXList.get({ silent: true }).catch(async _ => {
@@ -326,8 +325,8 @@ export default moduleType => parent => urls => {
 
         const targetTitle = To.Title || getTitleFromUrl(targetListUrl);
 
-        const targetSPX = site(targetWebUrl);
-        const sourceSPX = site(contextUrl);
+        const targetSPX = web(targetWebUrl);
+        const sourceSPX = web(contextUrl);
         const targetSPXList = targetSPX.list(targetTitle);
         const sourceSPXList = sourceSPX.list(sourceListUrl);
 
@@ -373,7 +372,7 @@ export default moduleType => parent => urls => {
     clear: async opts => {
       console.log('clearing in progress...');
       await iterator(async ({ contextElement, element }) =>
-        site(contextElement.Url).list(element.Title).item({ Query: '' }).deleteByQuery(opts))
+        web(contextElement.Url).list(element.Title).item({ Query: '' }).deleteByQuery(opts))
       console.log('clearing is complete!');
     },
 

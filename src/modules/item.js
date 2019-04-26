@@ -40,7 +40,7 @@ import {
   camlLog,
   concatQueries
 } from './../lib/query-parser';
-import site from './../modules/site';
+import web from './../modules/web';
 import attachment from './../modules/attachment';
 
 // Internal
@@ -169,7 +169,7 @@ const operateDuplicates = instance => async (opts = {}) => {
     contextBox: instance.parent.parent.box,
     elementBox: instance.parent.box
   })(async ({ contextElement, element }) => {
-    const list = site(contextElement.Url).list(element.Url);
+    const list = web(contextElement.Url).list(element.Url);
     const items = await list.item({
       Scope: 'allItems',
       Limit: MAX_ITEMS_LIMIT
@@ -213,7 +213,7 @@ const cacheColumns = contextBox => elementBox =>
     const contextUrl = contextElement.Url;
     const listUrl = element.Url;
     if (!cache.get(['columns', contextUrl, listUrl])) {
-      const columns = await site(contextUrl).list(listUrl).column().get({
+      const columns = await web(contextUrl).list(listUrl).column().get({
         view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
         groupBy: 'InternalName'
       })
@@ -226,7 +226,7 @@ const updateByQuery = instance => iterator => async (opts = {}) => {
   const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
     const { Folder, Query, Columns = {} } = element;
     if (Query === void 0) throw new Error('Query is missed');
-    const list = site(contextElement.Url)[module](parentElement.Url);
+    const list = web(contextElement.Url)[module](parentElement.Url);
     const items = await list.item({ Folder, Query }).get({ ...opts, expanded: false });
     if (items.length) {
       const itemsToUpdate = items.map(item => {
@@ -244,7 +244,7 @@ const deleteByQuery = instance => iterator => async opts => {
   const module = instance.parent.NAME;
   const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
     if (element === void 0) throw new Error('Query is missed');
-    const list = site(contextElement.Url)[module](parentElement.Url);
+    const list = web(contextElement.Url)[module](parentElement.Url);
     const items = await list.item(element).get(opts);
     if (items.length) {
       await list.item(items.map(prop('ID'))).delete({ isSerial: true });
@@ -260,7 +260,7 @@ const erase = instance => iterator => async opts => {
     const { Query = '', Folder, Columns } = element;
     if (!Columns) return;
     const columns = getArray(Columns);
-    return site(contextElement.Url)[module](parentElement.Url).item({
+    return web(contextElement.Url)[module](parentElement.Url).item({
       Folder,
       Query,
       Columns: columns.reduce((acc, el) => (acc[el] = null, acc), {})
@@ -273,7 +273,7 @@ const getEmpties = instance => iterator => async opts => {
   const module = instance.parent.NAME;
   const columns = instance.box.value.map(prop('ID'));
   const { result } = await iterator(async ({ contextElement, element }) =>
-    site(contextElement.Url)[module](element.Url).item({
+    web(contextElement.Url)[module](element.Url).item({
       Query: craftQuery({ operator: 'isnull', columns }),
       Scope: 'allItems',
       Limit: MAX_ITEMS_LIMIT,
@@ -293,9 +293,9 @@ const merge = instance => iterator => async opts => {
     if (!sourceColumn) throw new Error('From Column is missed');
     const targetColumn = To.Column;
     if (!targetColumn) throw new Error('To Column is missed');
-    const list = site(contextUrl)[module](listUrl);
+    const list = web(contextUrl)[module](listUrl);
     const [sourceItems, targetItems] = await Promise.all([
-      site(From.WebUrl || contextUrl)[module](From.List || listUrl).item({
+      web(From.WebUrl || contextUrl)[module](From.List || listUrl).item({
         Query: concatQueries()([`${Key} IsNotNull`, From.Query]),
         Scope: 'allItems',
         Limit: MAX_ITEMS_LIMIT
@@ -407,7 +407,7 @@ export default parent => elements => {
                     foldersToCreate[elementUrl] = true;
                   })
                   await iteratorParent(async ({ contextElement, element }) => {
-                    const res = await site(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] })
+                    const res = await web(contextElement.Url).list(element.Url).folder(Object.keys(foldersToCreate)).create({ expanded: true, view: ['Name'] })
                       .then(_ => {
                         const retries = cache.get(cacheUrl);
                         if (retries) {
@@ -499,7 +499,7 @@ export default parent => elements => {
     deleteEmpties: async opts => {
       const columns = instance.box.value.map(prop('ID'));
       const { result } = await iteratorParent(async ({ contextElement, element }) => {
-        const list = site(contextElement.Url).list(element.Url);
+        const list = web(contextElement.Url).list(element.Url);
         return list.item((await list.item(columns).getEmpties(opts)).map(prop('ID'))).delete({ isSerial: true })
       })
       return result;

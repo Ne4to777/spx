@@ -37,7 +37,7 @@ import {
   isNumberFilled
 } from './../lib/utility';
 
-import site from './../modules/site';
+import web from './../modules/web';
 
 //Internal
 
@@ -188,7 +188,7 @@ export default parent => elements => {
                   foldersToCreate[getFolderFromUrl(elementUrl)] = true;
                 })
                 const contextUrl = clientContext.get_url();
-                const res = await site(contextUrl).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
+                const res = await web(contextUrl).folder(Object.keys(foldersToCreate)).create({ silentInfo: true, expanded: true, view: ['Name'] })
                   .then(_ => {
                     const cacheUrl = ['fileCreationRetries', instance.parent.id];
                     const retries = cache.get(cacheUrl);
