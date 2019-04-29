@@ -16,7 +16,7 @@ const question = promisify(rl.question.bind(rl));
 fs.stat('./dev/private.json', async (err, stats) => {
 	if (err) {
 		await fs.writeFileSync('./dev/private.json', JSON.stringify({
-			siteUrl: (await question('Host (http://aura.dme.aero.corp): ')) || 'http://aura.dme.aero.corp';,
+			siteUrl: (await question('Host (http://aura.dme.aero.corp): ')) || 'http://aura.dme.aero.corp',
 			strategy: 'OnpremiseUserCredentials',
 			domain: (await question('Domain (dme): ')) || 'dme',
 			username: await question('Username: '),
