@@ -26,7 +26,7 @@ fs.stat('./dev/private.json', async (err, stats) => {
 			library: (await question('Library name (spx): ')) || 'spx',
 			customUsersWeb: (await question('Custom users web (AM): ')) || 'AM',
 			customUsersList: (await question('Custom users list (UsersAD): ')) || 'UsersAD',
-			defaultUsersListGUID: (await question('Default users list GUID (b327d30a-b9bf-4728-a3c1-a6b4f0253ff2): ')) || 'b327d30a-b9bf-4728-a3c1-a6b4f0253ff2'
+			defaultUsersList: (await question('Default users list (User Information List): ')) || 'User Information List'
 		}));
 	}
 	rl.close();

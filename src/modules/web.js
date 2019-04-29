@@ -81,7 +81,7 @@ class Box extends AbstractBox {
 
 // Interface
 
-export default urls => {
+const web = urls => {
 	const instance = {
 		box: getInstance(Box)(urls),
 		getSPObject,
@@ -213,3 +213,17 @@ export default urls => {
 		}
 	}
 }
+
+web.setCustomUsersList = (data = {}) => {
+	if (data.listTitle) {
+		web.customUsersList = web(data.webTitle).list(data.listTitle)
+	} else {
+		throw new Error('Wrong data object. Need {webTitle,listTitle}')
+	}
+};
+
+web.defaultUsersList = web().list('User Information List');
+
+web.setDefaultUsersList = title => (web.defaultUsersList = web().list(title));
+
+export default web;

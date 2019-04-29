@@ -12,6 +12,10 @@ import {
 } from './lib/query-parser';
 import { log, executeJSOM, prepareResponseJSOM, getClientContext, executorJSOM, pipe, map, prop, ifThen, constant } from './lib/utility';
 import * as cache from './lib/cache';
+import privateData from './../dev/private.json';
+
+spx.setCustomUsersList({ webTitle: privateData.customUsersWeb, listTitle: privateData.customUsersList });
+
 window.axios = axios;
 window.log = log;
 window.getCamlView = getCamlView;

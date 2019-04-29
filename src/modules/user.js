@@ -9,16 +9,13 @@ import {
 	typeOf,
 	reduce
 } from './../lib/utility'
-import privateData from './../../dev/private.json'
 
 import web from './../modules/web';
 
-const USER_LIST_STR = privateData.customUsersList;
-
-const USER_LIST = USER_LIST_STR ? web(privateData.customUsersWeb).list(USER_LIST_STR) : void 0;
-const USER_SP_LIST = web().list(privateData.defaultUsersListGUID);
-
 const NAME = 'user';
+
+const getCustomUsersList = _ => web.customUsersList;
+const getDefaultUsersList = _ => web.defaultUsersList;
 
 const getByUid = isUsersArray => items => async (opts = {}) => {
 	const userIds = reduce(acc => item => {
@@ -32,7 +29,8 @@ const getByUid = isUsersArray => items => async (opts = {}) => {
 		}
 		return acc;
 	})([])(items);
-	const users = opts.isSP || !USER_LIST ? USER_SP_LIST.item(userIds) : USER_LIST.item(`Number uid In ${userIds}`);
+	const userList = getCustomUsersList();
+	const users = opts.isSP || !userList ? getDefaultUsersList().item(userIds) : userList.item(`Number uid In ${userIds}`);
 	const elements = await users.get(opts);
 	return isUsersArray || elements.length > 1 ? elements : elements[0];
 }
@@ -47,7 +45,8 @@ const getByLogin = isUsersArray => items => async (opts = {}) => {
 		}
 		return acc;
 	})([])(items);
-	const users = opts.isSP || !USER_LIST ? USER_SP_LIST.item(`UserName In ${userLogins}`) : USER_LIST.item(`Login In ${userLogins}`);
+	const userList = getCustomUsersList();
+	const users = opts.isSP || !userList ? getDefaultUsersList().item(`UserName In ${userLogins}`) : userList.item(`Login In ${userLogins}`);
 	const elements = await users.get(opts);
 	return isUsersArray || elements.length > 1 ? elements : elements[0];
 }
@@ -62,7 +61,8 @@ const getByName = items => (opts = {}) => {
 		}
 		return acc;
 	})([])(items);
-	const list = opts.isSP || !USER_LIST ? USER_SP_LIST : USER_LIST;
+	const userList = getCustomUsersList();
+	const list = opts.isSP || !userList ? getDefaultUsersList() : userList;
 	return list.item(`Title BeginsWith ${userNames}`).get(opts);
 }
 
@@ -78,13 +78,16 @@ const getByEMail = isUsersArray => items => async (opts = {}) => {
 		}
 		return acc;
 	})([])(items);
-	const list = opts.isSP || !USER_LIST ? USER_SP_LIST : USER_LIST;
+	const userList = getCustomUsersList();
+	const list = opts.isSP || !userList ? getDefaultUsersList() : userList;
 	const elements = await list.item(`EMail In ${userEMails}`).get(opts);
 	return isUsersArray || elements.length > 1 ? elements : elements[0];
 }
 
-const getAll = (opts = {}) =>
-	(opts.isSP || !USER_LIST ? USER_SP_LIST.item() : USER_LIST.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`)).get(opts);
+const getAll = (opts = {}) => {
+	const userList = getCustomUsersList();
+	(opts.isSP || !userList ? getDefaultUsersList().item() : userList.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`)).get(opts);
+}
 
 // Interface
 
@@ -108,10 +111,11 @@ const user = users => {
 			}
 		})(isUsersArray)(elements),
 		create: (elements => opts => {
-			if (!USER_LIST) throw new Error('Custom user list is missed');
+			const userList = getCustomUsersList();
+			if (!userList) throw new Error('Custom user list is missed');
 			const usersToCreate = elements.filter(el => el.uid && el.Title);
 			return usersToCreate.length
-				? USER_LIST.item(elements).create(opts)
+				? userList.item(elements).create(opts)
 				: new Promise((resolve, reject) => reject('missing uid or Title'));
 		})(elements),
 		getByUid: getByUid(isUsersArray)(elements),
@@ -130,10 +134,11 @@ const user = users => {
 					}
 					return acc;
 				}, []);
-				const results = await USER_SP_LIST.item(usersToUpdate).update(opts);
+				const results = await getDefaultUsersList().item(usersToUpdate).update(opts);
 				return isUsersArray || results.length > 1 ? results : results[0];
 			} else {
-				if (!USER_LIST) throw new Error('Custom user list is missed');
+				const userList = getCustomUsersList();
+				if (!userList) throw new Error('Custom user list is missed');
 				const ids = elements.filter(el => !!el.uid);
 				if (ids.length) {
 					const users = await web.user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' });
@@ -146,7 +151,7 @@ const user = users => {
 						}
 						return acc
 					}, [])
-					const results = await USER_LIST.item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] });
+					const results = await userList.item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] });
 					return isUsersArray || results.length > 1 ? results : results[0];
 				} else {
 					return new Promise((resolve, reject) => { reject('missing uid') });
@@ -154,22 +159,24 @@ const user = users => {
 			}
 		})(isUsersArray)(elements),
 		deleteWithMissedUid: async opts => {
-			if (!USER_LIST) throw new Error('Custom user list is missed');
-			const users = await USER_LIST.item('Number uid IsNull').get(opts);
-			return USER_LIST.item(users.map(prop('ID'))).delete(opts);
+			const userList = getCustomUsersList();
+			if (!userList) throw new Error('Custom user list is missed');
+			const users = await userList.item('Number uid IsNull').get(opts);
+			return userList.item(users.map(prop('ID'))).delete(opts);
 		}
 	}
 }
 
 user.get = async (opts = {}) => {
 	const { isSP } = opts;
-	if (isSP || !USER_LIST) {
+	const userList = getCustomUsersList();
+	if (isSP || !userList) {
 		const clientContext = getClientContext('/');
 		const user = clientContext.get_web().get_currentUser();
 		return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(user)(opts));
 	} else {
 		const uid = window._spPageContextInfo ? window._spPageContextInfo.userId : (await user.get({ view: 'Id', isSP: true })).Id;
-		return (await USER_LIST.item(`Number uid Eq ${uid}`).get(opts))[0];
+		return (await userList.item(`Number uid Eq ${uid}`).get(opts))[0];
 	}
 }
 
