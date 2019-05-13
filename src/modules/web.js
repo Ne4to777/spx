@@ -28,9 +28,7 @@ import {
 	isStrictUrl
 } from './../lib/utility'
 
-import {
-	MD5
-} from 'crypto-js';
+import { MD5 } from 'crypto-js'
 
 // import search from './../modules/search'
 import list from './../modules/list'
@@ -40,17 +38,17 @@ import recycleBin from './../modules/recycleBin'
 
 // Internal
 
-const NAME = 'web';
+const NAME = 'web'
 
-const getSPObject = methodEmpty('get_web');
-const getSPObjectCollection = pipe([getSPObject, methodEmpty('get_webs')]);
+const getSPObject = methodEmpty('get_web')
+const getSPObjectCollection = pipe([getSPObject, methodEmpty('get_webs')])
 
 const liftWebType = switchCase(typeOf)({
 	object: context => {
-		const newContext = Object.assign({}, context);
-		if (!context.Url && context.Title) newContext.Url = context.Title;
-		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url);
-		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url);
+		const newContext = Object.assign({}, context)
+		if (!context.Url && context.Title) newContext.Url = context.Title
+		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
+		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url)
 		return newContext
 	},
 	string: (contextUrl = '') => ({
@@ -65,17 +63,13 @@ const liftWebType = switchCase(typeOf)({
 
 class Box extends AbstractBox {
 	constructor(value = '') {
-		super(value);
+		super(value)
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-				pipe([
-					map(liftWebType),
-					removeEmptyUrls,
-					removeDuplicatedUrls
-				]),
-				constant([liftWebType()])
-			])(value)
-			: liftWebType(value);
+					pipe([map(liftWebType), removeEmptyUrls, removeDuplicatedUrls]),
+					constant([liftWebType()])
+			  ])(value)
+			: liftWebType(value)
 	}
 }
 
@@ -87,8 +81,8 @@ const web = urls => {
 		getSPObject,
 		getSPObjectCollection,
 		id: MD5(new Date().getTime()).toString()
-	};
-	const report = actionType => (opts = {}) => contextReport({ ...opts, NAME, actionType, box: instance.box });
+	}
+	const report = actionType => (opts = {}) => contextReport({ ...opts, NAME, actionType, box: instance.box })
 	return {
 		recycleBin: recycleBin(instance),
 		// search: search(instance),
@@ -97,22 +91,21 @@ const web = urls => {
 		folder: folder(instance),
 		file: file(instance),
 
-
 		get: async opts => {
 			const result = await instance.box.chain(async element => {
-				const elementUrl = element.Url;
-				const clientContext = getClientContext(elementUrl);
-				const spObject = hasUrlTailSlash(elementUrl) ? getSPObjectCollection(clientContext) : getSPObject(clientContext);
-				return executeJSOM(clientContext)(spObject)(opts);
+				const elementUrl = element.Url
+				const clientContext = getClientContext(elementUrl)
+				const spObject = hasUrlTailSlash(elementUrl) ? getSPObjectCollection(clientContext) : getSPObject(clientContext)
+				return executeJSOM(clientContext)(spObject)(opts)
 			})
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		create: async opts => {
 			const result = await instance.box.chain(async element => {
-				const elementUrl = getParentUrl(element.Url);
-				if (!isStrictUrl(elementUrl)) return;
-				const clientContext = getClientContext(elementUrl);
+				const elementUrl = getParentUrl(element.Url)
+				if (!isStrictUrl(elementUrl)) return
+				const clientContext = getClientContext(elementUrl)
 
 				const spObject = pipe([
 					getInstanceEmpty,
@@ -125,38 +118,40 @@ const web = urls => {
 						set_webTemplate: element.WebTemplate
 					}),
 					methodI('add')(getSPObjectCollection(clientContext)),
-					overstep(setFields({
-						set_alternateCssUrl: element.AlternateCssUrl,
-						set_associatedMemberGroup: element.AssociatedMemberGroup,
-						set_associatedOwnerGroup: element.AssociatedOwnerGroup,
-						set_associatedVisitorGroup: element.AssociatedVisitorGroup,
-						set_customMasterUrl: element.CustomMasterUrl,
-						set_enableMinimalDownload: element.EnableMinimalDownload,
-						set_masterUrl: element.MasterUrl,
-						set_objectVersion: element.ObjectVersion,
-						set_quickLaunchEnabled: element.QuickLaunchEnabled,
-						set_saveSiteAsTemplateEnabled: element.SaveSiteAsTemplateEnabled,
-						set_serverRelativeUrl: element.ServerRelativeUrl,
-						set_siteLogoUrl: element.SiteLogoUrl,
-						set_syndicationEnabled: element.SyndicationEnabled,
-						set_treeViewEnabled: element.TreeViewEnabled,
-						set_uiVersion: element.UiVersion,
-						set_uiVersionConfigurationEnabled: element.UiVersionConfigurationEnabled
-					})),
-					overstep(methodEmpty('update')),
+					overstep(
+						setFields({
+							set_alternateCssUrl: element.AlternateCssUrl,
+							set_associatedMemberGroup: element.AssociatedMemberGroup,
+							set_associatedOwnerGroup: element.AssociatedOwnerGroup,
+							set_associatedVisitorGroup: element.AssociatedVisitorGroup,
+							set_customMasterUrl: element.CustomMasterUrl,
+							set_enableMinimalDownload: element.EnableMinimalDownload,
+							set_masterUrl: element.MasterUrl,
+							set_objectVersion: element.ObjectVersion,
+							set_quickLaunchEnabled: element.QuickLaunchEnabled,
+							set_saveSiteAsTemplateEnabled: element.SaveSiteAsTemplateEnabled,
+							set_serverRelativeUrl: element.ServerRelativeUrl,
+							set_siteLogoUrl: element.SiteLogoUrl,
+							set_syndicationEnabled: element.SyndicationEnabled,
+							set_treeViewEnabled: element.TreeViewEnabled,
+							set_uiVersion: element.UiVersion,
+							set_uiVersionConfigurationEnabled: element.UiVersionConfigurationEnabled
+						})
+					),
+					overstep(methodEmpty('update'))
 				])(SP.WebCreationInformation)
 
-				return executeJSOM(clientContext)(spObject)(opts);
+				return executeJSOM(clientContext)(spObject)(opts)
 			})
-			report('create')(opts);
+			report('create')(opts)
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		update: async opts => {
 			const result = await instance.box.chain(async element => {
-				const elementUrl = element.Url;
-				if (!isStrictUrl(elementUrl)) return;
-				const clientContext = getClientContext(elementUrl);
+				const elementUrl = element.Url
+				if (!isStrictUrl(elementUrl)) return
+				const clientContext = getClientContext(elementUrl)
 				const spObject = pipe([
 					setFields({
 						set_title: element.Title || void 0,
@@ -178,38 +173,42 @@ const web = urls => {
 						set_uiVersion: element.UiVersion,
 						set_uiVersionConfigurationEnabled: element.UiVersionConfigurationEnabled
 					}),
-					overstep(methodEmpty('update')),
+					overstep(methodEmpty('update'))
 				])(getSPObject(clientContext))
-				return await executeJSOM(clientContext)(spObject)(opts);
+				return await executeJSOM(clientContext)(spObject)(opts)
 			})
-			report('update')(opts);
+			report('update')(opts)
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		delete: async opts => {
 			const result = await instance.box.chain(async element => {
-				const elementUrl = element.Url;
-				if (!isStrictUrl(elementUrl)) return;
-				const clientContext = getClientContext(elementUrl);
-				const spObject = getSPObject(clientContext);
-				try { spObject.deleteObject() } catch (err) { new Error('Context url is wrong') }
-				await executorJSOM(clientContext)(opts);
+				const elementUrl = element.Url
+				if (!isStrictUrl(elementUrl)) return
+				const clientContext = getClientContext(elementUrl)
+				const spObject = getSPObject(clientContext)
+				try {
+					spObject.deleteObject()
+				} catch (err) {
+					new Error('Context url is wrong')
+				}
+				await executorJSOM(clientContext)(opts)
 				return elementUrl
 			})
-			report('delete')(opts);
+			report('delete')(opts)
 			return prepareResponseJSOM(opts)(result)
 		},
 
 		doesUserHavePermissions: async (type = 'fullMask') => {
 			const result = await instance.box.chain(async element => {
-				const clientContext = getClientContext(element.Url);
-				const ob = getInstanceEmpty(SP.BasePermissions);
-				ob.set(SP.PermissionKind[type]);
-				const spObject = getSPObject(clientContext).doesUserHavePermissions(ob);
-				await executorJSOM(clientContext)();
+				const clientContext = getClientContext(element.Url)
+				const ob = getInstanceEmpty(SP.BasePermissions)
+				ob.set(SP.PermissionKind[type])
+				const spObject = getSPObject(clientContext).doesUserHavePermissions(ob)
+				await executorJSOM(clientContext)()
 				return spObject.get_value()
 			})
-			return result;
+			return result
 		}
 	}
 }
@@ -220,10 +219,10 @@ web.setCustomUsersList = (data = {}) => {
 	} else {
 		throw new Error('Wrong data object. Need {webTitle,listTitle}')
 	}
-};
+}
 
-web.defaultUsersList = web().list('User Information List');
+web.defaultUsersList = web().list('User Information List')
 
-web.setDefaultUsersList = title => (web.defaultUsersList = web().list(title));
+web.setDefaultUsersList = title => (web.defaultUsersList = web().list(title))
 
-export default web;
+export default web

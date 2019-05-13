@@ -1,57 +1,66 @@
 import test from './test/index.js'
-import axios from 'axios';
-import $ from 'jquery';
+import axios from 'axios'
+import $ from 'jquery'
 
 import spx from './modules/site'
+import { getCamlQuery, getCamlView, camlLog, craftQuery, concatQueries } from './lib/query-parser'
 import {
-	getCamlQuery,
-	getCamlView,
-	camlLog,
-	craftQuery,
-	concatQueries,
-} from './lib/query-parser';
-import { log, executeJSOM, prepareResponseJSOM, getClientContext, executorJSOM, pipe, map, prop, ifThen, constant } from './lib/utility';
-import * as cache from './lib/cache';
-import privateData from './../dev/private.json';
+	log,
+	executeJSOM,
+	prepareResponseJSOM,
+	getClientContext,
+	executorJSOM,
+	pipe,
+	map,
+	prop,
+	ifThen,
+	constant
+} from './lib/utility'
+import * as cache from './lib/cache'
+import privateData from './../dev/private.json'
 
-spx.setCustomUsersList({ webTitle: privateData.customUsersWeb, listTitle: privateData.customUsersList });
+spx.setCustomUsersList({
+	webTitle: privateData.customUsersWeb,
+	listTitle: privateData.customUsersList
+})
 
-window.axios = axios;
-window.log = log;
-window.getCamlView = getCamlView;
-window.getCamlQuery = getCamlQuery;
-window.craftQuery = craftQuery;
-window.concatQueries = concatQueries;
-window.camlLog = camlLog;
-window.spx = spx;
+window.axios = axios
+window.log = log
+window.getCamlView = getCamlView
+window.getCamlQuery = getCamlQuery
+window.craftQuery = craftQuery
+window.concatQueries = concatQueries
+window.camlLog = camlLog
+window.spx = spx
 
-
-window.cache = cache;
+window.cache = cache
 
 test()
 
-
-
-
 $('#send').click(e => {
-	e.preventDefault();
-	console.log($('#file').get(0).files[0]);
-	spx('/test/spx').library('Files').file({ Content: $('#file').get(0).files[0], OnProgress: console.log, Folder: 'a' }).create().then(log);
-});
-
-
+	e.preventDefault()
+	console.log($('#file').get(0).files[0])
+	spx('/test/spx')
+		.library('Files')
+		.file({
+			Content: $('#file').get(0).files[0],
+			OnProgress: console.log,
+			Folder: 'a'
+		})
+		.create()
+		.then(log)
+})
 
 const getWebPermission = _ => {
-	const clientContext = new SP.ClientContext('/common');
-	const web = clientContext.get_web();
-	const ob = new SP.BasePermissions();
-	ob.set(SP.PermissionKind.fullMask);
-	const per = web.doesUserHavePermissions(ob);
-	clientContext.executeQueryAsync(_ => console.log(per.get_value()));
+	const clientContext = new SP.ClientContext('/common')
+	const web = clientContext.get_web()
+	const ob = new SP.BasePermissions()
+	ob.set(SP.PermissionKind.fullMask)
+	const per = web.doesUserHavePermissions(ob)
+	clientContext.executeQueryAsync(_ => console.log(per.get_value()))
 }
 
 // getWebPermission()
-
 
 const perms = {
 	emptyMask: 0,
@@ -93,110 +102,104 @@ const perms = {
 	fullMask: 65
 }
 
-
 const getListPermission = _ => {
-
-	const clientContext = new SP.ClientContext('/common');
-	const web = clientContext.get_web();
-	const oList = web.get_lists().getByTitle('Administrators');
-	clientContext.load(oList, 'EffectiveBasePermissions');
+	const clientContext = new SP.ClientContext('/common')
+	const web = clientContext.get_web()
+	const oList = web.get_lists().getByTitle('Administrators')
+	clientContext.load(oList, 'EffectiveBasePermissions')
 	clientContext.executeQueryAsync(_ => {
-		console.log(oList.get_effectiveBasePermissions().has(SP.PermissionKind.manageWeb));
-	}, log);
+		console.log(oList.get_effectiveBasePermissions().has(SP.PermissionKind.manageWeb))
+	}, log)
 }
 
 // getListPermission();
 
-
 const removeUserFromGroup = async _ => {
-	const ctx = getClientContext('/');
-	const web = ctx.get_web();
+	const ctx = getClientContext('/')
+	const web = ctx.get_web()
 
-	const group = web.get_siteGroups().getByName('Everyone');
+	const group = web.get_siteGroups().getByName('Everyone')
 	// group.get_users().removeByLoginName(userLoginName);
 	await executeJSOM(ctx)(group)()
-	console.log(group);
+	console.log(group)
 }
 
 // removeUserFromGroup()
 
-
-
 const retrieveAllUsersInGroup = async _ => {
-
-	const clientContext = getClientContext('/');
-	console.log(clientContext.get_web());
-	const collGroup = clientContext.get_web().get_siteGroups();
-	const oGroup = collGroup.getByName('pps_administrators');
-	const collUser = oGroup.get_users();
-	clientContext.load(collUser);
+	const clientContext = getClientContext('/')
+	console.log(clientContext.get_web())
+	const collGroup = clientContext.get_web().get_siteGroups()
+	const oGroup = collGroup.getByName('pps_administrators')
+	const collUser = oGroup.get_users()
+	clientContext.load(collUser)
 	await executorJSOM(clientContext)()
-	console.log(collUser);
-	let userInfo = '';
+	console.log(collUser)
+	let userInfo = ''
 
-	const userEnumerator = collUser.getEnumerator();
+	const userEnumerator = collUser.getEnumerator()
 	while (userEnumerator.moveNext()) {
-		const oUser = userEnumerator.get_current();
-		userInfo += '\nUser: ' + oUser.get_title() +
-			'\nID: ' + oUser.get_id() +
-			'\nEmail: ' + oUser.get_email() +
-			'\nLogin Name: ' + oUser.get_loginName();
+		const oUser = userEnumerator.get_current()
+		userInfo +=
+			'\nUser: ' +
+			oUser.get_title() +
+			'\nID: ' +
+			oUser.get_id() +
+			'\nEmail: ' +
+			oUser.get_email() +
+			'\nLogin Name: ' +
+			oUser.get_loginName()
 	}
-	console.log(userInfo);
+	console.log(userInfo)
 }
 
 // retrieveAllUsersInGroup()
 
 const getAllGroups = async _ => {
-	const clientContext = getClientContext('/');
-	const siteGroups = clientContext.get_web().get_siteGroups();
+	const clientContext = getClientContext('/')
+	const siteGroups = clientContext.get_web().get_siteGroups()
 	const groups = await executeJSOM(clientContext)(siteGroups)()
-	return prepareResponseJSOM()(groups);
+	return prepareResponseJSOM()(groups)
 }
 
 const getGroupById = async id => {
-	const clientContext = getClientContext('/');
-	const siteGroups = clientContext.get_web().get_siteGroups();
-	const group = siteGroups.getById(id);
-	await executeJSOM(clientContext)(group)();
-	return prepareResponseJSOM()(group);
+	const clientContext = getClientContext('/')
+	const siteGroups = clientContext.get_web().get_siteGroups()
+	const group = siteGroups.getById(id)
+	await executeJSOM(clientContext)(group)()
+	return prepareResponseJSOM()(group)
 }
 // getGroupById(36).then(log);
 // getAllGroups().then(log)
 
-
 const getGroupOwnerById = async id => {
-	const clientContext = getClientContext('/');
-	const siteGroups = clientContext.get_web().get_siteGroups();
-	const group = siteGroups.getById(id);
-	const owner = group.get_owner();
-	await executorJSOM(clientContext)();
-	console.log(owner);
-	return prepareResponseJSOM()(owner);
+	const clientContext = getClientContext('/')
+	const siteGroups = clientContext.get_web().get_siteGroups()
+	const group = siteGroups.getById(id)
+	const owner = group.get_owner()
+	await executorJSOM(clientContext)()
+	console.log(owner)
+	return prepareResponseJSOM()(owner)
 }
 
 // getGroupOwnerById(36).then(log)
 
 const setGroupOwnerById = async id => {
-	const clientContext = getClientContext('/');
-	const siteGroups = clientContext.get_web().get_siteGroups();
-	const group = siteGroups.getById(id);
-	const owner = group.get_owner();
-	group.set_owner(owner);
-	executorJSOM(clientContext)();
+	const clientContext = getClientContext('/')
+	const siteGroups = clientContext.get_web().get_siteGroups()
+	const group = siteGroups.getById(id)
+	const owner = group.get_owner()
+	group.set_owner(owner)
+	executorJSOM(clientContext)()
 }
-
 
 // setGroupOwnerById(36).then(log)
 
-
-
-
 const removeGroupById = async id => {
-	const clientContext = getClientContext('/');
-	const siteGroups = clientContext.get_web().get_siteGroups();
+	const clientContext = getClientContext('/')
+	const siteGroups = clientContext.get_web().get_siteGroups()
 	siteGroups.removeById(id)
-	await executorJSOM(clientContext)();
+	await executorJSOM(clientContext)()
 }
 
 // removeGroupById(16220)
@@ -206,9 +209,8 @@ const removeGroupsByIds = async ids => {
 		await removeGroupById(id)
 		// console.log(id);
 	}
-	console.log('done');
+	console.log('done')
 }
-
 
 const removeGroups = async _ => {
 	const groupsToExclude = {
@@ -216,30 +218,27 @@ const removeGroups = async _ => {
 		Developers: true,
 		Everyone: true
 	}
-	const groups = await getAllGroups();
-	console.log(groups);
+	const groups = await getAllGroups()
+	console.log(groups)
 	const filtereds = groups.filter(el => !groupsToExclude[el.LoginName])
-	console.log(filtereds);
-	const ids = filtereds.map(el => el.Id);
-	console.log(ids);
+	console.log(filtereds)
+	const ids = filtereds.map(el => el.Id)
+	console.log(ids)
 	// removeGroupsByIds(ids)
 }
 // removeGroups()
 
-
 // const APP_WEB_TEMPLATE = '{E2A30D74-39CB-429E-A5E0-4C775BE848CE}#Default'
-
 
 // spx('test/spx').list('Keywords').column('TaxKeyword').get().then(log)
 // spx('test/spx').list('Keywords').item(2).get().then(item => {
 // console.log(item);
-// 'TaxKeywordTaxHTField': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b' 
+// 'TaxKeywordTaxHTField': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b'
 // spx('test/spx').list('Keywords').item({ 'TaxKeyword': item.TaxKeyword }).create().then(log)
 // spx('test/spx').list('Keywords').item({ 'TaxKeyword': ['a|b1bcd272-e0e4-47b0-9560-a63c0be091ad', 'b2b|34e20559-f098-48f1-b9af-93ac54b0841b'] }).create().then(log)
 // spx('test/spx').list('Keywords').item({ 'TaxKeyword': 'a|b1bcd272-e0e4-47b0-9560-a63c0be091ad;b2b|34e20559-f098-48f1-b9af-93ac54b0841b' }).create().then(log)
 // })
 
 // spx.mail.send({ from: 'AlekseyAlekseew@dme.ru', to: ['AlekseyAlekseew@dme.ru'], subject: 'Test Subject', body: 'Test body' }).then(console.log)
-
 
 // spx.time.get().then(log)

@@ -1,13 +1,13 @@
-const webpack = require('webpack');
-const path = require('path');
+const webpack = require('webpack')
+const path = require('path')
 const proxyPathConfig = {
 	target: 'http://localhost:8080',
 	secure: false
-};
+}
 module.exports = {
 	mode: 'development',
 	devtool: 'inline-source-map',
-	entry: [/* 'babel-polyfill',  */'./src/index.js'],
+	entry: [/* 'babel-polyfill',  */ './src/index.js'],
 	// module: {
 	// 	rules: [{
 	// 		test: /\.js$/,
@@ -32,10 +32,8 @@ module.exports = {
 			'**/_layouts/**': proxyPathConfig
 		}
 	},
-	plugins: [
-		new webpack.HotModuleReplacementPlugin(),
-	],
+	plugins: [new webpack.HotModuleReplacementPlugin()],
 	performance: {
 		hints: false
 	}
-};
+}
