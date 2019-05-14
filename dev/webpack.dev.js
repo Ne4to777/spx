@@ -1,4 +1,5 @@
 const webpack = require('webpack')
+const RestProxy = require('sp-rest-proxy')
 const path = require('path')
 const proxyPathConfig = {
 	target: 'http://localhost:8080',
@@ -30,7 +31,13 @@ module.exports = {
 			'**/_vti_bin/**': proxyPathConfig,
 			'/_layouts/**': proxyPathConfig,
 			'**/_layouts/**': proxyPathConfig
-		}
+		},
+		before: app =>
+			new RestProxy({
+				configPath: './dev/private.json',
+				hostname: 'localhost',
+				port: 8080
+			}).serve()
 	},
 	plugins: [new webpack.HotModuleReplacementPlugin()],
 	performance: {
