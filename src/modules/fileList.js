@@ -340,7 +340,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
 			inputs.push(item)
 		}
 	}
-	const form = global.document.createElement('form')
+	const form = window.document.createElement('form')
 	form.innerHTML = join('')(inputs)
 	const formData = new FormData(form)
 	formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$InputFile', Content, filename)

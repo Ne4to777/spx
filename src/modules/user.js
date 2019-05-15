@@ -121,10 +121,10 @@ const getByEMail = isUsersArray => items => async (opts = {}) => {
 
 const getAll = (opts = {}) => {
 	const userList = getCustomUsersList()
-	;(opts.isSP || !userList
-		? getDefaultUsersList().item()
-		: userList.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`)
-	).get(opts)
+		; (opts.isSP || !userList
+			? getDefaultUsersList().item()
+			: userList.item(`Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))`)
+		).get(opts)
 }
 
 // Interface
@@ -140,10 +140,10 @@ const user = users => {
 				return isNumber(el) || ~~el == el || (typeOf(el) === 'object' && el.uid)
 					? getByUid(isUsersArray)(values)(opts)
 					: /\s/.test(el) || /[а-яА-ЯЁё]/.test(el)
-					? getByName(values)(opts)
-					: /@.+\./.test(el)
-					? getByEMail(isUsersArray)(values)(opts)
-					: getByLogin(isUsersArray)(values)(opts)
+						? getByName(values)(opts)
+						: /@.+\./.test(el)
+							? getByEMail(isUsersArray)(values)(opts)
+							: getByLogin(isUsersArray)(values)(opts)
 			} else {
 				return getAll(opts)
 			}
@@ -217,8 +217,8 @@ user.get = async (opts = {}) => {
 		const user = clientContext.get_web().get_currentUser()
 		return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(user)(opts))
 	} else {
-		const uid = global._spPageContextInfo
-			? global._spPageContextInfo.userId
+		const uid = window._spPageContextInfo
+			? window._spPageContextInfo.userId
 			: (await user.get({ view: 'Id', isSP: true })).Id
 		return (await userList.item(`Number uid Eq ${uid}`).get(opts))[0]
 	}

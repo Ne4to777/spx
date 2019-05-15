@@ -1106,7 +1106,7 @@ export const blobToBase64 = async (blob) => (await blobToDataUrl(blob)).replace(
 export const dataUrlToBinary = (dataUrl) => {
 	const BASE64_MARKER = ';base64,'
 	const base64Index = dataUrl.indexOf(BASE64_MARKER) + BASE64_MARKER.length
-	const raw = global.atob(dataUrl.substring(base64Index))
+	const raw = window.atob(dataUrl.substring(base64Index))
 	const rawLength = raw.length
 	const array = new Uint8Array(new ArrayBuffer(rawLength))
 	for (let i = 0; i < rawLength; i++) {
