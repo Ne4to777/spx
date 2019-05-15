@@ -75,12 +75,12 @@ const getSPObject = elementUrl => spObject => {
 	const folder = getFolderFromUrl(elementUrl)
 	return folder
 		? getSPFolderByUrl(folder)(spObject.get_rootFolder())
-				.get_files()
-				.getByUrl(filename)
+			.get_files()
+			.getByUrl(filename)
 		: spObject
-				.get_rootFolder()
-				.get_files()
-				.getByUrl(filename)
+			.get_rootFolder()
+			.get_files()
+			.getByUrl(filename)
 }
 
 const getSPObjectCollection = elementUrl => spObject => {
@@ -99,7 +99,7 @@ const getRESTObjectCollection = elementUrl => listUrl => contextUrl => {
 	const folder = getFolderFromUrl(elementUrl)
 	return mergeSlashes(
 		`/${contextUrl}/_api/web/lists/getbytitle('${listUrl}')/rootfolder${
-			folder ? `/folders/getbyurl('${folder}')` : ''
+		folder ? `/folders/getbyurl('${folder}')` : ''
 		}/files`
 	)
 }
@@ -131,9 +131,9 @@ class Box extends AbstractBox {
 		this.joinProp = 'ServerRelativeUrl'
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-					pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-					constant([liftFolderType()])
-			  ])(value)
+				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
+				constant([liftFolderType()])
+			])(value)
 			: liftFolderType(value)
 	}
 	getCount() {
@@ -340,7 +340,7 @@ const createWithRESTFromBlob = ({ instance, contextUrl, listUrl, element }) => a
 			inputs.push(item)
 		}
 	}
-	const form = window.document.createElement('form')
+	const form = global.document.createElement('form')
 	form.innerHTML = join('')(inputs)
 	const formData = new FormData(form)
 	formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$InputFile', Content, filename)
@@ -447,8 +447,8 @@ const copyOrMove = isMove => instance => async (opts = {}) => {
 
 	console.log(
 		`${ACTION_TYPES[isMove ? 'move' : 'copy']} ${instance.parent.parent.box.getCount() *
-			instance.parent.box.getCount() *
-			instance.box.getCount()} ${NAME}(s)`
+		instance.parent.box.getCount() *
+		instance.box.getCount()} ${NAME}(s)`
 	)
 }
 

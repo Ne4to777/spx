@@ -151,11 +151,7 @@ export const ROOT_WEB_DUMMY = '@ROOT_WEB@'
 //  ===================  ========  =====  ========        ======
 //  ============================================================
 
-export const typeOf = variable =>
-	Object.prototype.toString
-		.call(variable)
-		.slice(8, -1)
-		.toLowerCase()
+export const typeOf = (variable) => Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
 
 //  =================================================================
 //  =============     ===  ====  ==       ===       ===  ====  ======
@@ -178,7 +174,7 @@ export const typeOf = variable =>
  * @param {*} c
  * @returns {Function}
  */
-export const curry = f => (x, y) => f(x)(y)
+export const curry = (f) => (x, y) => f(x)(y)
 
 //  ===================================================================================================================
 //  =============     =====    ====  =====  ==      ====    ==  =======  =====  =====        ====    ====       =======
@@ -200,7 +196,7 @@ export const curry = f => (x, y) => f(x)(y)
  * @param {*} a
  * @returns {*} a
  */
-export const I_Combinator = _ => _
+export const I_Combinator = (_) => _
 export const identity = I_Combinator
 
 /**
@@ -211,7 +207,7 @@ export const identity = I_Combinator
  * @param {*} a
  * @returns {*} a
  */
-export const K_Combinator = x => _ => x
+export const K_Combinator = (x) => (_) => x
 export const constant = K_Combinator
 
 /**
@@ -221,7 +217,7 @@ export const constant = K_Combinator
  * @param {Function} f
  * @returns {Function} f
  */
-export const A_Combinator = f => x => f(x)
+export const A_Combinator = (f) => (x) => f(x)
 
 /**
  * U_Combinator :: (a → b) → b
@@ -230,7 +226,7 @@ export const A_Combinator = f => x => f(x)
  * @param {Function} f
  * @returns {Function} f
  */
-export const U_Combinator = f => f(f)
+export const U_Combinator = (f) => f(f)
 
 /**
  * Y_Combinator :: (a → b) → b
@@ -239,7 +235,7 @@ export const U_Combinator = f => f(f)
  * @param {Function} f
  * @returns {Function} f
  */
-export const Y_Combinator = f => U_Combinator(g => f(x => g(g)(x)))
+export const Y_Combinator = (f) => U_Combinator((g) => f((x) => g(g)(x)))
 export const fix = Y_Combinator
 
 /**
@@ -250,7 +246,7 @@ export const fix = Y_Combinator
  * @returns {Function} f
  */
 
-export const C_Combinator = f => x => y => f(y)(x)
+export const C_Combinator = (f) => (x) => (y) => f(y)(x)
 export const flip = C_Combinator
 
 /**
@@ -260,7 +256,7 @@ export const flip = C_Combinator
  * @param {Function} f
  * @returns {Function} f
  */
-export const S_Combinator = f => g => x => f(x)(g(x))
+export const S_Combinator = (f) => (g) => (x) => f(x)(g(x))
 export const substitution = S_Combinator
 
 /**
@@ -270,7 +266,7 @@ export const substitution = S_Combinator
  * @param {Function} f
  * @returns {Function} f
  */
-export const S_CombinatorI = f => g => x => g(x)(f(x))
+export const S_CombinatorI = (f) => (g) => (x) => g(x)(f(x))
 export const substitutionI = S_CombinatorI
 
 /**
@@ -280,7 +276,7 @@ export const substitutionI = S_CombinatorI
  * @param {Function} f
  * @returns {Function} f
  */
-export const S_CombinatorAsync = f => g => async x => f(x)(await g(x))
+export const S_CombinatorAsync = (f) => (g) => async (x) => f(x)(await g(x))
 export const substitutionAsync = S_CombinatorAsync
 
 /**
@@ -290,11 +286,11 @@ export const substitutionAsync = S_CombinatorAsync
  * @param {Function} f
  * @returns {Function} f
  */
-export const S_CombinatorIAsync = f => g => async x => g(x)(await f(x))
+export const S_CombinatorIAsync = (f) => (g) => async (x) => g(x)(await f(x))
 export const substitutionIAsync = S_CombinatorIAsync
 
-export const overstep = f => x => (f(x), x)
-export const functionSum = f => x => y => x + f(y)
+export const overstep = (f) => (x) => (f(x), x)
+export const functionSum = (f) => (x) => (y) => x + f(y)
 
 //  =======================================================================================================
 //  =============     =====    ====  =======  ==       ===    ==        ==    ====    ====  =======  ======
@@ -308,8 +304,9 @@ export const functionSum = f => x => y => x + f(y)
 //  =============     =====    ====  =======  ==       ===    =====  =====    ====    ====  =======  ======
 //  =======================================================================================================
 
-export const ifThen = predicate => ([onTrue, onFalse]) => x => (predicate(x) ? onTrue(x) : onFalse ? onFalse(x) : x)
-export const switchCase = condition => cases => x => {
+export const ifThen = (predicate) => ([onTrue, onFalse]) => (x) =>
+	predicate(x) ? onTrue(x) : onFalse ? onFalse(x) : x
+export const switchCase = (condition) => (cases) => (x) => {
 	const caseF = cases[condition(x)]
 	return caseF ? caseF(x) : cases.default ? cases.default(x) : void 0
 }
@@ -328,8 +325,8 @@ export const switchType = switchCase(typeOf)
 //  ===========  =======  ===      ===  =====  ==      ====        ==  ====  ======
 //  ===============================================================================
 
-export const sum = x => y => x + y
-export const gt = x => y => x < y
+export const sum = (x) => (y) => x + y
+export const gt = (x) => (y) => x < y
 
 //  ==========================================================================
 //  ============      ===        ==       ===    ==  =======  ===      =======
@@ -343,12 +340,12 @@ export const gt = x => y => x < y
 //  ============      ======  =====  ====  ==    ==  =======  ===      =======
 //  ==========================================================================
 
-export const stringTest = re => str => re.test(str)
-export const stringReplace = re => to => str => str.replace(re, to)
-export const stringMatch = re => str => str.match(re) || []
-export const stringCut = re => stringReplace(re)('')
-export const stringSplit = re => str => str.split(re)
-export const stringTrim = str => str.trim()
+export const stringTest = (re) => (str) => re.test(str)
+export const stringReplace = (re) => (to) => (str) => str.replace(re, to)
+export const stringMatch = (re) => (str) => str.match(re) || []
+export const stringCut = (re) => stringReplace(re)('')
+export const stringSplit = (re) => (str) => str.split(re)
+export const stringTrim = (str) => str.trim()
 
 //  =================================================================
 //  ==============  =====       ===       ======  =====  ====  ======
@@ -362,16 +359,16 @@ export const stringTrim = str => str.trim()
 //  ===========  ====  ==  ====  ==  ====  ==  ====  =====  =========
 //  =================================================================
 
-export const getArray = x => (typeOf(x) === 'array' ? x : x ? [x] : [])
-export const getArrayLength = xs => xs.length
-export const map = f => xs => xs.map(f)
-export const filter = f => xs => xs.filter(f)
-export const slice = (from, to) => xs => xs.slice(from, to)
-export const join = delim => xs => xs.join(delim)
-export const removeEmpties = filter(x => !!x)
-export const removeUndefineds = filter(x => x !== void 0)
-export const concat = array => x => array.concat(x)
-export const reduce = f => init => xs =>
+export const getArray = (x) => (typeOf(x) === 'array' ? x : x ? [x] : [])
+export const getArrayLength = (xs) => xs.length
+export const map = (f) => (xs) => xs.map(f)
+export const filter = (f) => (xs) => xs.filter(f)
+export const slice = (from, to) => (xs) => xs.slice(from, to)
+export const join = (delim) => (xs) => xs.join(delim)
+export const removeEmpties = filter((x) => !!x)
+export const removeUndefineds = filter((x) => x !== void 0)
+export const concat = (array) => (x) => array.concat(x)
+export const reduce = (f) => (init) => (xs) =>
 	xs.reduce(
 		curry(f),
 		switchType({
@@ -380,17 +377,17 @@ export const reduce = f => init => xs =>
 			default: identity
 		})(init)
 	)
-export const reduceDirty = f => init => xs => getArray(xs).reduce(curry(flip(f)), getArray(init))
-export const flatten = reduce(acc => pipe([ifThen(isArray)([flatten, identity]), concat(acc)]))([])
-export const arrayHead = xs => xs[0]
+export const reduceDirty = (f) => (init) => (xs) => getArray(xs).reduce(curry(flip(f)), getArray(init))
+export const flatten = reduce((acc) => pipe([ifThen(isArray)([flatten, identity]), concat(acc)]))([])
+export const arrayHead = (xs) => xs[0]
 export const arrayTail = ([h, ...t]) => t
-export const arrayLast = xs => xs[xs.length - 1]
+export const arrayLast = (xs) => xs[xs.length - 1]
 export const arrayInit = slice(0, -1)
-export const EMPTY_ARRAY = _ => []
-export const arrayHas = x => pipe([filter(isEqual(x)), isArrayFilled])
-export const chunkArrayFrom = (start = 0) => size => value => {
+export const EMPTY_ARRAY = (_) => []
+export const arrayHas = (x) => pipe([filter(isEqual(x)), isArrayFilled])
+export const chunkArrayFrom = (start = 0) => (size) => (value) => {
 	let i = start
-	return reduce(acc => x => {
+	return reduce((acc) => (x) => {
 		acc[i] === void 0 && (acc[i] = [])
 		const chunk = acc[i]
 		chunk.push(x)
@@ -413,27 +410,27 @@ export const chunkArray = chunkArrayFrom()
 //  =============    ====      =====     ====        ====     ======  =========
 //  ===========================================================================
 
-export const forIn = f => o => {
+export const forIn = (f) => (o) => {
 	for (const prop in o) f(prop)(o[prop])
 	return o
 }
-export const methodEmpty = m => o => (o[m] ? o[m]() : o)
-export const method = m => arg => o => (o[m] ? o[m](arg) : o)
-export const methodI = m => o => arg => (o[m] ? o[m](arg) : o)
-export const methodIOverstep = m => arg => o => (method(m)(arg)(o), o)
-export const apply = m => o => args => o[m].apply(o, args)
-export const prop = name => o => o[name]
-export const keys = o => Object.keys(o)
-export const getInstance = constructor => (...args) => new constructor(...args)
-export const getInstanceEmpty = constructor => new constructor()
-export const switchProp = props => x => {
+export const methodEmpty = (m) => (o) => (o[m] ? o[m]() : o)
+export const method = (m) => (arg) => (o) => (o[m] ? o[m](arg) : o)
+export const methodI = (m) => (o) => (arg) => (o[m] ? o[m](arg) : o)
+export const methodIOverstep = (m) => (arg) => (o) => (method(m)(arg)(o), o)
+export const apply = (m) => (o) => (args) => o[m].apply(o, args)
+export const prop = (name) => (o) => o[name]
+export const keys = (o) => Object.keys(o)
+export const getInstance = (constructor) => (...args) => new constructor(...args)
+export const getInstanceEmpty = (constructor) => new constructor()
+export const switchProp = (props) => (x) => {
 	for (const prop in props) {
 		if (x[prop]) return props[prop](x)
 		if (x.default) return x.default(x)
 	}
 }
-export const NULL = _ => null
-export const climb = f => fix(fr => ([h, ...t]) => o => (t.length ? fr(t)(f(h)(o)) : f(h)(o)))
+export const NULL = (_) => null
+export const climb = (f) => fix((fr) => ([h, ...t]) => (o) => (t.length ? fr(t)(f(h)(o)) : f(h)(o)))
 
 //  =========================================================================================================================
 //  =============     =====    ====  =====  ==       =====    =====      ===    ==        ==    ====    ====  =======  ======
@@ -447,8 +444,8 @@ export const climb = f => fix(fr => ([h, ...t]) => o => (t.length ? fr(t)(f(h)(o
 //  =============     =====    ====  =====  ==  ==========    =====      ===    =====  =====    ====    ====  =======  ======
 //  =========================================================================================================================
 
-export const pipe = reduce(acc => f => x => f(acc(x)))(identity)
-export const pipeAsync = reduce(acc => f => async x => f(await acc(x)))(identity)
+export const pipe = reduce((acc) => (f) => (x) => f(acc(x)))(identity)
+export const pipeAsync = reduce((acc) => (f) => async (x) => f(await acc(x)))(identity)
 
 //  =============================================================
 //  ===========  ==========    =====      ===    ====     =======
@@ -462,24 +459,24 @@ export const pipeAsync = reduce(acc => f => async x => f(await acc(x)))(identity
 //  ===========        ====    =====      ===    ====     =======
 //  =============================================================
 
-export const toBoolean = x => !!x
-export const not = x => !x
-export const and = x => y => toBoolean(x && y)
-export const or = x => y => toBoolean(x || y)
-export const TRUE = _ => true
-export const FALSE = _ => false
+export const toBoolean = (x) => !!x
+export const not = (x) => !x
+export const and = (x) => (y) => toBoolean(x && y)
+export const or = (x) => (y) => toBoolean(x || y)
+export const TRUE = (_) => true
+export const FALSE = (_) => false
 export const andArray = reduce(and)(true)
 export const orArray = reduce(or)(false)
-export const isEqual = sample => x => x === sample
+export const isEqual = (sample) => (x) => x === sample
 export const isNotEqual = pipe([isEqual, not])
-export const isNumber = x => typeOf(x) === 'number'
-export const isString = x => typeOf(x) === 'string'
-export const isRegExp = x => typeOf(x) === 'regexp'
-export const isFunction = x => typeOf(x) === 'function'
-export const isIterator = x => typeOf(x) === 'iterator'
-export const isArray = x => typeOf(x) === 'array'
-export const isObject = x => typeOf(x) === 'object'
-export const isBlob = x => {
+export const isNumber = (x) => typeOf(x) === 'number'
+export const isString = (x) => typeOf(x) === 'string'
+export const isRegExp = (x) => typeOf(x) === 'regexp'
+export const isFunction = (x) => typeOf(x) === 'function'
+export const isIterator = (x) => typeOf(x) === 'iterator'
+export const isArray = (x) => typeOf(x) === 'array'
+export const isObject = (x) => typeOf(x) === 'object'
+export const isBlob = (x) => {
 	const type = typeOf(x)
 	return type === 'blob' || type === 'file'
 }
@@ -497,22 +494,22 @@ export const isGUID = stringTest(/^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{
 //  ===========        ==  ====  ==    ===      ======  =====  ====  ==  =======  ====     ===        ======
 //  ========================================================================================================
 
-export const isNull = x => x === null
+export const isNull = (x) => x === null
 export const isNotNull = pipe([isNull, not])
-export const isUndefined = x => x === void 0
+export const isUndefined = (x) => x === void 0
 export const isDefined = pipe([isUndefined, not])
-export const isZero = x => x === 0
+export const isZero = (x) => x === 0
 export const isNotZero = pipe([isZero, not])
-export const isNaN = x => x !== x
+export const isNaN = (x) => x !== x
 export const isNotNaN = pipe([isNaN, not])
-export const isNumberFilled = x => isNumber(x) && isNotZero(x) && isNotNaN(x)
-export const isStringEmpty = x => x === ''
+export const isNumberFilled = (x) => isNumber(x) && isNotZero(x) && isNotNaN(x)
+export const isStringEmpty = (x) => x === ''
 export const isStringFilled = pipe([isStringEmpty, not])
 export const isArrayFilled = pipe([filter(isDefined), prop('length'), toBoolean])
 export const isArrayEmpty = pipe([isArrayFilled, not])
 export const isObjectFilled = ifThen(isObject)([pipe([keys, isArrayFilled]), FALSE])
 export const isObjectEmpty = pipe([keys, isArrayEmpty])
-export const isExists = x => isDefined(x) && isNotNull(x)
+export const isExists = (x) => isDefined(x) && isNotNull(x)
 export const isNotExists = pipe([isExists, not])
 export const isFilled = ifThen(isExists)([
 	switchType({
@@ -528,9 +525,9 @@ export const isFilled = ifThen(isExists)([
 export const isNotFilled = pipe([isFilled, not])
 
 export const hasOwnProp = method('hasOwnProperty')
-export const hasProp = name => o => o[name]
-export const isPropExists = name => pipe([prop(name), isExists])
-export const isPropFilled = name => pipe([prop(name), isFilled])
+export const hasProp = (name) => (o) => o[name]
+export const isPropExists = (name) => pipe([prop(name), isExists])
+export const isPropFilled = (name) => pipe([prop(name), isFilled])
 
 //  =============================================
 //  ===========        ==       ===  ====  ======
@@ -544,7 +541,7 @@ export const isPropFilled = name => pipe([prop(name), isFilled])
 //  ==============  =====  ====  =====  =========
 //  =============================================
 
-export const tryCatch = tryer => catcher => data => {
+export const tryCatch = (tryer) => (catcher) => (data) => {
 	try {
 		return tryer(data)
 	} catch (err) {
@@ -552,10 +549,10 @@ export const tryCatch = tryer => catcher => data => {
 	}
 }
 
-export const throwError = msg => {
+export const throwError = (msg) => {
 	throw new Error(msg)
 }
-export const throwCatchedError = err => msg => {
+export const throwCatchedError = (err) => (msg) => {
 	throw new Error(msg + '\n' + err)
 }
 
@@ -575,7 +572,7 @@ export const inspect = overstep(console.log)
 
 export const log = (...args) => {
 	console.log('------- Begin')
-	args.map(el => console.log(el))
+	args.map((el) => console.log(el))
 	console.log('------- End')
 	return args.length > 1 ? args : args[0]
 }
@@ -589,18 +586,18 @@ export const webReport = ({ NAME, detailed, silent, silentInfo, actionType, cont
 	!silent &&
 	!silentInfo &&
 	console.log(
-		`${ACTION_TYPES[actionType]} ${box.getCount()} ${NAME}(s) at ${contextBox.join()}${
-			detailed ? `: ${box.join()}` : ''
-		}`
+		`${ACTION_TYPES[actionType]} ${box.getCount()} ${NAME}(s) at ${contextBox.join()}${detailed
+			? `: ${box.join()}`
+			: ''}`
 	)
 
 export const listReport = ({ NAME, detailed, silent, silentInfo, actionType, box, listBox, contextBox }) => {
 	!silent &&
 		!silentInfo &&
 		console.log(
-			`${ACTION_TYPES[actionType]} ${box.getCount(actionType)} ${NAME}(s) in ${listBox.join()} at ${contextBox.join()}${
-				detailed ? `: ${box.join()}` : ''
-			}`
+			`${ACTION_TYPES[actionType]} ${box.getCount(
+				actionType
+			)} ${NAME}(s) in ${listBox.join()} at ${contextBox.join()}${detailed ? `: ${box.join()}` : ''}`
 		)
 }
 
@@ -608,9 +605,9 @@ export const itemReport = ({ NAME, detailed, silent, silentInfo, actionType, box
 	!silent &&
 		!silentInfo &&
 		console.log(
-			`${ACTION_TYPES[actionType]} ${box.getCount(actionType)} ${NAME}(s) in ${listBox.join()} at ${contextBox.join()}${
-				detailed ? `: ${box.join()}` : ''
-			}`
+			`${ACTION_TYPES[actionType]} ${box.getCount(
+				actionType
+			)} ${NAME}(s) in ${listBox.join()} at ${contextBox.join()}${detailed ? `: ${box.join()}` : ''}`
 		)
 }
 
@@ -626,20 +623,22 @@ export const itemReport = ({ NAME, detailed, silent, silentInfo, actionType, box
 //  ============      ===  ====  ====    =====      ===  ========        ==  ====  ======
 //  =====================================================================================
 
-const groupSimple = by =>
-	reduce(acc => el => {
+const groupSimple = (by) =>
+	reduce((acc) => (el) => {
 		const elValue = el[by]
 		const trueValue = isExists(elValue) && elValue.get_lookupId ? elValue.get_lookupId() : elValue
 		const groupValue = acc[trueValue]
-		acc[trueValue] = isUndefined(groupValue) ? [el] : isArray(groupValue) ? concat(groupValue)(el) : [groupValue, el]
+		acc[trueValue] = isUndefined(groupValue)
+			? [el]
+			: isArray(groupValue) ? concat(groupValue)(el) : [groupValue, el]
 		return acc
 	})({})
 
-const groupMapper = f =>
-	fix(fR => acc =>
+const groupMapper = (f) =>
+	fix((fR) => (acc) =>
 		switchType({
 			array: f,
-			object: el => {
+			object: (el) => {
 				for (let prop in el) {
 					const childEl = el[prop]
 					acc[prop] = isArray(childEl) ? f(childEl) : fR({})(childEl)
@@ -654,8 +653,8 @@ const groupMapper = f =>
 
 const grouper = flip(reduceDirty(pipe([groupSimple, groupMapper])))
 
-const mapper = by => xs =>
-	reduce(acc => el => {
+const mapper = (by) => (xs) =>
+	reduce((acc) => (el) => {
 		const elValue = el[by]
 		acc[isExists(elValue) && elValue.get_lookupId ? elValue.get_lookupId() : elValue] = el
 		return acc
@@ -675,13 +674,13 @@ const mapper = by => xs =>
 
 export const hasUrlTailSlash = stringTest(/\/$/)
 export const hasUrlFilename = stringTest(/\.[^\/]+$/)
-export const removeEmptyUrls = filter(x => !!x.Url)
+export const removeEmptyUrls = filter((x) => !!x.Url)
 export const removeEmptyIDs = filter(pipe([prop('ID'), isNumberFilled]))
-export const removeEmptyFilenames = filter(x => x.Url && hasUrlFilename(x.Url))
-export const removeDuplicatedUrls = pipe([reduce(acc => x => ((acc[x.Url] = x), acc))({}), Object.values])
+export const removeEmptyFilenames = filter((x) => x.Url && hasUrlFilename(x.Url))
+export const removeDuplicatedUrls = pipe([reduce((acc) => (x) => ((acc[x.Url] = x), acc))({}), Object.values])
 export const prependSlash = ifThen(stringTest(/^\//))([identity, sum('/')])
 export const popSlash = stringCut(/\/$/)
-export const pushSlash = str => str + '/'
+export const pushSlash = (str) => str + '/'
 export const shiftSlash = stringCut(/^\//)
 export const mergeSlashes = stringReplace(/\/\/+/g)('/')
 export const urlSplit = stringSplit('/')
@@ -690,9 +689,9 @@ export const urlJoin = join('/')
 export const getParentUrl = pipe([popSlash, urlSplit, arrayInit, urlJoin])
 export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash])
 export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL])
-export const isStrictUrl = url => isStringFilled(url) && !hasUrlTailSlash(url)
+export const isStrictUrl = (url) => isStringFilled(url) && !hasUrlTailSlash(url)
 
-export const getListRelativeUrl = webUrl => listUrl => (element = {}) => {
+export const getListRelativeUrl = (webUrl) => (listUrl) => (element = {}) => {
 	const { Url, Folder } = element
 	if (Folder) {
 		const folder = shiftSlash(Folder)
@@ -702,15 +701,17 @@ export const getListRelativeUrl = webUrl => listUrl => (element = {}) => {
 			? Url === '/'
 				? '/'
 				: shiftSlash(
-						arrayLast(
-							stringSplit('@list@')(stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(Url)))
+					arrayLast(
+						stringSplit('@list@')(
+							stringReplace(listUrl)('@list@')(stringReplace(shiftSlash(webUrl))('@web@')(Url))
 						)
-				  )
+					)
+				)
 			: Url
 	}
 }
 
-export const getWebRelativeUrl = webUrl => (element = {}) => {
+export const getWebRelativeUrl = (webUrl) => (element = {}) => {
 	const { Url, Folder } = element
 	if (Folder) {
 		const folder = shiftSlash(Folder)
@@ -756,14 +757,14 @@ export class AbstractBox {
 //  ===========    =====  =====        ==  ====  ==  ====  =====  =======    ====  ====  ======
 //  ===========================================================================================
 
-export const deep2Iterator = ({ contextBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async f => {
+export const deep2Iterator = ({ contextBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async (f) => {
 	const clientContexts = {}
-	const result = await contextBox.chain(contextElement => {
+	const result = await contextBox.chain((contextElement) => {
 		let totalElements = 0
 		const contextUrl = contextElement.Url
 		let clientContext = getClientContext(contextUrl)
 		clientContexts[contextUrl] = [clientContext]
-		return elementBox.chain(element => {
+		return elementBox.chain((element) => {
 			if (++totalElements >= bundleSize) {
 				clientContext = getClientContext(contextUrl)
 				clientContexts[contextUrl].push(clientContext)
@@ -775,20 +776,17 @@ export const deep2Iterator = ({ contextBox, elementBox, bundleSize = REQUEST_BUN
 	return { clientContexts, result }
 }
 
-export const deep3Iterator = ({
-	contextBox,
-	parentBox,
-	elementBox,
-	bundleSize = REQUEST_BUNDLE_MAX_SIZE
-}) => async f => {
+export const deep3Iterator = ({ contextBox, parentBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async (
+	f
+) => {
 	const clientContexts = {}
-	const result = await contextBox.chain(contextElement => {
+	const result = await contextBox.chain((contextElement) => {
 		let totalElements = 0
 		const contextUrl = contextElement.Url
 		let clientContext = getClientContext(contextUrl)
 		clientContexts[contextUrl] = [clientContext]
-		return parentBox.chain(parentElement =>
-			elementBox.chain(element => {
+		return parentBox.chain((parentElement) =>
+			elementBox.chain((element) => {
 				if (++totalElements >= bundleSize) {
 					clientContext = getClientContext(contextUrl)
 					clientContexts[contextUrl].push(clientContext)
@@ -807,16 +805,16 @@ export const deep4Iterator = ({
 	parentBox,
 	elementBox,
 	bundleSize = REQUEST_BUNDLE_MAX_SIZE
-}) => async f => {
+}) => async (f) => {
 	const clientContexts = {}
-	const result = await contextBox.chain(contextElement => {
+	const result = await contextBox.chain((contextElement) => {
 		let totalElements = 0
 		const contextUrl = contextElement.Url
 		let clientContext = getClientContext(contextUrl)
 		clientContexts[contextUrl] = [clientContext]
-		return listBox.chain(listElement =>
-			parentBox.chain(parentElement =>
-				elementBox.chain(element => {
+		return listBox.chain((listElement) =>
+			parentBox.chain((parentElement) =>
+				elementBox.chain((element) => {
 					if (++totalElements >= bundleSize) {
 						clientContext = getClientContext(contextUrl)
 						clientContexts[contextUrl].push(clientContext)
@@ -836,19 +834,21 @@ export const deep4Iterator = ({
 	return { clientContexts, result }
 }
 
-export const deep2IteratorREST = ({ contextBox, elementBox }) => f =>
-	contextBox.chain(contextElement => elementBox.chain(async element => await f({ contextElement, element })))
+export const deep2IteratorREST = ({ contextBox, elementBox }) => (f) =>
+	contextBox.chain((contextElement) => elementBox.chain(async (element) => await f({ contextElement, element })))
 
-export const deep3IteratorREST = ({ contextBox, parentBox, elementBox }) => f =>
-	contextBox.chain(contextElement =>
-		parentBox.chain(parentElement => elementBox.chain(async element => f({ contextElement, parentElement, element })))
+export const deep3IteratorREST = ({ contextBox, parentBox, elementBox }) => (f) =>
+	contextBox.chain((contextElement) =>
+		parentBox.chain((parentElement) =>
+			elementBox.chain(async (element) => f({ contextElement, parentElement, element }))
+		)
 	)
 
-export const deep4IteratorREST = ({ contextBox, listBox, parentBox, elementBox }) => f =>
-	contextBox.chain(contextElement =>
-		listBox.chain(listElement =>
-			parentBox.chain(parentElement =>
-				elementBox.chain(async element => f({ contextElement, listElement, parentElement, element }))
+export const deep4IteratorREST = ({ contextBox, listBox, parentBox, elementBox }) => (f) =>
+	contextBox.chain((contextElement) =>
+		listBox.chain((listElement) =>
+			parentBox.chain((parentElement) =>
+				elementBox.chain(async (element) => f({ contextElement, listElement, parentElement, element }))
 			)
 		)
 	)
@@ -884,7 +884,7 @@ export const getClientContext = pipe([
 //  ===========  ====  ==        ===      ===  ==========    ====  =======  ===      ===        ======
 //  ==================================================================================================
 
-const getSPObjectValues = asItem =>
+const getSPObjectValues = (asItem) =>
 	ifThen(isExists)([
 		pipe([
 			ifThen(constant(asItem))([methodEmpty('get_listItemAllFields')]),
@@ -910,7 +910,10 @@ export const prepareResponseJSOM = (opts = {}) =>
 				identity,
 				pipe([
 					map(getSPObjectValues(opts.asItem)),
-					ifThen(constant(opts.groupBy))([grouper(opts.groupBy), ifThen(constant(opts.mapBy))([mapper(opts.mapBy)])])
+					ifThen(constant(opts.groupBy))([
+						grouper(opts.groupBy),
+						ifThen(constant(opts.mapBy))([mapper(opts.mapBy)])
+					])
 				])
 			])
 		]),
@@ -924,7 +927,10 @@ export const prepareResponseREST = (opts = {}) =>
 			pipe([
 				ifThen(constant(opts.expanded))([identity]),
 				map(getRESTValues),
-				ifThen(constant(opts.groupBy))([grouper(opts.groupBy), ifThen(constant(opts.mapBy))([mapper(opts.mapBy)])])
+				ifThen(constant(opts.groupBy))([
+					grouper(opts.groupBy),
+					ifThen(constant(opts.mapBy))([mapper(opts.mapBy)])
+				])
 			])
 		]),
 		getRESTValues
@@ -945,7 +951,7 @@ export const prepareResponseREST = (opts = {}) =>
 const getViewOption = ifThen(isObjectFilled)([
 	ifThen(isPropFilled('view'))([
 		ifThen(isPropFilled('groupBy'))([
-			opts => concat(getArray(opts.view))(getArray(opts.groupBy)),
+			(opts) => concat(getArray(opts.view))(getArray(opts.groupBy)),
 			pipe([prop('view'), getArray])
 		]),
 		EMPTY_ARRAY
@@ -953,20 +959,23 @@ const getViewOption = ifThen(isObjectFilled)([
 	EMPTY_ARRAY
 ])
 
-export const load = clientContext => spObject => (opts = {}) =>
+export const load = (clientContext) => (spObject) => (opts = {}) =>
 	ifThen(hasProp('getEnumerator'))([
 		pipe([
-			data =>
+			(data) =>
 				pipe([
 					constant(getViewOption(opts)),
-					ifThen(isArrayFilled)([view => [data, `Include(${view})`], constant([data])])
+					ifThen(isArrayFilled)([(view) => [data, `Include(${view})`], constant([data])])
 				])(data),
 			apply('loadQuery')(clientContext)
 		]),
 		overstep(
 			pipe([
-				data =>
-					pipe([constant(getViewOption(opts)), ifThen(isArrayFilled)([view => [data, view], constant([data])])])(data),
+				(data) =>
+					pipe([
+						constant(getViewOption(opts)),
+						ifThen(isArrayFilled)([(view) => [data, view], constant([data])])
+					])(data),
 				apply('load')(clientContext)
 			])
 		)
@@ -984,10 +993,10 @@ export const load = clientContext => spObject => (opts = {}) =>
 //  ===========        ==  ====  ==        ====     ====      ======  =======    ====  ====  ======
 //  ===============================================================================================
 
-export const executorJSOM = clientContext => (opts = {}) =>
+export const executorJSOM = (clientContext) => (opts = {}) =>
 	new Promise((resolve, reject) => {
 		clientContext.executeQueryAsync(
-			_ => resolve(),
+			(_) => resolve(),
 			(sender, args) => {
 				const { silent, silentErrors } = opts
 				if (!silent && !silentErrors) {
@@ -1005,25 +1014,28 @@ export const executorJSOM = clientContext => (opts = {}) =>
 		)
 	})
 
-export const executeJSOM = clientContext => spObject => async opts => {
+export const executeJSOM = (clientContext) => (spObject) => async (opts) => {
 	const spObjects = load(clientContext)(spObject)(opts)
 	await executorJSOM(clientContext)(opts)
 	return spObjects
 }
 
-export const executorREST = contextUrl => (opts = {}) =>
+export const executorREST = (contextUrl) => (opts = {}) =>
 	pipe([
 		mergeSlashes,
 		popSlash,
 		prependSlash,
 		getInstance(SP.RequestExecutor),
-		executor =>
+		(executor) =>
 			new Promise((resolve, reject) =>
 				executor.executeAsync({
 					...opts,
-					method: pipe([prop('method'), ifThen(stringTest(/post/i))([constant('POST'), constant('GET')])])(opts),
+					method: pipe([
+						prop('method'),
+						ifThen(stringTest(/post/i))([constant('POST'), constant('GET')])
+					])(opts),
 					success: resolve,
-					error: res => {
+					error: (res) => {
 						const { silent, silentErrors } = opts
 						if (!silent && !silentErrors) {
 							const body = res.body
@@ -1031,7 +1043,7 @@ export const executorREST = contextUrl => (opts = {}) =>
 							if (typeOf(res.body) === 'string') {
 								try {
 									msg = JSON.parse(res.body).error.message.value
-								} catch (err) {}
+								} catch (err) { }
 							}
 							console.error(`\nMessage: ${res.statusText}\nCode: ${res.statusCode}\nValue: ${msg}`)
 						}
@@ -1055,7 +1067,7 @@ export const executorREST = contextUrl => (opts = {}) =>
 
 export const convertFileContent = switchType({
 	arraybuffer: pipe([getInstance(Uint8Array), reduce(functionSum(String.fromCharCode))(''), btoa]),
-	default: tryCatch(btoa)(err => identity)
+	default: tryCatch(btoa)((err) => identity)
 })
 
 export const base64ToBlob = ({ data, type }) => {
@@ -1075,26 +1087,26 @@ export const base64ToBlob = ({ data, type }) => {
 	})
 }
 
-export const blobToDataUrl = blob =>
+export const blobToDataUrl = (blob) =>
 	new Promise((resolve, reject) => {
 		const reader = new FileReader()
-		reader.onloadend = _ => resolve(reader.result)
+		reader.onloadend = (_) => resolve(reader.result)
 		reader.readAsDataURL(blob)
 	})
 
-export const blobToArrayBuffer = blob =>
+export const blobToArrayBuffer = (blob) =>
 	new Promise((resolve, reject) => {
 		const reader = new FileReader()
-		reader.onloadend = _ => resolve(reader.result)
+		reader.onloadend = (_) => resolve(reader.result)
 		reader.readAsArrayBuffer(blob)
 	})
 
-export const blobToBase64 = async blob => (await blobToDataUrl(blob)).replace(/[^,]+base64,/, '')
+export const blobToBase64 = async (blob) => (await blobToDataUrl(blob)).replace(/[^,]+base64,/, '')
 
-export const dataUrlToBinary = dataUrl => {
+export const dataUrlToBinary = (dataUrl) => {
 	const BASE64_MARKER = ';base64,'
 	const base64Index = dataUrl.indexOf(BASE64_MARKER) + BASE64_MARKER.length
-	const raw = window.atob(dataUrl.substring(base64Index))
+	const raw = global.atob(dataUrl.substring(base64Index))
 	const rawLength = raw.length
 	const array = new Uint8Array(new ArrayBuffer(rawLength))
 	for (let i = 0; i < rawLength; i++) {
@@ -1115,24 +1127,24 @@ export const dataUrlToBinary = dataUrl => {
 //  ============      ===  ==========    ====      =====     ====        ====     ======  =========
 //  ===============================================================================================
 
-const setItemSP = name => item => value => item.set_item(name, value)
+const setItemSP = (name) => (item) => (value) => item.set_item(name, value)
 
-export const getSPFolderByUrl = url =>
+export const getSPFolderByUrl = (url) =>
 	ifThen(constant(url))([
-		climb(url => pipe([methodEmpty('get_folders'), method('getByUrl')(url)]))(
+		climb((url) => pipe([methodEmpty('get_folders'), method('getByUrl')(url)]))(
 			pipe([stringReplace(/\/\/+/)('/'), stringSplit('/')])(url)
 		),
 		identity
 	])
 
-export const setItem = fieldsInfo => fields => spObject => {
+export const setItem = (fieldsInfo) => (fields) => (spObject) => {
 	for (const name in fields) {
 		const fieldInfoArray = fieldsInfo[name]
 		if (fieldInfoArray) {
 			const fieldValues = fields[name]
 			const fieldInfo = fieldInfoArray[0]
 			const set = setItemSP(fieldInfo.InternalName)(spObject)
-			const setLookupAndUser = f => constructor => pipe([f(constructor), set])
+			const setLookupAndUser = (f) => (constructor) => pipe([f(constructor), set])
 			switch (fieldInfo.TypeAsString) {
 				case 'Lookup':
 					setLookupAndUser(setLookup)(SP.FieldLookupValue)(fieldValues)
@@ -1150,7 +1162,11 @@ export const setItem = fieldsInfo => fields => spObject => {
 					switchType({
 						object: pipe([
 							prop('$2_1'),
-							pipe([reduce(acc => el => acc.concat(`-1;#${el.get_label()}|${el.get_termGuid()}`))([]), join(';#'), set])
+							pipe([
+								reduce((acc) => (el) => acc.concat(`-1;#${el.get_label()}|${el.get_termGuid()}`))([]),
+								join(';#'),
+								set
+							])
 						]),
 						array: pipe([join(';'), setItemSP('TaxKeywordTaxHTField')(spObject)]),
 						string: setItemSP('TaxKeywordTaxHTField')(spObject)
@@ -1165,16 +1181,16 @@ export const setItem = fieldsInfo => fields => spObject => {
 	return spObject
 }
 
-export const setLookupMulti = constructor =>
+export const setLookupMulti = (constructor) =>
 	pipe([
-		reduce(acc => ifThen(isExists)([pipe([setLookup(constructor), concat(acc)])]))([]),
+		reduce((acc) => ifThen(isExists)([pipe([setLookup(constructor), concat(acc)])]))([]),
 		ifThen(isArrayFilled)([identity, NULL])
 	])
 
-const setLookupValue = constructor => value =>
+const setLookupValue = (constructor) => (value) =>
 	pipe([getInstanceEmpty, overstep(method('set_lookupId')(value))])(constructor)
 
-export const setLookup = constructor =>
+export const setLookup = (constructor) =>
 	pipe([
 		ifThen(isNull)([
 			NULL,
@@ -1185,7 +1201,7 @@ export const setLookup = constructor =>
 		])
 	])
 
-export const setFields = source => target => {
+export const setFields = (source) => (target) => {
 	for (let prop in source) {
 		const value = source[prop]
 		if (value !== void 0 && target[prop]) target[prop](value)
@@ -1209,18 +1225,18 @@ export const getWeb = methodEmpty('get_web')
 //  ==============  =====        ===      ======  =========
 //  =======================================================
 
-export const assert = msg => bool => console.assert(bool === true, msg)
+export const assert = (msg) => (bool) => console.assert(bool === true, msg)
 
-export const assertString = msg => sample => str => assert(`${msg}: ${str}`)(isEqual(sample)(str))
+export const assertString = (msg) => (sample) => (str) => assert(`${msg}: ${str}`)(isEqual(sample)(str))
 
-export const assertProp = prop => o => assert(`object has no property "${prop}"`)(hasOwnProp(prop)(o))
+export const assertProp = (prop) => (o) => assert(`object has no property "${prop}"`)(hasOwnProp(prop)(o))
 
-export const assertProps = props => o => {
+export const assertProps = (props) => (o) => {
 	for (const prop of props) assertProp(prop)(o)
 	return o
 }
 
-export const assertObject = props => name => async promise => {
+export const assertObject = (props) => (name) => async (promise) => {
 	const el = await promise
 	assert(`${name} is not an object`)(isObject(el))
 	assert(`${name} is empty object`)(isObjectFilled(el))
@@ -1228,7 +1244,7 @@ export const assertObject = props => name => async promise => {
 	return el
 }
 
-export const assertCollection = props => name => async promise => {
+export const assertCollection = (props) => (name) => async (promise) => {
 	const el = await promise
 	assert(`${name} collection is not an array`)(isArray(el))
 	assert(`${name} collection is an empty array`)(isArrayFilled(el))
@@ -1237,4 +1253,4 @@ export const assertCollection = props => name => async promise => {
 	return el
 }
 
-export const testIsOk = name => _ => console.log(`${name} is OK`)
+export const testIsOk = (name) => (_) => console.log(`${name} is OK`)
