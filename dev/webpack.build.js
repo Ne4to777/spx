@@ -15,7 +15,7 @@ module.exports = {
 	},
 	output: {
 		filename: config.filename,
-		path: path.resolve(__dirname, '../publish'),
+		path: path.resolve(__dirname, '../build'),
 		library: config.library,
 		libraryTarget: 'umd'
 	}

@@ -9,9 +9,10 @@
 		"dev": "node dev/init.js && webpack-dev-server --open --config dev/webpack.dev.js",
 		"prod": "webpack --config dev/webpack.prod.js",
 		"build": "webpack --config dev/webpack.build.js",
+		"publish": "webpack --config dev/webpack.publish.js",
 		"commit": "webpack --config dev/webpack.commit.js",
 		"copy": "webpack --config dev/webpack.copy.js",
-		"patchPublish": "npm run build && cd publish && npm version patch && npm publish"
+		"patchPublish": "npm run publish && cd publish && npm version patch && npm publish"
 	},
 	"sideEffects": false,
 	"devDependencies": {
