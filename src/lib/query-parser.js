@@ -88,14 +88,14 @@ const COLUMN_TYPES_MAPPED = {
 	integer: 'Text',
 	counter: 'Text',
 	boolean: 'Boolean',
-	lookup: 'Text',
+	lookup: 'Lookup',
 	user: 'Text',
 	datetime: 'Text',
 	date: 'Text',
 	time: 'Text',
 	currency: 'Text',
 	computed: 'Text',
-	lookupmulti: 'Text',
+	lookupmulti: 'Lookup',
 	usermulti: 'Text',
 	modstat: 'ModStat',
 	guid: 'Guid',
@@ -177,10 +177,7 @@ const convertExpression = str => {
 	}
 
 	let value = strSplits[1]
-	if (/\#$/.test(name)) {
-		name = name.substring(0, name.length - 1)
-		fieldOption = ' LookupId="True"'
-	}
+
 	switch (type) {
 		case 'datetime':
 		case 'time':
@@ -195,6 +192,9 @@ const convertExpression = str => {
 		case 'boolean':
 			value = /^(true|yes|1)$/.test(value) ? '1' : '0'
 			break
+		case 'lookup':
+		case 'lookupmulti':
+			fieldOption = ' LookupId="True"'
 	}
 	const typeNorm = COLUMN_TYPES_MAPPED[type]
 	if (type !== 'text') value = value.trim()
@@ -227,11 +227,11 @@ const convertExpression = str => {
 		case 'membership':
 			return `<${operatorNorm} Type="${
 				MEMBERSHIP_VALUES[value.toLowerCase()]
-			}"><FieldRef Name="${name}"/></${operatorNorm}>`
+				}"><FieldRef Name="${name}"/></${operatorNorm}>`
 	}
 	return `<${operatorNorm}><FieldRef Name="${name}"${fieldOption}/>${
 		/null/.test(operator) ? '' : `<Value Type="${typeNorm}"${valueOpts}>${value}</Value>`
-	}</${operatorNorm}>`
+		}</${operatorNorm}>`
 }
 
 const convertGroupR = str => {
@@ -341,10 +341,10 @@ export const getCamlView = (str = {}) => {
 		scopeStr = /allItems/i.test(Scope)
 			? ' Scope="Recursive"'
 			: /^items$/i.test(Scope)
-			? ' Scope="FilesOnly"'
-			: /^all$/i.test(Scope)
-			? ' Scope="RecursiveAll"'
-			: ''
+				? ' Scope="FilesOnly"'
+				: /^all$/i.test(Scope)
+					? ' Scope="RecursiveAll"'
+					: ''
 	const whereStr = Query ? `<Where>${getCamlQuery(Query)}</Where>` : ''
 	const queryStr = whereStr || orderByStr ? `<Query>${whereStr}${orderByStr}</Query>` : ''
 	const limitStr = `<RowLimit>${Limit || 160000}</RowLimit>`
@@ -383,8 +383,8 @@ const concat2Queries = (joiner = '||') => query1 => query2 => {
 					? `(${trimmed1}) ${normalizedJoiner} (${trimmed2})`
 					: `(${trimmed1}) ${normalizedJoiner} ${trimmed2}`
 				: GROUP_REGEXP.test(trimmed2)
-				? `${trimmed1} ${normalizedJoiner} (${trimmed2})`
-				: `${trimmed1} ${normalizedJoiner} ${trimmed2}`
+					? `${trimmed1} ${normalizedJoiner} (${trimmed2})`
+					: `${trimmed1} ${normalizedJoiner} ${trimmed2}`
 		} else {
 			return GROUP_REGEXP.test(trimmed1)
 				? `(${trimmed1}) ${normalizedJoiner} ${dummy}`
