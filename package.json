@@ -27,7 +27,8 @@
 		"copy-webpack-plugin": "^5.0.0",
 		"cpass": "^2.0.4",
 		"jquery": ">=3.4.0",
-		"sp-rest-proxy": "^2.7.9-beta2"
+		"sp-rest-proxy": "^2.7.9-beta2",
+		"webpack-cli": "^3.3.5"
 	},
 	"dependencies": {
 		"axios": ">=0.18.1",
