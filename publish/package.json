@@ -1,0 +1,24 @@
+{
+  "name": "spx-com",
+  "version": "1.0.27",
+  "description": "Sharepoint 2013 Client Object Model Library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ne4to777/spx-com.git"
+  },
+  "keywords": [
+    "sharepoint",
+    "jsom",
+    "rest"
+  ],
+  "author": "Alekseev Aleksey",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ne4to777/spx-com/issues"
+  },
+  "homepage": "https://github.com/Ne4to777/spx-com#readme"
+}
