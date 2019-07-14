@@ -1,6 +1,7 @@
 const webpack = require('webpack')
 const RestProxy = require('sp-rest-proxy')
 const path = require('path')
+
 const proxyPathConfig = {
 	target: 'http://localhost:8080',
 	secure: false
@@ -8,7 +9,7 @@ const proxyPathConfig = {
 module.exports = {
 	mode: 'development',
 	devtool: 'inline-source-map',
-	entry: [/* 'babel-polyfill',  */ './src/index.js'],
+	entry: ['./src/index.js'],
 	// module: {
 	// 	rules: [{
 	// 		test: /\.js$/,
@@ -32,12 +33,11 @@ module.exports = {
 			'/_layouts/**': proxyPathConfig,
 			'**/_layouts/**': proxyPathConfig
 		},
-		before: app =>
-			new RestProxy({
-				configPath: './dev/private.json',
-				hostname: 'localhost',
-				port: 8080
-			}).serve()
+		before: () => new RestProxy({
+			configPath: './dev/private.json',
+			hostname: 'localhost',
+			port: 8080
+		}).serve()
 	},
 	plugins: [new webpack.HotModuleReplacementPlugin()],
 	performance: {

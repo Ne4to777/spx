@@ -1,5 +1,5 @@
-const config = require('./private.json')
 const CopyPlugin = require('copy-webpack-plugin')
+const config = require('./private.json')
 
 module.exports = {
 	plugins: [
@@ -7,7 +7,7 @@ module.exports = {
 			[
 				{
 					from: '**/*',
-					to: config.path + '/project',
+					to: `${config.path}/project`,
 					ignore: ['node_modules/**']
 				}
 			],

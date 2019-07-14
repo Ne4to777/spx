@@ -4,3 +4,4 @@ gitProxySettings.txt
 dev/private.json
 publish/*.js
 publish/*.map
+dist

@@ -241,8 +241,8 @@ user.get = async (opts = {}) => {
 		return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(spUser)(opts))
 	}
 	/* eslint no-underscore-dangle:0 */
-	const uid = window._spPageContextInfo
-		? window._spPageContextInfo.userId
+	const uid = _spPageContextInfo
+		? _spPageContextInfo.userId
 		: (await user.get({ view: 'Id', isSP: true })).Id
 	return (await userList.item(`Number uid Eq ${uid}`).get(opts))[0]
 }

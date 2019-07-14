@@ -1,5 +1,5 @@
-const config = require('./private.json')
 const path = require('path')
+const config = require('./private.json')
 
 module.exports = {
 	mode: 'production',
