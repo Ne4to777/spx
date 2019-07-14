@@ -35,11 +35,12 @@ import {
 	removeEmptyFilenames,
 	hasUrlFilename,
 	isNumberFilled
-} from './../lib/utility'
+} from '../lib/utility'
 
-import web from './../modules/web'
+import web from './web'
+import * as cache from '../lib/cache'
 
-//Internal
+// Internal
 
 const NAME = 'file'
 
@@ -85,7 +86,7 @@ const liftFolderType = switchCase(typeOf)({
 			ServerRelativeUrl: url
 		}
 	},
-	default: _ => ({
+	default: () => ({
 		Url: '',
 		ServerRelativeUrl: ''
 	})
@@ -97,27 +98,26 @@ class Box extends AbstractBox {
 		this.joinProp = 'ServerRelativeUrl'
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-					pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-					constant([liftFolderType()])
-			  ])(value)
+				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
+				constant([liftFolderType()])
+			])(value)
 			: liftFolderType(value)
 	}
+
 	getCount() {
 		return this.isArray ? removeEmptyFilenames(this.value).length : hasUrlFilename(this.value[this.prop]) ? 1 : 0
 	}
 }
 
-const iterator = instance =>
-	deep2Iterator({
-		contextBox: instance.parent.box,
-		elementBox: instance.box
-	})
+const iterator = instance => deep2Iterator({
+	contextBox: instance.parent.box,
+	elementBox: instance.box
+})
 
-const iteratorREST = instance =>
-	deep2IteratorREST({
-		contextBox: instance.parent.parent.box,
-		elementBox: instance.parent.box
-	})
+const iteratorREST = instance => deep2IteratorREST({
+	contextBox: instance.parent.parent.box,
+	elementBox: instance.parent.box
+})
 
 // Inteface
 
@@ -126,8 +126,9 @@ export default parent => elements => {
 		box: getInstance(Box)(elements),
 		parent
 	}
-	const report = actionType => (opts = {}) =>
-		webReport({ ...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box })
+	const report = actionType => (opts = {}) => webReport({
+		...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box
+	})
 	return {
 		get: async (opts = {}) => {
 			if (opts.asBlob) {
@@ -140,9 +141,12 @@ export default parent => elements => {
 					})
 				})
 				return prepareResponseREST(opts)(result)
-			} else {
-				if (opts.asItem) opts.view = ['ListItemAllFields']
-				const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
+			}
+			const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...options }
+			const { clientContexts, result } = await iterator(instance)(
+				({
+					contextElement, clientContext, element
+				}) => {
 					const contextUrl = contextElement.Url
 					const elementUrl = getWebRelativeUrl(contextUrl)(element)
 					const parentSPObject = parent.getSPObject(clientContext)
@@ -150,39 +154,47 @@ export default parent => elements => {
 					const spObject = isCollection
 						? getSPObjectCollection(elementUrl)(parentSPObject)
 						: getSPObject(elementUrl)(parentSPObject)
-					return load(clientContext)(spObject)(opts)
-				})
-				await instance.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-				)
-				return prepareResponseJSOM(opts)(result)
-			}
+					return load(clientContext)(spObject)(options)
+				}
+			)
+			await instance.parent.box.chain(
+				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(options)))
+			)
+			return prepareResponseJSOM(options)(result)
 		},
 
 		create: async function create(opts = {}) {
-			let needToRetry, isError
+			let needToRetry; let
+				isError
 			const cacheUrl = ['fileCreationRetries', instance.parent.id]
-			!isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
-			const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
-				const contextUrl = contextElement.Url
-				const elementUrl = getWebRelativeUrl(contextUrl)(element)
-				if (!hasUrlFilename(elementUrl)) return
-				const { Content = '', Overwrite = true } = element
-				if (opts.asItem) opts.view = ['ListItemAllFields']
-
-				const parentSPObject = getSPObjectCollection(getParentUrl(elementUrl))(parent.getSPObject(clientContext))
-				const fileCreationInfo = new SP.FileCreationInformation()
-				setFields({
-					set_url: getFilenameFromUrl(elementUrl),
-					set_content: convertFileContent(Content),
-					set_overwrite: Overwrite
-				})(fileCreationInfo)
-				const spObject = parentSPObject.add(fileCreationInfo)
-				return load(clientContext)(spObject)(opts)
-			})
+			if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+			const { clientContexts, result } = await iterator(instance)(
+				({
+					contextElement, clientContext, element
+				}) => {
+					const contextUrl = contextElement.Url
+					const elementUrl = getWebRelativeUrl(contextUrl)(element)
+					if (!hasUrlFilename(elementUrl)) return undefined
+					const { Content = '', Overwrite = true } = element
+					const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
+					const parentSPObject = getSPObjectCollection(getParentUrl(elementUrl))(
+						parent.getSPObject(clientContext)
+					)
+					const fileCreationInfo = new SP.FileCreationInformation()
+					setFields({
+						set_url: getFilenameFromUrl(elementUrl),
+						set_content: convertFileContent(Content),
+						set_overwrite: Overwrite
+					})(fileCreationInfo)
+					const spObject = parentSPObject.add(fileCreationInfo)
+					return load(clientContext)(spObject)(options)
+				}
+			)
 			if (instance.box.getCount()) {
 				await instance.parent.box.chain(async el => {
-					for (const clientContext of clientContexts[el.Url]) {
+					const clientContextByUrl = clientContexts[el.Url]
+					for (let i = 0; i < clientContextByUrl.length; i += 1) {
+						const clientContext = clientContextByUrl[i]
 						await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
 							isError = true
 							if (err.get_message() === 'File Not Found.') {
@@ -195,16 +207,17 @@ export default parent => elements => {
 								const res = await web(contextUrl)
 									.folder(Object.keys(foldersToCreate))
 									.create({ silentInfo: true, expanded: true, view: ['Name'] })
-									.then(_ => {
-										const cacheUrl = ['fileCreationRetries', instance.parent.id]
-										const retries = cache.get(cacheUrl)
+									.then(() => {
+										const cacheRetriesUrl = ['fileCreationRetries', instance.parent.id]
+										const retries = cache.get(cacheRetriesUrl)
 										if (retries) {
-											cache.set(retries - 1)(cacheUrl)
+											cache.set(retries - 1)(cacheRetriesUrl)
 											return true
 										}
+										return false
 									})
-									.catch(err => {
-										if (/already exists/.test(err.get_message())) needToRetry = true
+									.catch(error => {
+										if (/already exists/.test(error.get_message())) needToRetry = true
 									})
 								if (res) needToRetry = true
 							} else {
@@ -217,29 +230,37 @@ export default parent => elements => {
 			}
 			if (needToRetry) {
 				return create(opts)
-			} else {
-				if (!isError) {
-					report('create')(opts)
-					return prepareResponseJSOM(opts)(result)
-				}
 			}
+			if (!isError) {
+				report('create')(opts)
+				return prepareResponseJSOM(opts)(result)
+			}
+			return undefined
 		},
 
 		update: async opts => {
-			const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
-				const { Content } = element
-				const contextUrl = contextElement.Url
-				const elementUrl = getWebRelativeUrl(contextUrl)(element)
-				if (!hasUrlFilename(elementUrl)) return
-				const binaryInfo = new SP.FileSaveBinaryInformation()
-				if (Content !== void 0) binaryInfo.set_content(convertFileContent(Content))
-				const spObject = getSPObject(elementUrl)(parent.getSPObject(clientContext))
-				spObject.saveBinary(binaryInfo)
-				return spObject
-			})
+			const { clientContexts, result } = await iterator(instance)(
+				({
+					contextElement, clientContext, element
+				}) => {
+					const { Content } = element
+					const contextUrl = contextElement.Url
+					const elementUrl = getWebRelativeUrl(contextUrl)(element)
+					if (!hasUrlFilename(elementUrl)) return undefined
+					const binaryInfo = new SP.FileSaveBinaryInformation()
+					if (Content !== undefined) binaryInfo.set_content(convertFileContent(Content))
+					const spObject = getSPObject(elementUrl)(parent.getSPObject(clientContext))
+					spObject.saveBinary(binaryInfo)
+					return spObject
+				}
+			)
 			if (instance.box.getCount()) {
 				await instance.parent.box.chain(async el => {
-					for (const clientContext of clientContexts[el.Url]) await executorJSOM(clientContext)(opts)
+					const clientContextByUrl = clientContexts[el.Url]
+					for (let i = 0; i < clientContextByUrl.length; i += 1) {
+						const clientContext = clientContextByUrl[i]
+						await executorJSOM(clientContext)(opts)
+					}
 				})
 			}
 			report('update')(opts)
@@ -248,18 +269,22 @@ export default parent => elements => {
 
 		delete: async (opts = {}) => {
 			const { noRecycle } = opts
-			const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
-				const contextUrl = contextElement.Url
-				const elementUrl = getWebRelativeUrl(contextUrl)(element)
-				if (!hasUrlFilename(elementUrl)) return
-				const parentSPObject = instance.parent.getSPObject(clientContext)
-				const spObject = getSPObject(elementUrl)(parentSPObject)
-				methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
-				return elementUrl
-			})
+			const { clientContexts, result } = await iterator(instance)(
+				({
+					contextElement, clientContext, element
+				}) => {
+					const contextUrl = contextElement.Url
+					const elementUrl = getWebRelativeUrl(contextUrl)(element)
+					if (!hasUrlFilename(elementUrl)) return undefined
+					const parentSPObject = instance.parent.getSPObject(clientContext)
+					const spObject = getSPObject(elementUrl)(parentSPObject)
+					methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+					return elementUrl
+				}
+			)
 			if (instance.box.getCount()) {
-				await instance.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report(noRecycle ? 'delete' : 'recycle')(opts)
@@ -267,18 +292,22 @@ export default parent => elements => {
 		},
 
 		copy: async opts => {
-			const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
-				const contextUrl = contextElement.Url
-				const elementUrl = getWebRelativeUrl(contextUrl)(element)
-				if (!hasUrlFilename(elementUrl)) return
-				const parentSPObject = instance.parent.getSPObject(clientContext)
-				const spObject = getSPObject(elementUrl)(parentSPObject)
-				spObject.copyTo(getWebRelativeUrl(contextUrl)({ Url: element.To, Folder: element.Folder }))
-				return elementUrl
-			})
+			const { clientContexts, result } = await iterator(instance)(
+				({
+					contextElement, clientContext, element
+				}) => {
+					const contextUrl = contextElement.Url
+					const elementUrl = getWebRelativeUrl(contextUrl)(element)
+					if (!hasUrlFilename(elementUrl)) return undefined
+					const parentSPObject = instance.parent.getSPObject(clientContext)
+					const spObject = getSPObject(elementUrl)(parentSPObject)
+					spObject.copyTo(getWebRelativeUrl(contextUrl)({ Url: element.To, Folder: element.Folder }))
+					return elementUrl
+				}
+			)
 			if (instance.box.getCount()) {
-				await instance.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report('copy')(opts)
@@ -286,18 +315,22 @@ export default parent => elements => {
 		},
 
 		move: async opts => {
-			const { clientContexts, result } = await iterator(instance)(({ contextElement, clientContext, element }) => {
-				const contextUrl = contextElement.Url
-				const elementUrl = getWebRelativeUrl(contextUrl)(element)
-				if (!hasUrlFilename(elementUrl)) return
-				const parentSPObject = instance.parent.getSPObject(clientContext)
-				const spObject = getSPObject(elementUrl)(parentSPObject)
-				spObject.moveTo(getWebRelativeUrl(contextUrl)({ Url: element.To, Folder: element.Folder }))
-				return elementUrl
-			})
+			const { clientContexts, result } = await iterator(instance)(
+				({
+					contextElement, clientContext, element
+				}) => {
+					const contextUrl = contextElement.Url
+					const elementUrl = getWebRelativeUrl(contextUrl)(element)
+					if (!hasUrlFilename(elementUrl)) return undefined
+					const parentSPObject = instance.parent.getSPObject(clientContext)
+					const spObject = getSPObject(elementUrl)(parentSPObject)
+					spObject.moveTo(getWebRelativeUrl(contextUrl)({ Url: element.To, Folder: element.Folder }))
+					return elementUrl
+				}
+			)
 			if (instance.box.getCount()) {
-				await instance.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report('move')(opts)

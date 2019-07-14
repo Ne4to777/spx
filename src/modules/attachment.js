@@ -12,7 +12,7 @@ import {
 	map,
 	constant,
 	deep4Iterator
-} from './../lib/utility'
+} from '../lib/utility'
 
 // Internal
 
@@ -28,7 +28,7 @@ const getSPObjectCollection = methodEmpty('get_attachmentFiles')
 const liftItemType = switchCase(typeOf)({
 	object: item => Object.assign({}, item),
 	string: (item = '') => ({ Url: item }),
-	default: _ => ({ Url: void 0 })
+	default: () => ({ Url: undefined })
 })
 
 class Box extends AbstractBox {
@@ -58,15 +58,17 @@ export default parent => elements => {
 
 	return {
 		get: async (opts = {}) => {
-			const { clientContexts, result } = await iterator(({ clientContext, listElement, parentElement, element }) => {
+			const { clientContexts, result } = await iterator(({
+				clientContext, listElement, parentElement, element
+			}) => {
 				const contextSPObject = instance.parent.parent.parent.getSPObject(clientContext)
 				const listSPObject = instance.parent.parent.getSPObject(listElement.Url)(contextSPObject)
 				const itemSPObject = instance.parent.getSPObject(parentElement)(listElement.Url)(listSPObject)
 				const spObject = getSPObject(element)(itemSPObject)
 				return load(clientContext)(spObject)(opts)
 			})
-			await instance.parent.parent.parent.box.chain(el =>
-				Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+			await instance.parent.parent.parent.box.chain(
+				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 			)
 			return prepareResponseJSOM(opts)(result)
 		}

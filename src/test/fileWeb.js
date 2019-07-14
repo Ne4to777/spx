@@ -1,5 +1,7 @@
-import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, identity } from './../lib/utility'
+import site from '../modules/site'
+import {
+	assertObject, assertCollection, testIsOk, assert, identity
+} from '../lib/utility'
 
 const PROPS = [
 	'CheckInComment',
@@ -27,7 +29,7 @@ const assertCollectionProps = assertCollection(PROPS)
 const rootWeb = site()
 const workingWeb = site('test/spx')
 
-const crud = async _ => {
+const crud = async () => {
 	const folder = 'b'
 	const filename = 'single.txt'
 	const url = `${folder}/${filename}`
@@ -36,12 +38,12 @@ const crud = async _ => {
 		.delete({ noRecycle: true, silent: true })
 		.catch(identity)
 	const newFile = await assertObjectProps('new file')(workingWeb.file({ Url: url }).create())
-	assert(`Name is not a "single.txt"`)(newFile.Name === 'single.txt')
+	assert('Name is not a "single.txt"')(newFile.Name === 'single.txt')
 	await workingWeb.file({ Url: url, Content: 'updated' }).update()
 	await workingWeb.file({ Url: url }).delete({ noRecycle: true })
 }
 
-const crudCollection = async _ => {
+const crudCollection = async () => {
 	const folder = 'b'
 	const filename = 'multi.txt'
 	const filenameAnother = 'multiAnother.txt'
@@ -57,7 +59,7 @@ const crudCollection = async _ => {
 	await workingWeb.file([url, urlAnother]).delete({ noRecycle: true })
 }
 
-const crudBundle = async _ => {
+const crudBundle = async () => {
 	const foldersToCreate = []
 	const folder = 'b'
 	for (let i = 0; i < 253; i++) foldersToCreate.push(`${folder}/single${i}.txt`)
@@ -70,14 +72,13 @@ const crudBundle = async _ => {
 	await workingWeb.folder(foldersToCreate).delete({ noRecycle: true })
 }
 
-export default _ =>
-	Promise.all([
-		assertObjectProps('root web file')(rootWeb.file('index.html').get()),
-		assertCollectionProps('root web file')(rootWeb.file('/').get()),
-		assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
-		assertCollectionProps('web root file')(workingWeb.file('/').get()),
-		assertCollectionProps('web index.aspx, default.aspx file')(workingWeb.file(['index.aspx', 'default.aspx']).get()),
-		crud(),
-		crudCollection()
-		// crudBundle()
-	]).then(testIsOk('fileWeb'))
+export default () => Promise.all([
+	assertObjectProps('root web file')(rootWeb.file('index.html').get()),
+	assertCollectionProps('root web file')(rootWeb.file('/').get()),
+	assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
+	assertCollectionProps('web root file')(workingWeb.file('/').get()),
+	assertCollectionProps('web index.aspx, default.aspx file')(workingWeb.file(['index.aspx', 'default.aspx']).get()),
+	crud(),
+	crudCollection()
+	// crudBundle()
+]).then(testIsOk('fileWeb'))

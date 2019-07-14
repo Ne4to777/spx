@@ -1,5 +1,7 @@
-import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, identity } from './../lib/utility'
+import site from '../modules/site'
+import {
+	assertObject, assertCollection, testIsOk, assert, identity
+} from '../lib/utility'
 
 const PROPS = [
 	'AllowContentTypes',
@@ -49,7 +51,7 @@ const assertCollectionProps = assertCollection(PROPS)
 const rootWeb = site()
 const workingWeb = site('test/spx')
 
-const crud = async _ => {
+const crud = async () => {
 	await workingWeb
 		.list('Single')
 		.delete({ noRecycle: true, silent: true })
@@ -57,15 +59,15 @@ const crud = async _ => {
 	const newList = await assertObjectProps('new list')(
 		workingWeb.list({ Url: 'Single', Description: 'new list' }).create()
 	)
-	assert(`Description is not a "new list"`)(newList.Description === 'new list')
+	assert('Description is not a "new list"')(newList.Description === 'new list')
 	const updatedList = await assertObjectProps('updated list')(
 		workingWeb.list({ Url: 'Single', Description: 'updated list' }).update()
 	)
-	assert(`Description is not a "updated list"`)(updatedList.Description === 'updated list')
+	assert('Description is not a "updated list"')(updatedList.Description === 'updated list')
 	await workingWeb.list('Single').delete({ noRecycle: true })
 }
 
-const crudCollection = async _ => {
+const crudCollection = async () => {
 	await workingWeb
 		.list(['Multi', 'MultiAnother'])
 		.delete({ noRecycle: true, silent: true })
@@ -84,8 +86,8 @@ const crudCollection = async _ => {
 			])
 			.create()
 	)
-	assert(`Description is not a "new Multi list"`)(newLists[0].Description === 'new Multi list')
-	assert(`Description is not a "new MultiAnother list"`)(newLists[1].Description === 'new MultiAnother list')
+	assert('Description is not a "new Multi list"')(newLists[0].Description === 'new Multi list')
+	assert('Description is not a "new MultiAnother list"')(newLists[1].Description === 'new MultiAnother list')
 	const updatedLists = await assertCollectionProps('updated list')(
 		workingWeb
 			.list([
@@ -100,8 +102,8 @@ const crudCollection = async _ => {
 			])
 			.update()
 	)
-	assert(`Description is not a "updated Multi list"`)(updatedLists[0].Description === 'updated Multi list')
-	assert(`Description is not a "updated MultiAnother list"`)(
+	assert('Description is not a "updated Multi list"')(updatedLists[0].Description === 'updated Multi list')
+	assert('Description is not a "updated MultiAnother list"')(
 		updatedLists[1].Description === 'updated MultiAnother list'
 	)
 	await workingWeb
@@ -116,21 +118,20 @@ const crudCollection = async _ => {
 		.delete({ noRecycle: true })
 }
 
-const doesUserHavePermissions = async _ => {
+const doesUserHavePermissions = async () => {
 	const has = await site('test/spx')
 		.list('Test')
 		.doesUserHavePermissions()
-	assert(`user has wrong permissions for list`)(has)
+	assert('user has wrong permissions for list')(has)
 }
 
-export default _ =>
-	Promise.all([
-		assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
-		assertCollectionProps('root web list')(rootWeb.list('/').get()),
-		assertObjectProps('web list')(workingWeb.list('Test').get()),
-		assertCollectionProps('web root list')(workingWeb.list('/').get()),
-		assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
-		crud(),
-		crudCollection(),
-		doesUserHavePermissions()
-	]).then(testIsOk('list'))
+export default () => Promise.all([
+	assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
+	assertCollectionProps('root web list')(rootWeb.list('/').get()),
+	assertObjectProps('web list')(workingWeb.list('Test').get()),
+	assertCollectionProps('web root list')(workingWeb.list('/').get()),
+	assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
+	crud(),
+	crudCollection(),
+	doesUserHavePermissions()
+]).then(testIsOk('list'))

@@ -1,5 +1,7 @@
-import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, identity } from './../lib/utility'
+import site from '../modules/site'
+import {
+	assertObject, assertCollection, testIsOk, assert, identity
+} from '../lib/utility'
 
 const PROPS = [
 	'CreatedDate',
@@ -27,7 +29,7 @@ const PROPS = [
 const assertObjectProps = assertObject(PROPS)
 const assertCollectionProps = assertCollection(PROPS)
 
-const crud = async _ => {
+const crud = async () => {
 	const tagName = 'Sharepoint rocks'
 	const newTagName = 'Sharepoint rocks!!!'
 	await site
@@ -41,7 +43,7 @@ const crud = async _ => {
 	await site.tag(newTagName).delete()
 }
 
-const crudCollection = async _ => {
+const crudCollection = async () => {
 	const tagName = 'Sharepoint rocks multi'
 	const tagNameAnother = 'Sharepoint rocks another multi'
 	const newTagName = 'Sharepoint rocks!!! multi'
@@ -59,18 +61,17 @@ const crudCollection = async _ => {
 		site
 			.tag([{ Url: tagName, Name: newTagName }, { Url: tagNameAnother, Name: newTagNameAnother }])
 			.update()
-			.catch(_ => site.tag([newTagName, newTagNameAnother]).delete())
+			.catch(() => site.tag([newTagName, newTagNameAnother]).delete())
 	)
 	assert(`Name is not a "${newTagName}"`)(updatedTags[0].Name === newTagName)
 	assert(`Name is not a "${newTagNameAnother}"`)(updatedTags[1].Name === newTagNameAnother)
 	await site.tag([newTagName, newTagNameAnother]).delete()
 }
 
-export default async _ =>
-	Promise.all([
-		assertObjectProps('tag "test"')(site.tag('test').get()),
-		assert(`tags are present`)((await site.tag(['test', 'b']).get()).length === 1),
-		assert(`tags are missed`)((await site.tag(['test', 'a']).get()).length === 2),
-		crud(),
-		crudCollection()
-	]).then(testIsOk('tag'))
+export default async () => Promise.all([
+	assertObjectProps('tag "test"')(site.tag('test').get()),
+	assert('tags are present')((await site.tag(['test', 'b']).get()).length === 1),
+	assert('tags are missed')((await site.tag(['test', 'a']).get()).length === 2),
+	crud(),
+	crudCollection()
+]).then(testIsOk('tag'))

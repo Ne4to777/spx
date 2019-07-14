@@ -1,0 +1,6 @@
+{
+  "globals": {
+    "SP": "readonly",
+    "Microsoft": "readonly"
+  }
+}

@@ -1,23 +1,20 @@
-import test from './test/index.js'
 import axios from 'axios'
 import $ from 'jquery'
+import test from './test/index.js'
 
 import spx from './modules/site'
-import { getCamlQuery, getCamlView, camlLog, craftQuery, concatQueries } from './lib/query-parser'
+import {
+	getCamlQuery, getCamlView, camlLog, craftQuery, concatQueries
+} from './lib/query-parser'
 import {
 	log,
 	executeJSOM,
 	prepareResponseJSOM,
 	getClientContext,
 	executorJSOM,
-	pipe,
-	map,
-	prop,
-	ifThen,
-	constant
 } from './lib/utility'
 import * as cache from './lib/cache'
-import privateData from './../dev/private.json'
+import privateData from '../dev/private.json'
 
 spx.setCustomUsersList({
 	webTitle: privateData.customUsersWeb,
@@ -51,13 +48,13 @@ $('#send').click(e => {
 		.then(log)
 })
 
-const getWebPermission = _ => {
+const getWebPermission = () => {
 	const clientContext = new SP.ClientContext('/common')
 	const web = clientContext.get_web()
 	const ob = new SP.BasePermissions()
 	ob.set(SP.PermissionKind.fullMask)
 	const per = web.doesUserHavePermissions(ob)
-	clientContext.executeQueryAsync(_ => console.log(per.get_value()))
+	clientContext.executeQueryAsync(() => console.log(per.get_value()))
 }
 
 // getWebPermission()
@@ -102,19 +99,19 @@ const perms = {
 	fullMask: 65
 }
 
-const getListPermission = _ => {
+const getListPermission = () => {
 	const clientContext = new SP.ClientContext('/common')
 	const web = clientContext.get_web()
 	const oList = web.get_lists().getByTitle('Administrators')
 	clientContext.load(oList, 'EffectiveBasePermissions')
-	clientContext.executeQueryAsync(_ => {
+	clientContext.executeQueryAsync(() => {
 		console.log(oList.get_effectiveBasePermissions().has(SP.PermissionKind.manageWeb))
 	}, log)
 }
 
 // getListPermission();
 
-const removeUserFromGroup = async _ => {
+const removeUserFromGroup = async () => {
 	const ctx = getClientContext('/')
 	const web = ctx.get_web()
 
@@ -126,7 +123,7 @@ const removeUserFromGroup = async _ => {
 
 // removeUserFromGroup()
 
-const retrieveAllUsersInGroup = async _ => {
+const retrieveAllUsersInGroup = async () => {
 	const clientContext = getClientContext('/')
 	console.log(clientContext.get_web())
 	const collGroup = clientContext.get_web().get_siteGroups()
@@ -140,22 +137,22 @@ const retrieveAllUsersInGroup = async _ => {
 	const userEnumerator = collUser.getEnumerator()
 	while (userEnumerator.moveNext()) {
 		const oUser = userEnumerator.get_current()
-		userInfo +=
-			'\nUser: ' +
-			oUser.get_title() +
-			'\nID: ' +
-			oUser.get_id() +
-			'\nEmail: ' +
-			oUser.get_email() +
-			'\nLogin Name: ' +
-			oUser.get_loginName()
+		userInfo
+			+= `\nUser: ${
+				oUser.get_title()
+			}\nID: ${
+				oUser.get_id()
+			}\nEmail: ${
+				oUser.get_email()
+			}\nLogin Name: ${
+				oUser.get_loginName()}`
 	}
 	console.log(userInfo)
 }
 
 // retrieveAllUsersInGroup()
 
-const getAllGroups = async _ => {
+const getAllGroups = async () => {
 	const clientContext = getClientContext('/')
 	const siteGroups = clientContext.get_web().get_siteGroups()
 	const groups = await executeJSOM(clientContext)(siteGroups)()
@@ -212,7 +209,7 @@ const removeGroupsByIds = async ids => {
 	console.log('done')
 }
 
-const removeGroups = async _ => {
+const removeGroups = async () => {
 	const groupsToExclude = {
 		Administrators: true,
 		Developers: true,

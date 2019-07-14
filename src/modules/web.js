@@ -1,3 +1,4 @@
+import { MD5 } from 'crypto-js'
 import {
 	AbstractBox,
 	getClientContext,
@@ -26,15 +27,14 @@ import {
 	getTitleFromUrl,
 	contextReport,
 	isStrictUrl
-} from './../lib/utility'
+} from '../lib/utility'
 
-import { MD5 } from 'crypto-js'
 
 // import search from './../modules/search'
-import list from './../modules/list'
-import folder from './../modules/folderWeb'
-import file from './../modules/fileWeb'
-import recycleBin from './../modules/recycleBin'
+import list from './list'
+import folder from './folderWeb'
+import file from './fileWeb'
+import recycleBin from './recycleBin'
 
 // Internal
 
@@ -55,7 +55,7 @@ const liftWebType = switchCase(typeOf)({
 		Url: contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl)),
 		Title: getTitleFromUrl(contextUrl)
 	}),
-	default: _ => ({
+	default: () => ({
 		Url: '',
 		Title: ''
 	})
@@ -66,9 +66,9 @@ class Box extends AbstractBox {
 		super(value)
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-					pipe([map(liftWebType), removeEmptyUrls, removeDuplicatedUrls]),
-					constant([liftWebType()])
-			  ])(value)
+				pipe([map(liftWebType), removeEmptyUrls, removeDuplicatedUrls]),
+				constant([liftWebType()])
+			])(value)
 			: liftWebType(value)
 	}
 }
@@ -82,7 +82,9 @@ const web = urls => {
 		getSPObjectCollection,
 		id: MD5(new Date().getTime()).toString()
 	}
-	const report = actionType => (opts = {}) => contextReport({ ...opts, NAME, actionType, box: instance.box })
+	const report = actionType => (opts = {}) => contextReport({
+		...opts, NAME, actionType, box: instance.box
+	})
 	return {
 		recycleBin: recycleBin(instance),
 		// search: search(instance),
@@ -95,7 +97,9 @@ const web = urls => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = element.Url
 				const clientContext = getClientContext(elementUrl)
-				const spObject = hasUrlTailSlash(elementUrl) ? getSPObjectCollection(clientContext) : getSPObject(clientContext)
+				const spObject = hasUrlTailSlash(elementUrl)
+					? getSPObjectCollection(clientContext)
+					: getSPObject(clientContext)
 				return executeJSOM(clientContext)(spObject)(opts)
 			})
 			return prepareResponseJSOM(opts)(result)
@@ -104,16 +108,16 @@ const web = urls => {
 		create: async opts => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = getParentUrl(element.Url)
-				if (!isStrictUrl(elementUrl)) return
+				if (!isStrictUrl(elementUrl)) return undefined
 				const clientContext = getClientContext(elementUrl)
 
 				const spObject = pipe([
 					getInstanceEmpty,
 					setFields({
-						set_title: element.Title || void 0,
+						set_title: element.Title || undefined,
 						set_description: element.Description,
 						set_language: 1033,
-						set_url: element.Title || void 0,
+						set_url: element.Title || undefined,
 						set_useSamePermissionsAsParentSite: true,
 						set_webTemplate: element.WebTemplate
 					}),
@@ -150,11 +154,11 @@ const web = urls => {
 		update: async opts => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = element.Url
-				if (!isStrictUrl(elementUrl)) return
+				if (!isStrictUrl(elementUrl)) return undefined
 				const clientContext = getClientContext(elementUrl)
 				const spObject = pipe([
 					setFields({
-						set_title: element.Title || void 0,
+						set_title: element.Title || undefined,
 						set_description: element.Description,
 						set_alternateCssUrl: element.AlternateCssUrl,
 						set_associatedMemberGroup: element.AssociatedMemberGroup,
@@ -175,7 +179,7 @@ const web = urls => {
 					}),
 					overstep(methodEmpty('update'))
 				])(getSPObject(clientContext))
-				return await executeJSOM(clientContext)(spObject)(opts)
+				return executeJSOM(clientContext)(spObject)(opts)
 			})
 			report('update')(opts)
 			return prepareResponseJSOM(opts)(result)
@@ -184,13 +188,13 @@ const web = urls => {
 		delete: async opts => {
 			const result = await instance.box.chain(async element => {
 				const elementUrl = element.Url
-				if (!isStrictUrl(elementUrl)) return
+				if (!isStrictUrl(elementUrl)) return undefined
 				const clientContext = getClientContext(elementUrl)
 				const spObject = getSPObject(clientContext)
 				try {
 					spObject.deleteObject()
 				} catch (err) {
-					new Error('Context url is wrong')
+					return new Error('Context url is wrong')
 				}
 				await executorJSOM(clientContext)(opts)
 				return elementUrl
@@ -223,6 +227,8 @@ web.setCustomUsersList = (data = {}) => {
 
 web.defaultUsersList = web().list('User Information List')
 
-web.setDefaultUsersList = title => (web.defaultUsersList = web().list(title))
+web.setDefaultUsersList = title => {
+	web.defaultUsersList = web().list(title)
+}
 
 export default web

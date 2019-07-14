@@ -1,13 +1,13 @@
-import { set, unset, inspect } from './../lib/cache'
-import { assert, testIsOk } from './../lib/utility'
+import { set, unset, inspect } from '../lib/cache'
+import { assert, testIsOk } from '../lib/utility'
 
 const testUnit = path => operation => sample => {
-	operation && operation(path)
+	if (operation) operation(path)
 	const cacheStr = JSON.stringify(inspect())
 	assert(`cache\nhave:${cacheStr}\nshould:${sample}`)(cacheStr === sample)
 }
 
-export default _ => {
+export default () => {
 	const testWithPath = testUnit(['a', 'b'])
 	testWithPath()('{}')
 	testWithPath(set(1))('{"a":{"b":1}}')

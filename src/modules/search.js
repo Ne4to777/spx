@@ -1,43 +1,45 @@
-import { getClientContext, getInstance, Box, load, executorJSOM, setFields } from './../lib/utility'
+import {
+	getClientContext, getInstance, AbstractBox, load, executorJSOM, setFields
+} from '../lib/utility'
 
-// const QUERY_TEMPLATES = [
-//   '{searchboxquery}',
-//   '-IsDocument:true',
-//   '-Site:http://mysites.aura.dme.aero.corp',
-//   '-Site:http://wiki.aura.dme.aero.corp',
-//   '-contentclass:STS_Site',
-//   '-contentclass:STS_Web',
-//   '-contentclass:STS_Document',
-//   '-contentclass:STS_ListItem_DocumentLibrary',
-//   '-contentclass:STS_ListItem_PublishingPages',
-//   '-contentclass:STS_ListItem_DiscussionBoard',
-//   '-contentclass:STS_ListItem_PictureLibrary',
-//   '-contentclass:STS_ListItem_Events',
-//   // '-contentclass:STS_ListItem_GenericList',
-//   '-contentclass:STS_List_*',
-//   // '-contentclass:STS_ListItem_*',
-//   '-contentclass:urn:content-class:SPSPeople*',
-//   '-Site:http://aura.dme.aero.corp/wikilibrary',
-//   '-Site:http://aura.dme.aero.corp/app',
-//   '-Site:http://aura.dme.aero.corp/Tikhonchuk*',
-//   '-Site:http://aura.dme.aero.corp/SitePages*',
-//   '-Site:http://aura.dme.aero.corp/Pages',
-//   '-Site:http://aura.dme.aero.corp/PublishingImages*',
-//   '-Site:http://aura.dme.aero.corp/Survey',
-//   '-Site:http://aura.dme.aero.corp/News',
-//   '-Site:http://aura.dme.aero.corp/social',
-//   '-Site:http://aura.dme.aero.corp/Intellect',
-//   '-Site:http://aura.dme.aero.corp/board',
-//   '-Site:http://aura.dme.aero.corp/buro',
-//   '-Site:http://aura.dme.aero.corp/marketingpresentations',
-//   '-Site:http://aura.dme.aero.corp/crowd',
-//   '-Site:http://aura.dme.aero.corp/System',
-//   '-Site:http://aura.dme.aero.corp/Forum',
-//   '-Site:http://aura.dme.aero.corp/Lenta',
-//   '-Site:http://aura.dme.aero.corp/lib',
-// ];
+const QUERY_TEMPLATES = [
+	'{searchboxquery}',
+	'-IsDocument:true',
+	'-Site:http://mysites.aura.dme.aero.corp',
+	'-Site:http://wiki.aura.dme.aero.corp',
+	'-contentclass:STS_Site',
+	'-contentclass:STS_Web',
+	'-contentclass:STS_Document',
+	'-contentclass:STS_ListItem_DocumentLibrary',
+	'-contentclass:STS_ListItem_PublishingPages',
+	'-contentclass:STS_ListItem_DiscussionBoard',
+	'-contentclass:STS_ListItem_PictureLibrary',
+	'-contentclass:STS_ListItem_Events',
+	// '-contentclass:STS_ListItem_GenericList',
+	'-contentclass:STS_List_*',
+	// '-contentclass:STS_ListItem_*',
+	'-contentclass:urn:content-class:SPSPeople*',
+	'-Site:http://aura.dme.aero.corp/wikilibrary',
+	'-Site:http://aura.dme.aero.corp/app',
+	'-Site:http://aura.dme.aero.corp/Tikhonchuk*',
+	'-Site:http://aura.dme.aero.corp/SitePages*',
+	'-Site:http://aura.dme.aero.corp/Pages',
+	'-Site:http://aura.dme.aero.corp/PublishingImages*',
+	'-Site:http://aura.dme.aero.corp/Survey',
+	'-Site:http://aura.dme.aero.corp/News',
+	'-Site:http://aura.dme.aero.corp/social',
+	'-Site:http://aura.dme.aero.corp/Intellect',
+	'-Site:http://aura.dme.aero.corp/board',
+	'-Site:http://aura.dme.aero.corp/buro',
+	'-Site:http://aura.dme.aero.corp/marketingpresentations',
+	'-Site:http://aura.dme.aero.corp/crowd',
+	'-Site:http://aura.dme.aero.corp/System',
+	'-Site:http://aura.dme.aero.corp/Forum',
+	'-Site:http://aura.dme.aero.corp/Lenta',
+	'-Site:http://aura.dme.aero.corp/lib',
+]
 export default (parent, elements) => (opts = {}) => {
-	const box = getInstance(Box)(elements)
+	const box = getInstance(AbstractBox)(elements)
 	return parent.box.chainAsync(async context => {
 		const clientContext = getClientContext(context.Url)
 		const keywordQuery = new Microsoft.SharePoint.Client.Search.Query.KeywordQuery(clientContext)
@@ -98,5 +100,6 @@ export default (parent, elements) => (opts = {}) => {
 		if (resultTables.length) {
 			return resultTables[0].ResultRows
 		}
+		return undefined
 	})
 }

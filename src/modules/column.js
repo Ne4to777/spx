@@ -28,20 +28,19 @@ import {
 	listReport,
 	isStrictUrl,
 	isFilled
-} from './../lib/utility'
+} from '../lib/utility'
 
 // Internal
 
 const NAME = 'column'
 
-const getSPObject = elementUrl =>
-	pipe([
-		methodEmpty('get_fields'),
-		ifThen(constant(isGUID(elementUrl)))([
-			method('getById')(elementUrl),
-			method('getByInternalNameOrTitle')(elementUrl)
-		])
+const getSPObject = elementUrl => pipe([
+	methodEmpty('get_fields'),
+	ifThen(constant(isGUID(elementUrl)))([
+		method('getById')(elementUrl),
+		method('getByInternalNameOrTitle')(elementUrl)
 	])
+])
 
 const getSPObjectCollection = methodEmpty('get_fields')
 
@@ -59,7 +58,7 @@ const liftColumnType = switchCase(typeOf)({
 		Url: column === '/' ? '/' : shiftSlash(mergeSlashes(column)),
 		Type: 'Text'
 	}),
-	default: _ => ({
+	default: () => ({
 		Title: '',
 		Url: '',
 		Type: 'Text'
@@ -71,15 +70,16 @@ class Box extends AbstractBox {
 		super(value)
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-					pipe([map(liftColumnType), removeEmptyUrls, removeDuplicatedUrls]),
-					constant([liftColumnType()])
-			  ])(value)
+				pipe([map(liftColumnType), removeEmptyUrls, removeDuplicatedUrls]),
+				constant([liftColumnType()])
+			])(value)
 			: liftColumnType(value)
 	}
 }
 
-const addFieldAsXml = spParentObject => schema =>
-	spParentObject.addFieldAsXml(schema, true, SP.AddFieldOptions.defaultValue)
+const addFieldAsXml = spParentObject => schema => spParentObject.addFieldAsXml(
+	schema, true, SP.AddFieldOptions.defaultValue
+)
 
 // Inteface
 
@@ -93,15 +93,14 @@ export default parent => elements => {
 		parentBox: instance.parent.box,
 		elementBox: instance.box
 	})
-	const report = actionType => (opts = {}) =>
-		listReport({
-			...opts,
-			NAME,
-			box: instance.box,
-			listBox: instance.parent.box,
-			contextBox: instance.parent.parent.box,
-			actionType
-		})
+	const report = actionType => (opts = {}) => listReport({
+		...opts,
+		NAME,
+		box: instance.box,
+		listBox: instance.parent.box,
+		contextBox: instance.parent.parent.box,
+		actionType
+	})
 	return {
 		get: async opts => {
 			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
@@ -109,11 +108,13 @@ export default parent => elements => {
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 				const elementUrl = element.Url
 				const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl)
-				const spObject = isCollection ? getSPObjectCollection(listSPObject) : getSPObject(elementUrl)(listSPObject)
+				const spObject = isCollection
+					? getSPObjectCollection(listSPObject)
+					: getSPObject(elementUrl)(listSPObject)
 				return load(clientContext)(spObject)(opts)
 			})
-			await instance.parent.parent.box.chain(el =>
-				Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+			await instance.parent.parent.box.chain(
+				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 			)
 			return prepareResponseJSOM(opts)(result)
 		},
@@ -121,7 +122,7 @@ export default parent => elements => {
 		create: async opts => {
 			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
 				const url = element.Title || element.Url
-				if (!isStrictUrl(url)) return
+				if (!isStrictUrl(url)) return undefined
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 				const {
@@ -153,18 +154,20 @@ export default parent => elements => {
 							set_enforceUniqueValues: element.EnforceUniqueValues,
 							set_fieldTypeKind: element.FieldTypeKind,
 							set_group: element.Group,
-							set_hidden: element.Hidden || void 0,
+							set_hidden: element.Hidden || undefined,
 							set_indexed: element.Indexed,
 							set_jsLink: element.JsLink,
 							set_objectVersion: element.ObjectVersion,
 							set_readOnlyField: element.ReadOnlyField,
 							set_required: element.Required,
-							set_schemaXml: element.SchemaXml ? element.SchemaXml.replace(/\sID\="{[^}]+}"/, '') : void 0,
+							set_schemaXml: element.SchemaXml
+								? element.SchemaXml.replace(/\sID="{[^}]+}"/, '')
+								: undefined,
 							set_staticName: element.StaticName,
 							set_title: element.Title,
 							set_typeAsString: element.TypeAsString,
-							set_validationFormula: element.ValidationFormula || void 0,
-							set_validationMessage: element.ValidationMessage || void 0
+							set_validationFormula: element.ValidationFormula || undefined,
+							set_validationMessage: element.ValidationMessage || undefined
 						})
 					),
 					switchCase(constant(Type))({
@@ -215,8 +218,8 @@ export default parent => elements => {
 				return load(clientContext)(spObject)(opts)
 			})
 			if (instance.box.getCount()) {
-				await instance.parent.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report('create')(opts)
@@ -225,10 +228,10 @@ export default parent => elements => {
 
 		update: async opts => {
 			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
-				if (!isStrictUrl(element.Url)) return
+				if (!isStrictUrl(element.Url)) return undefined
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-
+				const { MaxLength, Title } = element
 				const spObject = pipe([
 					setFields({
 						set_defaultValue: element.DefaultValue,
@@ -254,7 +257,7 @@ export default parent => elements => {
 						pipe([
 							ifThen(constant(element.MaxLength))([
 								method('set_schemaXml')(
-									`<Field Type="Text" DisplayName="${element.Title}" MaxLength="${element.MaxLength}" />`
+									`<Field Type="Text" DisplayName="${Title}" MaxLength="${MaxLength}"/>`
 								)
 							]),
 							methodEmpty('update')
@@ -264,8 +267,8 @@ export default parent => elements => {
 				return load(clientContext)(spObject)(opts)
 			})
 			if (instance.box.getCount()) {
-				await instance.parent.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report('update')(opts)
@@ -275,7 +278,7 @@ export default parent => elements => {
 		delete: async opts => {
 			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
 				const elementUrl = element.Url
-				if (!isStrictUrl(elementUrl)) return
+				if (!isStrictUrl(elementUrl)) return undefined
 				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 				const spObject = getSPObject(elementUrl)(listSPObject)
@@ -283,8 +286,8 @@ export default parent => elements => {
 				return elementUrl
 			})
 			if (instance.box.getCount()) {
-				await instance.parent.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report('delete')(opts)

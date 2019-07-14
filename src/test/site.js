@@ -1,5 +1,5 @@
-import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk } from './../lib/utility'
+import site from '../modules/site'
+import { assertObject, assertCollection, testIsOk } from '../lib/utility'
 
 const PROPS = [
 	'AllowCreateDeclarativeWorkflow',
@@ -55,9 +55,8 @@ const LIST_TEMPLATE_PROPS = [
 	'Unique'
 ]
 
-export default _ =>
-	Promise.all([
-		assertObject(PROPS)('site')(site.get()),
-		assertCollection(WEB_TEMPLATE_PROPS)('web template')(site.getWebTemplates()),
-		assertCollection(LIST_TEMPLATE_PROPS)('custom lists template')(site.getCustomListTemplates())
-	]).then(testIsOk('site'))
+export default () => Promise.all([
+	assertObject(PROPS)('site')(site.get()),
+	assertCollection(WEB_TEMPLATE_PROPS)('web template')(site.getWebTemplates()),
+	assertCollection(LIST_TEMPLATE_PROPS)('custom lists template')(site.getCustomListTemplates())
+]).then(testIsOk('site'))

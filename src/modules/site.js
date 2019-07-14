@@ -1,13 +1,13 @@
-import { getClientContext, prepareResponseJSOM, executeJSOM, methodEmpty, getInstance } from './../lib/utility'
-import site from './../modules/web'
-import recycleBin from './../modules/recycleBin'
-import user from './../modules/user'
-import tag from './../modules/tag'
-import email from '../modules/email'
+import {
+	getClientContext, prepareResponseJSOM, executeJSOM, methodEmpty, getInstance
+} from '../lib/utility'
+import site from './web'
+import recycleBin from './recycleBin'
+import user from './user'
+import tag from './tag'
+import email from './email'
 
 // Internal
-
-const NAME = 'site'
 
 const getSPObject = methodEmpty('get_site')
 
@@ -15,9 +15,11 @@ class Box {
 	constructor(value) {
 		this.value = { Url: value }
 	}
+
 	async chain(f) {
 		return f(this.value)
 	}
+
 	join() {
 		return this.value.Url
 	}
@@ -55,16 +57,13 @@ site.getWebTemplates = async opts => {
 }
 
 site.time = {
-	getCurrent: _ =>
-		new Promise((resolve, reject) =>
-			new SP.RequestExecutor('/').executeAsync({
-				url: `/_api/web/RegionalSettings/TimeZone`,
-				success: function(res) {
-					resolve(new Date(res.headers.DATE))
-				},
-				error: reject
-			})
-		),
+	getCurrent: () => new Promise((resolve, reject) => new SP.RequestExecutor('/').executeAsync({
+		url: '/_api/web/RegionalSettings/TimeZone',
+		success(res) {
+			resolve(new Date(res.headers.DATE))
+		},
+		error: reject
+	})),
 	getZone: async opts => {
 		const clientContext = getClientContext('/')
 		const result = await executeJSOM(clientContext)(

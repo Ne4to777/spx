@@ -1,5 +1,7 @@
-import site from './../modules/site'
-import { assertObject, assertCollection, testIsOk, assert, identity } from './../lib/utility'
+import site from '../modules/site'
+import {
+	assertObject, assertCollection, testIsOk, assert, identity
+} from '../lib/utility'
 
 const PROPS = [
 	'CanBeDeleted',
@@ -38,7 +40,7 @@ const assertCollectionProps = assertCollection(PROPS)
 const rootWeb = site()
 const workingWeb = site('test/spx')
 
-const crud = async _ => {
+const crud = async () => {
 	await workingWeb
 		.list('Test')
 		.column('single')
@@ -50,21 +52,21 @@ const crud = async _ => {
 			.column({ Title: 'single', Description: 'new column' })
 			.create()
 	)
-	assert(`Description is not a "new column"`)(newColumn.Description === 'new column')
+	assert('Description is not a "new column"')(newColumn.Description === 'new column')
 	const updatedColumn = await assertObjectProps('updated column')(
 		workingWeb
 			.list('Test')
 			.column({ Title: 'single', Description: 'updated column' })
 			.update()
 	)
-	assert(`Description is not a "updated column"`)(updatedColumn.Description === 'updated column')
+	assert('Description is not a "updated column"')(updatedColumn.Description === 'updated column')
 	await workingWeb
 		.list('Test')
 		.column('single')
 		.delete()
 }
 
-const crudCollection = async _ => {
+const crudCollection = async () => {
 	await workingWeb
 		.list('Test')
 		.column(['multi', 'multiAnother'])
@@ -85,8 +87,8 @@ const crudCollection = async _ => {
 			])
 			.create()
 	)
-	assert(`Description is not a "new multi column"`)(newColumns[0].Description === 'new multi column')
-	assert(`Description is not a "new multiAnother column"`)(newColumns[1].Description === 'new multiAnother column')
+	assert('Description is not a "new multi column"')(newColumns[0].Description === 'new multi column')
+	assert('Description is not a "new multiAnother column"')(newColumns[1].Description === 'new multiAnother column')
 	const updatedColumns = await assertCollectionProps('updated column')(
 		workingWeb
 			.list('Test')
@@ -102,8 +104,8 @@ const crudCollection = async _ => {
 			])
 			.update()
 	)
-	assert(`Description is not a "updated multi column"`)(updatedColumns[0].Description === 'updated multi column')
-	assert(`Description is not a "updated multiAnother column"`)(
+	assert('Description is not a "updated multi column"')(updatedColumns[0].Description === 'updated multi column')
+	assert('Description is not a "updated multiAnother column"')(
 		updatedColumns[1].Description === 'updated multiAnother column'
 	)
 	await workingWeb
@@ -119,37 +121,36 @@ const crudCollection = async _ => {
 		.delete()
 }
 
-export default _ =>
-	Promise.all([
-		assertObjectProps('root web list column')(
-			rootWeb
-				.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
-				.column('Title')
-				.get()
-		),
-		assertCollectionProps('root web list column')(
-			rootWeb
-				.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
-				.column()
-				.get()
-		),
-		assertObjectProps('web list column')(
-			workingWeb
-				.list('Test')
-				.column('Title')
-				.get()
-		),
-		assertCollectionProps('web root list column')(
-			workingWeb
-				.list('Test')
-				.column()
-				.get()
-		),
-		assertCollectionProps('web Test, TestAnother list column')(
-			workingWeb
-				.list(['Test', 'TestAnother'])
-				.column(['Title', 'Author'])
-				.get()
-		),
-		crud().then(crudCollection)
-	]).then(testIsOk('column'))
+export default () => Promise.all([
+	assertObjectProps('root web list column')(
+		rootWeb
+			.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
+			.column('Title')
+			.get()
+	),
+	assertCollectionProps('root web list column')(
+		rootWeb
+			.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
+			.column()
+			.get()
+	),
+	assertObjectProps('web list column')(
+		workingWeb
+			.list('Test')
+			.column('Title')
+			.get()
+	),
+	assertCollectionProps('web root list column')(
+		workingWeb
+			.list('Test')
+			.column()
+			.get()
+	),
+	assertCollectionProps('web Test, TestAnother list column')(
+		workingWeb
+			.list(['Test', 'TestAnother'])
+			.column(['Title', 'Author'])
+			.get()
+	),
+	crud().then(crudCollection)
+]).then(testIsOk('column'))

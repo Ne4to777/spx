@@ -33,24 +33,23 @@ import {
 	listReport,
 	getTitleFromUrl,
 	isStrictUrl
-} from './../lib/utility'
-import * as cache from './../lib/cache'
+} from '../lib/utility'
+import * as cache from '../lib/cache'
 
-import web from './../modules/web'
+import web from './web'
 
 // Internal
 
 const NAME = 'folder'
 
-const getSPObject = elementUrl =>
-	ifThen(constant(elementUrl))([
-		spObject => getSPFolderByUrl(elementUrl)(spObject.get_rootFolder()),
-		spObject => {
-			const rootFolder = methodEmpty('get_rootFolder')(spObject)
-			rootFolder.isRoot = true
-			return rootFolder
-		}
-	])
+const getSPObject = elementUrl => ifThen(constant(elementUrl))([
+	spObject => getSPFolderByUrl(elementUrl)(spObject.get_rootFolder()),
+	spObject => {
+		const rootFolder = methodEmpty('get_rootFolder')(spObject)
+		rootFolder.isRoot = true
+		return rootFolder
+	}
+])
 
 const getSPObjectCollection = elementUrl => pipe([getSPObject(popSlash(elementUrl)), methodEmpty('get_folders')])
 
@@ -68,7 +67,7 @@ const liftFolderType = switchCase(typeOf)({
 			ServerRelativeUrl: url
 		}
 	},
-	default: _ => ({
+	default: () => ({
 		Url: '',
 		ServerRelativeUrl: ''
 	})
@@ -80,15 +79,15 @@ class Box extends AbstractBox {
 		this.joinProp = 'ServerRelativeUrl'
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-					pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-					constant([liftFolderType()])
-			  ])(value)
+				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
+				constant([liftFolderType()])
+			])(value)
 			: liftFolderType(value)
 	}
 }
 
-export const cacheColumns = contextBox => elementBox =>
-	deep2Iterator({ contextBox, elementBox })(async ({ contextElement, element }) => {
+export const cacheColumns = contextBox => elementBox => deep2Iterator({ contextBox, elementBox })(
+	async ({ contextElement, element }) => {
 		const contextUrl = contextElement.Url
 		const listUrl = element.Url
 		if (!cache.get(['columns', contextUrl, listUrl])) {
@@ -101,7 +100,8 @@ export const cacheColumns = contextBox => elementBox =>
 				})
 			cache.set(columns)(['columns', contextUrl, listUrl])
 		}
-	})
+	}
+)
 
 // Inteface
 
@@ -110,29 +110,28 @@ export default parent => elements => {
 		box: getInstance(Box)(elements),
 		parent
 	}
-	const iterator = bundleSize =>
-		deep3Iterator({
-			contextBox: instance.parent.parent.box,
-			parentBox: instance.parent.box,
-			elementBox: instance.box,
-			bundleSize
-		})
-	const report = actionType => (opts = {}) =>
-		listReport({
-			...opts,
-			NAME,
-			actionType,
-			box: instance.box,
-			listBox: instance.parent.box,
-			contextBox: instance.parent.parent.box
-		})
+	const iterator = bundleSize => deep3Iterator({
+		contextBox: instance.parent.parent.box,
+		parentBox: instance.parent.box,
+		elementBox: instance.box,
+		bundleSize
+	})
+	const report = actionType => (opts = {}) => listReport({
+		...opts,
+		NAME,
+		actionType,
+		box: instance.box,
+		listBox: instance.parent.box,
+		contextBox: instance.parent.parent.box
+	})
 
 	return {
 		get: async (opts = {}) => {
-			const { asItem } = opts
-			if (asItem) opts.view = ['ListItemAllFields']
+			const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 			const { clientContexts, result } = await iterator()(
-				({ contextElement, clientContext, parentElement, element }) => {
+				({
+					contextElement, clientContext, parentElement, element
+				}) => {
 					const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 					const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 					const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element)
@@ -140,45 +139,48 @@ export default parent => elements => {
 					const spObject = isCollection
 						? getSPObjectCollection(elementUrl)(listSPObject)
 						: getSPObject(elementUrl)(listSPObject)
-					return load(clientContext)(spObject)(opts)
+					return load(clientContext)(spObject)(options)
 				}
 			)
-			await instance.parent.parent.box.chain(el =>
-				Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+			await instance.parent.parent.box.chain(
+				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(options)))
 			)
-			return prepareResponseJSOM(opts)(result)
+			return prepareResponseJSOM(options)(result)
 		},
 
 		create: async function create(opts = {}) {
-			const { asItem } = opts
-			if (asItem) opts.view = ['ListItemAllFields']
+			const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 			await cacheColumns(instance.parent.parent.box)(instance.parent.box)
 			const cacheUrl = ['folderCreationRetries', instance.parent.parent.id]
-			!isNumberFilled(cache.get(cacheUrl)) && cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+			if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
 			const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(
-				({ contextElement, clientContext, parentElement, element }) => {
+				({
+					contextElement, clientContext, parentElement, element
+				}) => {
 					const listUrl = parentElement.Url
 					const contextUrl = contextElement.Url
 					const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-					if (!isStrictUrl(elementUrl)) return
+					if (!isStrictUrl(elementUrl)) return undefined
 					const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 					const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 					const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
 					itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder)
 					itemCreationInfo.set_leafName(elementUrl)
-					element.Title = getTitleFromUrl(elementUrl)
-					const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, element))(
-						listSPObject.addItem(itemCreationInfo)
-					)
-					return load(clientContext)(spObject.get_folder())(opts)
+					const newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
+					const spObject = setItem(
+						cache.get(['columns', contextUrl, listUrl])
+					)(Object.assign({}, newElement))(listSPObject.addItem(itemCreationInfo))
+					return load(clientContext)(spObject.get_folder())(options)
 				}
 			)
 			let needToRetry
 			let isError
 			if (instance.box.getCount()) {
 				await instance.parent.parent.box.chain(async el => {
-					for (const clientContext of clientContexts[el.Url]) {
-						await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+					const clientContextByUrl = clientContexts[el.Url]
+					for (let i = 0; i < clientContextByUrl.length; i += 1) {
+						const clientContext = clientContextByUrl[i]
+						await executorJSOM(clientContext)({ ...options, silentErrors: true }).catch(async err => {
 							const msg = err.get_message()
 							if (/already exists/.test(msg)) return
 							isError = true
@@ -186,7 +188,9 @@ export default parent => elements => {
 								const foldersToCreate = {}
 								await iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(
 									({ contextElement, parentElement, element }) => {
-										const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element)
+										const elementUrl = getListRelativeUrl(
+											contextElement.Url
+										)(parentElement.Url)(element)
 										foldersToCreate[getParentUrl(elementUrl)] = true
 									}
 								)
@@ -199,15 +203,17 @@ export default parent => elements => {
 										.list(element.Url)
 										.folder(Object.keys(foldersToCreate))
 										.create({ silentInfo: true, expanded: true, view: ['Name'] })
-										.then(_ => {
+										.then(() => {
 											const retries = cache.get(cacheUrl)
 											if (retries) {
 												cache.set(retries - 1)(cacheUrl)
 												return true
 											}
+											return false
 										})
-										.catch(err => {
-											if (/already exists/.test(err.get_message())) return true
+										.catch(error => {
+											if (/already exists/.test(error.get_message())) return true
+											return false
 										})
 									if (res) needToRetry = true
 								})
@@ -220,36 +226,39 @@ export default parent => elements => {
 				})
 			}
 			if (needToRetry) {
-				return create(opts)
-			} else {
-				if (!isError) {
-					report('create')(opts)
-					return prepareResponseJSOM(opts)(result)
-				}
+				return create(options)
 			}
+			if (!isError) {
+				report('create')(options)
+				return prepareResponseJSOM(opts)(result)
+			}
+			return undefined
 		},
 
 		update: async (opts = {}) => {
-			const { asItem } = opts
-			if (asItem) opts.view = ['ListItemAllFields']
+			const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 			await cacheColumns(instance.parent.parent.box)(instance.parent.box)
 			const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE)(
-				({ contextElement, clientContext, parentElement, element }) => {
+				({
+					contextElement, clientContext, parentElement, element
+				}) => {
 					const contextUrl = contextElement.Url
 					const listUrl = parentElement.Url
 					const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-					if (!isStrictUrl(elementUrl)) return
+					if (!isStrictUrl(elementUrl)) return undefined
 					const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 					const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 					const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, element))(
 						getSPObject(elementUrl)(listSPObject).get_listItemAllFields()
 					)
-					return load(clientContext)(spObject.get_folder())(opts)
+					return load(clientContext)(spObject.get_folder())(options)
 				}
 			)
 			if (instance.box.getCount()) {
-				await instance.parent.parent.box.chain(async el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.parent.box.chain(
+					async el => Promise.all(
+						clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))
+					)
 				)
 			}
 			report('update')(opts)
@@ -259,19 +268,21 @@ export default parent => elements => {
 		delete: async (opts = {}) => {
 			const { noRecycle } = opts
 			const { clientContexts, result } = await iterator(REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE)(
-				({ contextElement, clientContext, parentElement, element }) => {
+				({
+					contextElement, clientContext, parentElement, element
+				}) => {
 					const contextSPObject = instance.parent.parent.getSPObject(clientContext)
 					const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
 					const elementUrl = getListRelativeUrl(contextElement.Url)(parentElement.Url)(element)
-					if (!isStrictUrl(elementUrl)) return
+					if (!isStrictUrl(elementUrl)) return undefined
 					const spObject = getSPObject(elementUrl)(listSPObject)
-					!spObject.isRoot && methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+					if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 					return elementUrl
 				}
 			)
 			if (instance.box.getCount()) {
-				await instance.parent.parent.box.chain(el =>
-					Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				await instance.parent.parent.box.chain(
+					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
 				)
 			}
 			report(noRecycle ? 'delete' : 'recycle')(opts)

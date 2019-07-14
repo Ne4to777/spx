@@ -15,9 +15,9 @@ import {
 	ifThen,
 	isArrayFilled,
 	constant
-} from './../lib/utility'
+} from '../lib/utility'
 
-import site from './../modules/site'
+import user from './user'
 
 // Internal
 
@@ -25,12 +25,12 @@ const NAME = 'email'
 
 const EMAIL_RE = /@.+\./
 
-const getSender = opts => site.user.get({ ...opts, isSP: true, view: 'Email' })
-const getRecievers = opts => users => site.user(users).get({ ...opts, isSP: true, view: 'EMail' })
+const getSender = opts => user.get({ ...opts, isSP: true, view: 'Email' })
+const getRecievers = opts => users => user(users).get({ ...opts, isSP: true, view: 'EMail' })
 
 const liftMailType = switchCase(typeOf)({
 	object: identity,
-	default: _ => ({
+	default: () => ({
 		To: ''
 	})
 })
@@ -42,6 +42,7 @@ class Box extends AbstractBox {
 			? ifThen(isArrayFilled)([map(liftMailType), constant([liftMailType()])])(value)
 			: liftMailType(value)
 	}
+
 	getCount() {
 		return this.isArray ? this.value.length : 1
 	}
@@ -55,9 +56,13 @@ export default params => {
 	}
 	return {
 		send: async (opts = {}) => {
-			const { isFake, silent, silentInfo, detailed } = opts
+			const {
+				isFake, silent, silentInfo, detailed
+			} = opts
 			const result = await instance.box.chain(async element => {
-				const { From, To, Subject, Body } = element
+				const {
+					From, To, Subject, Body
+				} = element
 				const recievers = getArray(To)
 				if (!recievers.length) throw new Error('Recievers are missed')
 				if (!Subject) throw new Error('Subject is missed')
@@ -70,9 +75,9 @@ export default params => {
 				let senderEmail = From
 				if (!From) {
 					if (missedUsers.length) {
-						const [sender, recievers] = await Promise.all([getSender(), getRecievers(missedUsers)])
+						const [sender, missedRecievers] = await Promise.all([getSender(), getRecievers(missedUsers)])
 						senderEmail = sender.Email
-						recieversEmails = recieversEmails.concat(recievers.map(prop('EMail')))
+						recieversEmails = recieversEmails.concat(missedRecievers.map(prop('EMail')))
 					} else {
 						senderEmail = (await getSender(opts)).Email
 					}
@@ -83,7 +88,7 @@ export default params => {
 				} else if (missedUsers.length) {
 					recieversEmails = recieversEmails.concat((await getRecievers(opts)(missedUsers)).map(prop('EMail')))
 				}
-				if (isFake) return
+				if (isFake) return undefined
 				const response = await axios({
 					url: '/_api/SP.Utilities.Utility.SendEmail',
 					headers: {
@@ -101,13 +106,14 @@ export default params => {
 						}
 					})
 				})
-				!silent &&
-					!silentInfo &&
-					detailed &&
+				if (!silent && !silentInfo && detailed) {
 					console.log(`Email is sent\nSender: ${senderEmail}\nRecievers: ${recieversEmails.join(', ')}`)
+				}
 				return response
 			})
-			!silent && !silentInfo && console.log(`${ACTION_TYPES.send} ${instance.box.getCount()} ${NAME}(s)`)
+			if (!silent && !silentInfo) {
+				console.log(`${ACTION_TYPES.send} ${instance.box.getCount()} ${NAME}(s)`)
+			}
 			return result
 		}
 	}
