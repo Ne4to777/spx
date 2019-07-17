@@ -1,8 +1,8 @@
 import axios from 'axios'
 import $ from 'jquery'
-import test from './test/index.js'
+// import test from './test/index.js'
 
-import spx from './modules/site'
+import * as spx from './modules/site'
 import {
 	getCamlQuery, getCamlView, camlLog, craftQuery, concatQueries
 } from './lib/query-parser'
@@ -14,12 +14,12 @@ import {
 	executorJSOM,
 } from './lib/utility'
 import * as cache from './lib/cache'
-import privateData from '../dev/private.json'
+// import privateData from '../dev/private.json'
 
-spx.setCustomUsersList({
-	webTitle: privateData.customUsersWeb,
-	listTitle: privateData.customUsersList
-})
+// spx.setCustomUsersList({
+// 	webTitle: privateData.customUsersWeb,
+// 	listTitle: privateData.customUsersList
+// })
 
 window.axios = axios
 window.log = log
@@ -32,7 +32,7 @@ window.spx = spx
 
 window.cache = cache
 
-test()
+// test()
 
 $('#send').click(e => {
 	e.preventDefault()

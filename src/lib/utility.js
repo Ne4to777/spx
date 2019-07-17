@@ -430,7 +430,7 @@ export const keys = (o) => Object.keys(o)
 export const getInstance = (constructor) => (...args) => new constructor(...args)
 export const getInstanceEmpty = (constructor) => new constructor()
 export const switchProp = (o) => (x) => {
-	const props = Reflect.ownKeys(x)
+	const props = Reflect.ownKeys(o)
 	for (let i = 0; i < props.length; i += 1) {
 		const property = props[i]
 		if (x[property]) return o[property](x)
