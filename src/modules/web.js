@@ -1,3 +1,4 @@
+/* eslint class-methods-use-this:0 */
 import { MD5 } from 'crypto-js'
 import {
 	AbstractBox,
@@ -197,40 +198,40 @@ class Web {
 		return prepareResponseJSOM(opts)(currentSPObjects)
 	}
 
-	get recycleBin() {
+	recycleBin() {
 		return recycleBin(this)
 	}
 
-	list() {
-		return list('list')(this)
+	list(elements) {
+		return list(this, elements, 'list')
 	}
 
-	library() {
-		return list('library')(this)
+	library(elements) {
+		return list(this, elements, 'library')
 	}
 
-	folder() {
-		return folder(this)
+	folder(elements) {
+		return folder(this, elements)
 	}
 
-	file() {
-		return file(this)
+	file(elements) {
+		return file(this, elements)
 	}
 
-	// search() {
-	// 	return search(this)
+	// search(elements) {
+	// 	return search(this,elements)
 	// }
 
-	tag() {
-		return tag(this)
+	tag(elements) {
+		return tag(this, elements)
 	}
 
-	user() {
-		return user(this)
+	user(elements) {
+		return user(this, elements)
 	}
 
-	email() {
-		return email(this)
+	email(elements) {
+		return email(this, elements)
 	}
 
 	time() {

@@ -91,8 +91,6 @@ const get = iterator => isExact => async opts => {
 	return prepareResponseJSOM(opts)(isExact && result.length === 1 ? result[0] : result)
 }
 
-// Interface
-
 class Tag {
 	constructor(tags) {
 		this.tags = tags

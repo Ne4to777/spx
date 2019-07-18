@@ -1,62 +1,28 @@
+/* eslint class-methods-use-this:0 */
 import {
 	getClientContext,
 	executeJSOM,
-	prop,
 	prepareResponseJSOM,
 	flatten,
 	isArray,
 	isNumber,
 	typeOf,
 	reduce,
-	getInstance
+	getInstance,
+	getInstanceEmpty
 } from '../lib/utility'
 
-import web from './web'
-
-// let defaultUsersList = web().list('User Information List')
+let defaultUsersList
 let customUsersList
 
-const setCustomUsersList = (data = {}) => {
-	if (data.listTitle) {
-		customUsersList = web(data.webTitle).list(data.listTitle)
-	} else {
-		throw new Error('Wrong data object. Need {webTitle, listTitle}')
-	}
-}
-
-const setDefaultUsersList = title => {
-	defaultUsersList = web().list(title)
-}
-
-const get = async (opts = {}) => {
-	const { isSP } = opts
-	if (isSP || !customUsersList) {
-		const clientContext = getClientContext('/')
-		const spUser = clientContext.get_web().get_currentUser()
-		return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(spUser)(opts))
-	}
-	const uid = _spPageContextInfo
-		? _spPageContextInfo.userId
-		: (await user.get({ view: 'Id', isSP: true })).Id
-	return (await customUsersList.item(`Number uid Eq ${uid}`).get(opts))[0]
-}
-
-const getAll = async (opts = {}) => opts.isSP || !customUsersList ? defaultUsersList.item() : customUsersList.item(
-	'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
-).get(opts)
-
-const deleteWithMissedUid = async opts => {
-	if (!customUsersList) throw new Error('Custom user list is missed')
-	const userObjects = await customUsersList.item('Number uid IsNull').get(opts)
-	return customUsersList.item(userObjects.map(prop('ID'))).delete(opts)
-}
-
-// Interface
-
 class User {
-	constructor(users) {
+	constructor(parent, users) {
 		this.isUsersArray = isArray(users)
 		this.users = users ? (this.isUsersArray ? flatten(users) : [users]) : []
+		this.web = parent.constructor
+		if (!defaultUsersList) {
+			defaultUsersList = getInstanceEmpty(parent.constructor).list('User Information List')
+		}
 	}
 
 	async	get(opts = {}) {
@@ -71,15 +37,21 @@ class User {
 						? this.getByEMail(values, opts)
 						: this.getByLogin(values, opts)
 		}
-		return getAll(opts)
+
+		return this.getAll(opts)
 	}
 
-	async	create(opts) {
-		if (!customUsersList) throw new Error('Custom user list is missed')
-		const usersToCreate = this.users.filter(el => el.uid && el.Title)
-		return usersToCreate.length
-			? customUsersList.item(this.users).create(opts)
-			: new Promise((resolve, reject) => reject(new Error('missing uid or Title')))
+	async getCurrent(opts = {}) {
+		const { isSP } = opts
+		if (isSP || !customUsersList) {
+			const clientContext = getClientContext('/')
+			const spUser = clientContext.get_web().get_currentUser()
+			return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(spUser)(opts))
+		}
+		const uid = _spPageContextInfo
+			? _spPageContextInfo.userId
+			: (await this.getCurrent({ view: 'Id', isSP: true })).Id
+		return (await customUsersList.item(`Number uid Eq ${uid}`).get(opts))[0]
 	}
 
 	async getByUid(opts = {}) {
@@ -201,6 +173,22 @@ class User {
 		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
 	}
 
+	async getAll(opts = {}) {
+		return opts.isSP || !customUsersList
+			? defaultUsersList.item().get(opts)
+			: customUsersList.item(
+				'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
+			).get(opts)
+	}
+
+	async	create(opts) {
+		if (!customUsersList) throw new Error('Custom user list is missed')
+		const usersToCreate = this.users.filter(el => el.uid && el.Title)
+		return usersToCreate.length
+			? customUsersList.item(this.users).create(opts)
+			: new Promise((resolve, reject) => reject(new Error('missing uid or Title')))
+	}
+
 	async	update(opts = {}) {
 		const { isSP } = opts
 		if (isSP) {
@@ -223,7 +211,7 @@ class User {
 		if (!customUsersList) throw new Error('Custom user list is missed')
 		const ids = this.users.filter(el => !!el.uid)
 		if (ids.length) {
-			const userObjects = await web.user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' })
+			const userObjects = await this.web().user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' })
 			const usersToUpdate = this.users.reduce((acc, el) => {
 				const userID = userObjects[el.uid] ? userObjects[el.uid].ID : undefined
 				if (userID) {
@@ -239,16 +227,20 @@ class User {
 			const results = await customUsersList.item(usersToUpdate).update({ ...opts, view: ['ID', 'uid'] })
 			return this.isUsersArray || results.length > 1 ? results : results[0]
 		}
-		return new Promise((resolve, reject) => reject(new Error('missing uid')))
+		throw new Error('missing uid')
+	}
+
+	setCustomUsersList(data = {}) {
+		if (data.listTitle) {
+			customUsersList = this.web(data.webTitle).list(data.listTitle)
+		} else {
+			throw new Error('Wrong data object. Need {webTitle, listTitle}')
+		}
+	}
+
+	setDefaultUsersList(title) {
+		defaultUsersList = this.web().list(title)
 	}
 }
 
-const user = getInstance(User)
-
-user.get = get
-user.getAll = getAll
-user.deleteWithMissedUid = deleteWithMissedUid
-user.setDefaultUsersList = setDefaultUsersList
-user.setCustomUsersList = setCustomUsersList
-
-export default user
+export default getInstance(User)

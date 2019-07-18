@@ -60,6 +60,7 @@ const getPagingColumnsStr = columns => {
 				break
 			case 'boolean':
 				valueStr = value ? 1 : 0
+				break
 			default:
 			// default
 		}

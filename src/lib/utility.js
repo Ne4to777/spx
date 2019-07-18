@@ -818,7 +818,11 @@ export class AbstractBox {
 //  =====    ====  ====        =  ====  =  ====  ====  ======    ===  ====  =====
 //  =============================================================================
 
-export const deep1Iterator = ({ contextUrl = '/', elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async (f) => {
+export const deep1Iterator = ({
+	contextUrl = '/',
+	elementBox,
+	bundleSize = REQUEST_BUNDLE_MAX_SIZE
+}) => async (f) => {
 	let totalElements = 0
 	let clientContext = getClientContext(contextUrl)
 	const clientContexts = [clientContext]
