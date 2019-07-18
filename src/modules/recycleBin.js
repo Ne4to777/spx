@@ -1,50 +1,50 @@
 import {
-	getClientContext, prepareResponseJSOM, ACTION_TYPES, executeJSOM, getInstance
+	getClientContext,
+	prepareResponseJSOM,
+	ACTION_TYPES,
+	executeJSOM,
+	getInstance,
+	report
 } from '../lib/utility'
 
 const NAME = 'recycleBin'
 
 class RecycleBin {
 	constructor(parent) {
-		this.parent = parent
+		this.contextUrl = parent.box.head().Url
+		this.getSPObject = this.contextUrl ? parent.getSPObject : parent.getSiteSPObject
 	}
 
 	async get(opts) {
-		const result = await this.parent.box.chain(async element => {
-			const clientContext = getClientContext(element.Url)
-			return executeJSOM(clientContext)(this.getSPObjectCollection(clientContext))(opts)
-		})
+		const clientContext = getClientContext(this.contextUrl)
+		const result = await executeJSOM(clientContext)(this.getSPObjectCollection(clientContext))(opts)
 		return prepareResponseJSOM(opts)(result)
 	}
 
 	async	restoreAll(opts) {
-		const result = await this.parent.box.chain(async element => {
-			const clientContext = getClientContext(element.Url)
-			const spObject = this.getSPObjectCollection(clientContext)
-			spObject.restoreAll()
-			return executeJSOM(clientContext)(spObject)(opts)
-		})
-		this.report('restore')(opts)
+		const clientContext = getClientContext(this.contextUrl)
+		const spObject = this.getSPObjectCollection(clientContext)
+		spObject.restoreAll()
+		const result = await executeJSOM(clientContext)(spObject)(opts)
+		this.report('restore', opts)
 		return prepareResponseJSOM(opts)(result)
 	}
 
 	async deleteAll(opts) {
-		const result = await this.parent.box.chain(async element => {
-			const clientContext = getClientContext(element.Url)
-			const spObject = this.getSPObjectCollection(clientContext)
-			spObject.deleteAll()
-			return executeJSOM(clientContext)(spObject)(opts)
-		})
-		this.report('delete')(opts)
+		const clientContext = getClientContext(this.contextUrl)
+		const spObject = this.getSPObjectCollection(clientContext)
+		spObject.deleteAll()
+		const result = await executeJSOM(clientContext)(spObject)(opts)
+		this.report('delete', opts)
 		return prepareResponseJSOM(opts)(result)
 	}
 
 	report(actionType, opts = {}) {
-		if (!opts.silent) console.log(`${ACTION_TYPES[actionType]} ${NAME} at ${this.parent.box.join()}`)
+		report(`${ACTION_TYPES[actionType]} ${NAME} at ${this.contextUrl}`, opts)
 	}
 
 	getSPObjectCollection(clientContext) {
-		return this.parent.getSPObject(clientContext).get_recycleBin()
+		return this.getSPObject(clientContext).get_recycleBin()
 	}
 }
 

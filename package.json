@@ -28,8 +28,6 @@
 		"babel-plugin-transform-regenerator": "^6.1.4",
 		"babel-polyfill": "^6.1.4",
 		"babel-preset-env": "^1.7.0",
-		"copy-webpack-plugin": "^5.0.0",
-		"cpass": "^2.0.4",
 		"eslint": "^5.3.0",
 		"eslint-config-airbnb-base": "^13.2.0",
 		"eslint-plugin-import": "^2.17.2",
@@ -43,6 +41,8 @@
 	},
 	"dependencies": {
 		"webpack": "^4.35.3",
+		"cpass": "^2.0.4",
+		"copy-webpack-plugin": "^5.0.0",
 		"sp-rest-proxy": "^2.7.9-beta2",
 		"axios": ">=0.18.1",
 		"crypto-js": "^3.1.9-1"

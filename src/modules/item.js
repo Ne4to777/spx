@@ -48,9 +48,22 @@ const getPagingColumnsStr = columns => {
 	let str = ''
 	const keys = Reflect.keys(columns)
 	for (let i = 0; i < keys.length; i += 1) {
+		let valueStr = value
 		const name = keys[i]
 		const value = columns[name]
-		if (value !== 'ID' && value !== undefined) str += `&p_${name}=${encodeURIComponent(value)}`
+		switch (typeOf(value)) {
+			case 'object':
+				if (value.get_lookupValue) valueStr = value.get_lookupValue()
+				break
+			case 'date':
+				valueStr = value.toISOString()
+				break
+			case 'boolean':
+				valueStr = value ? 1 : 0
+			default:
+			// default
+		}
+		if (value !== 'ID' && value !== undefined) str += `&p_${name}=${encodeURIComponent(valueStr)}`
 	}
 	return str
 }

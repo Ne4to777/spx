@@ -14,7 +14,8 @@ import {
 	identity,
 	ifThen,
 	isArrayFilled,
-	constant
+	constant,
+	report
 } from '../lib/utility'
 
 import user from './user'
@@ -50,71 +51,82 @@ class Box extends AbstractBox {
 
 // Interface
 
-export default params => {
-	const instance = {
-		box: getInstance(Box)(params)
+class Mail {
+	constructor(params) {
+		this.box = getInstance(Box)(params)
 	}
-	return {
-		send: async (opts = {}) => {
-			const {
-				isFake, silent, silentInfo, detailed
-			} = opts
-			const result = await instance.box.chain(async element => {
-				const {
-					From, To, Subject, Body
-				} = element
-				const recievers = getArray(To)
-				if (!recievers.length) throw new Error('Recievers are missed')
-				if (!Subject) throw new Error('Subject is missed')
-				if (!Body) throw new Error('Body is missed')
 
-				const availableRecievers = []
-				const missedUsers = []
-				map(el => (EMAIL_RE.test(el) ? availableRecievers : missedUsers).push(el))(recievers)
-				let recieversEmails = availableRecievers
-				let senderEmail = From
-				if (!From) {
-					if (missedUsers.length) {
-						const [sender, missedRecievers] = await Promise.all([getSender(), getRecievers(missedUsers)])
-						senderEmail = sender.Email
-						recieversEmails = recieversEmails.concat(missedRecievers.map(prop('EMail')))
-					} else {
-						senderEmail = (await getSender(opts)).Email
-					}
-				} else if (!EMAIL_RE.test(From)) {
-					const foundUsers = await getRecievers(opts)(missedUsers.concat(From))
-					recieversEmails = recieversEmails.concat(arrayInit(foundUsers).map(prop('EMail')))
-					senderEmail = arrayLast(foundUsers).EMail
-				} else if (missedUsers.length) {
-					recieversEmails = recieversEmails.concat((await getRecievers(opts)(missedUsers)).map(prop('EMail')))
+	async	send(opts = {}) {
+		const {
+			isFake,
+			detailed
+		} = opts
+		const result = await this.box.chain(async element => {
+			const {
+				From,
+				To,
+				Subject,
+				Body
+			} = element
+			const recievers = getArray(To)
+			if (!recievers.length) throw new Error('Recievers are missed')
+			if (!Subject) throw new Error('Subject is missed')
+			if (!Body) throw new Error('Body is missed')
+
+			const availableRecievers = []
+			const missedUsers = []
+
+			map(el => (EMAIL_RE.test(el) ? availableRecievers : missedUsers).push(el))(recievers)
+
+			let recieversEmails = availableRecievers
+			let senderEmail = From
+
+			if (!From) {
+				if (missedUsers.length) {
+					const [sender, missedRecievers] = await Promise.all([getSender(), getRecievers(missedUsers)])
+					senderEmail = sender.Email
+					recieversEmails = recieversEmails.concat(missedRecievers.map(prop('EMail')))
+				} else {
+					senderEmail = (await getSender(opts)).Email
 				}
-				if (isFake) return undefined
-				const response = await axios({
-					url: '/_api/SP.Utilities.Utility.SendEmail',
-					headers: {
-						Accept: 'application/json;odata=verbose',
-						'content-type': 'application/json;odata=verbose'
-					},
-					method: 'POST',
-					data: JSON.stringify({
-						properties: {
-							__metadata: { type: 'SP.Utilities.EmailProperties' },
-							From: senderEmail,
-							To: { results: recieversEmails },
-							Subject,
-							Body
-						}
-					})
-				})
-				if (!silent && !silentInfo && detailed) {
-					console.log(`Email is sent\nSender: ${senderEmail}\nRecievers: ${recieversEmails.join(', ')}`)
-				}
-				return response
-			})
-			if (!silent && !silentInfo) {
-				console.log(`${ACTION_TYPES.send} ${instance.box.getCount()} ${NAME}(s)`)
+			} else if (!EMAIL_RE.test(From)) {
+				const foundUsers = await getRecievers(opts)(missedUsers.concat(From))
+				recieversEmails = recieversEmails.concat(arrayInit(foundUsers).map(prop('EMail')))
+				senderEmail = arrayLast(foundUsers).EMail
+			} else if (missedUsers.length) {
+				recieversEmails = recieversEmails.concat((await getRecievers(opts)(missedUsers)).map(prop('EMail')))
 			}
-			return result
-		}
+
+			if (isFake) return undefined
+			const response = await axios({
+				url: '/_api/SP.Utilities.Utility.SendEmail',
+				headers: {
+					Accept: 'application/json;odata=verbose',
+					'content-type': 'application/json;odata=verbose'
+				},
+				method: 'POST',
+				data: JSON.stringify({
+					properties: {
+						__metadata: { type: 'SP.Utilities.EmailProperties' },
+						From: senderEmail,
+						To: { results: recieversEmails },
+						Subject,
+						Body
+					}
+				})
+			})
+
+			if (detailed) {
+				report(`Email is sent\nSender: ${senderEmail}\nRecievers: ${recieversEmails.join(', ')}`, opts)
+			}
+
+			return response
+		})
+
+		report(`${ACTION_TYPES.send} ${this.box.getCount()} ${NAME}(s)`, opts)
+
+		return result
 	}
 }
+
+export default getInstance(Mail)

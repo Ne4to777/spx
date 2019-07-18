@@ -2,7 +2,7 @@ import axios from 'axios'
 import $ from 'jquery'
 // import test from './test/index.js'
 
-import * as spx from './modules/site'
+import spx from './modules/web'
 import {
 	getCamlQuery, getCamlView, camlLog, craftQuery, concatQueries
 } from './lib/query-parser'

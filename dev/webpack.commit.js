@@ -3,7 +3,7 @@ const config = require('./private.json')
 module.exports = {
 	mode: 'production',
 	devtool: 'source-map',
-	entry: ['babel-polyfill', './src/modules/site.js'],
+	entry: ['babel-polyfill', './src/modules/web.js'],
 	module: {
 		rules: [
 			{

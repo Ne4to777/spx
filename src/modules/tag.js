@@ -8,7 +8,6 @@ import {
 	switchCase,
 	typeOf,
 	shiftSlash,
-	deep2Iterator,
 	ifThen,
 	isArrayFilled,
 	pipe,
@@ -18,12 +17,9 @@ import {
 	constant,
 	setFields,
 	getInstanceEmpty,
-	webReport
+	webReport,
+	deep1Iterator
 } from '../lib/utility'
-
-// Internal
-
-const NAME = 'tag'
 
 const getTermStore = clientContext => SP
 	.Taxonomy
@@ -71,13 +67,9 @@ class Box extends AbstractBox {
 	}
 }
 
-const iterator = instance => deep2Iterator({
-	contextBox: instance.parent.box,
-	elementBox: instance.box
-})
 
-const get = instance => isExact => async opts => {
-	const { clientContexts, result } = await iterator(instance)(({ clientContext, element }) => {
+const get = iterator => isExact => async opts => {
+	const { clientContexts, result } = await iterator(({ clientContext, element }) => {
 		const lmi = setFields({
 			set_defaultLabelOnly: element.DefaultLabelOnly || false,
 			// set_excludeKeyword: element.ExcludeKeyword || false,
@@ -94,85 +86,85 @@ const get = instance => isExact => async opts => {
 			.getTerms(lmi)
 		return load(clientContext)(spObject)(opts)
 	})
-	await instance.parent.box.chain(el => Promise.all(
-		clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))
-	))
+
+	await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
 	return prepareResponseJSOM(opts)(isExact && result.length === 1 ? result[0] : result)
 }
 
 // Interface
 
-export default parent => urls => {
-	const instance = {
-		box: getInstance(Box)(urls),
-		NAME,
-		parent
+class Tag {
+	constructor(tags) {
+		this.tags = tags
+		this.box = getInstance(Box)(tags)
+		this.iterator = deep1Iterator({ elementBox: this.box })
 	}
-	const iteratorInstanced = iterator(instance)
-	const report = actionType => (opts = {}) => webReport({
-		...opts, NAME, actionType, box: instance.box, contextBox: instance.parent.box
-	})
-	return {
-		get: get(instance)(true),
-		search: get(instance)(),
-		create: async opts => {
-			const { clientContexts, result } = await iteratorInstanced(({ clientContext, element }) => {
-				const elementUrl = element.Url
-				if (!elementUrl) return undefined
-				const spObject = getTermSet(clientContext).createTerm(
-					elementUrl,
-					1033,
-					getInstanceEmpty(SP.Guid.newGuid).toString()
-				)
-				return load(clientContext)(spObject)(opts)
-			})
-			if (instance.box.getCount()) {
-				await instance.parent.box.chain(el => Promise.all(
-					clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))
-				))
-			}
-			report('create')(opts)
-			return prepareResponseJSOM(opts)(result)
-		},
 
-		update: async opts => {
-			const { clientContexts, result } = await iteratorInstanced(({ clientContext, element }) => {
-				const elementUrl = element.Url
-				if (!elementUrl) return undefined
-				const spObject = getSPObject(clientContext)(elementUrl)
-				setFields({
-					set_isAvailableForTagging: element.IsAvailableForTagging,
-					set_name: element.Name,
-					set_owner: element.Owner
-				})(spObject)
-				return load(clientContext)(spObject)(opts)
-			})
-			if (instance.box.getCount()) {
-				await instance.parent.box.chain(
-					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-				)
-			}
-			report('update')(opts)
-			return prepareResponseJSOM(opts)(result)
-		},
+	async get(opts) {
+		return get(this.iterator)(true)(opts)
+	}
 
-		delete: async opts => {
-			const { clientContexts, result } = await iteratorInstanced(({ clientContext, element }) => {
-				const elementUrl = element.Url
-				if (!elementUrl) return undefined
-				const termStore = getTermStore(clientContext)
-				const spObject = getSPObject(clientContext)(elementUrl)
-				methodEmpty('deleteObject')(spObject)
-				methodEmpty('commitAll')(termStore)
-				return elementUrl
-			})
-			if (instance.box.getCount()) {
-				await instance.parent.box.chain(
-					el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-				)
-			}
-			report('delete')(opts)
-			return prepareResponseJSOM(opts)(result)
+	async search(opts) {
+		return get(this.iterator)(false)(opts)
+	}
+
+	async	create(opts) {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const elementUrl = element.Url
+			if (!elementUrl) return undefined
+			const spObject = getTermSet(clientContext).createTerm(
+				elementUrl,
+				1033,
+				getInstanceEmpty(SP.Guid.newGuid).toString()
+			)
+			return load(clientContext)(spObject)(opts)
+		})
+		if (this.box.getCount()) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
 		}
+		this.report('create', opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async	update(opts) {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const elementUrl = element.Url
+			if (!elementUrl) return undefined
+			const spObject = getSPObject(clientContext)(elementUrl)
+			setFields({
+				set_isAvailableForTagging: element.IsAvailableForTagging,
+				set_name: element.Name,
+				set_owner: element.Owner
+			})(spObject)
+			return load(clientContext)(spObject)(opts)
+		})
+		if (this.box.getCount()) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		}
+		this.report('update', opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async delete(opts) {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const elementUrl = element.Url
+			if (!elementUrl) return undefined
+			const termStore = getTermStore(clientContext)
+			const spObject = getSPObject(clientContext)(elementUrl)
+			methodEmpty('deleteObject')(spObject)
+			methodEmpty('commitAll')(termStore)
+			return elementUrl
+		})
+		if (this.box.getCount()) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		}
+		this.report('delete', opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	report(actionType, opts = {}) {
+		webReport(actionType, { ...opts, NAME: 'tag', box: this.box })
 	}
 }
+
+export default getInstance(Tag)

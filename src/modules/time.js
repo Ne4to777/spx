@@ -13,11 +13,9 @@ export const getCurrent = () => new Promise(
 )
 export const getZone = async opts => {
 	const clientContext = getClientContext('/')
-	const result = await executeJSOM(clientContext)(
-		clientContext
-			.get_web()
-			.get_regionalSettings()
-			.get_timeZone()
-	)(opts)
+	const result = await executeJSOM(clientContext)(clientContext
+		.get_web()
+		.get_regionalSettings()
+		.get_timeZone())(opts)
 	return prepareResponseJSOM(opts)(result)
 }

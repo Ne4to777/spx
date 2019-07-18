@@ -2,7 +2,7 @@ import babel from 'rollup-plugin-babel'
 import resolve from 'rollup-plugin-node-resolve'
 // import { terser } from 'rollup-plugin-terser'
 
-const input = './src/modules/site.js'
+const input = './src/modules/web.js'
 
 const globals = {
 	SP: 'SP',

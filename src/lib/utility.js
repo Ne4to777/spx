@@ -586,43 +586,62 @@ export const log = (...args) => {
 	return args.length > 1 ? args : args[0]
 }
 
-export const contextReport = ({
-	NAME, detailed, silent, silentInfo, actionType, box
-}) => !silent && !silentInfo && console.log(
-	`${ACTION_TYPES[actionType]} ${box.getCount()} ${NAME}(s)${detailed ? `: ${box.join()}` : ''}`
-)
-
-export const webReport = ({
-	NAME, detailed, silent, silentInfo, actionType, contextBox, box
-}) => !silent && !silentInfo && console.log(
-	`${ACTION_TYPES[actionType]} ${box.getCount()} ${NAME} (s) at ${contextBox.join()} ${detailed
-		? `: ${box.join()}`
-		: ''
-	} `
-)
-
-export const listReport = ({
-	NAME, detailed, silent, silentInfo, actionType, box, listBox, contextBox
-}) => {
-	if (!silent && !silentInfo) {
-		const msg = detailed ? `: ${box.join()}` : ''
-		const count = box.getCount(actionType)
-		console.log(
-			`${ACTION_TYPES[actionType]} ${count} ${NAME} (s) in ${listBox.join()} at ${contextBox.join()} ${msg}`
-		)
-	}
+export const report = (msg, opts = {}) => {
+	if (!opts.silent && !opts.silentInfo) console.log(msg)
 }
 
-export const itemReport = ({
-	NAME, detailed, silent, silentInfo, actionType, box, listBox, contextBox
-}) => {
-	if (!silent && !silentInfo) {
-		const msg = detailed ? `: ${box.join()}` : ''
-		const count = box.getCount(actionType)
-		console.log(
-			`${ACTION_TYPES[actionType]} ${count} ${NAME} (s) in ${listBox.join()} at ${contextBox.join()} ${msg}`
-		)
-	}
+export const contextReport = (actionType, opts = {}) => {
+	report(
+		`${ACTION_TYPES[actionType]
+		} ${opts.box.getCount()
+		} ${opts.NAME
+		}(s)${opts.detailed
+			? `: ${opts.box.join()
+			}` : ''
+		}`,
+		opts
+	)
+}
+
+
+export const webReport = (actionType, opts = {}) => {
+	report(
+		`${ACTION_TYPES[actionType]
+		} ${opts.box.getCount()
+		} ${opts.NAME
+		} (s) at ${opts.contextUrl || '/'
+		} ${opts.detailed
+			? `: ${opts.box.join()}`
+			: ''
+		} `,
+		opts
+	)
+}
+
+export const listReport = (actionType, opts = {}) => {
+	report(
+		`${ACTION_TYPES[actionType]
+		} ${opts.box.getCount(actionType)
+		} ${opts.NAME} (s) in ${opts.listBox.join()
+		} at ${opts.contextUrl || '/'
+		} ${opts.detailed
+			? `: ${opts.box.join()}`
+			: ''}`,
+		opts
+	)
+}
+
+export const itemReport = (actionType, opts = {}) => {
+	report(
+		`${ACTION_TYPES[actionType]
+		} ${opts.box.getCount(actionType)
+		} ${opts.NAME} (s) in ${opts.listBox.join()
+		} at ${opts.contextUrl || '/'
+		} ${opts.detailed
+			? `: ${opts.box.join()}`
+			: ''}`,
+		opts
+	)
 }
 
 //  ========================================================================
@@ -737,12 +756,35 @@ export const getWebRelativeUrl = (webUrl) => (element = {}) => {
 		: Url
 }
 
+const liftAbstractType = switchCase(typeOf)({
+	object: context => {
+		const newContext = Object.assign({}, context)
+		if (!context.Url && context.Title) newContext.Url = context.Title
+		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
+		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url)
+		return newContext
+	},
+	string: (contextUrl = '') => ({
+		Url: contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl)),
+		Title: getTitleFromUrl(contextUrl)
+	}),
+	default: () => ({
+		Url: '',
+		Title: ''
+	})
+})
+
 export class AbstractBox {
 	constructor(value) {
 		this.isArray = isArray(value)
 		this.prop = 'Url'
 		this.joinProp = 'Url'
-		this.value = value
+		this.value = this.isArray
+			? ifThen(isArrayFilled)([
+				pipe([map(liftAbstractType), removeEmptyUrls, removeDuplicatedUrls]),
+				constant([liftAbstractType()])
+			])(value)
+			: liftAbstractType(value)
 	}
 
 	async chain(f) {
@@ -758,6 +800,10 @@ export class AbstractBox {
 	getCount() {
 		return this.isArray ? removeEmptyUrls(this.value).length : isStrictUrl(this.value[this.prop]) ? 1 : 0
 	}
+
+	head() {
+		return this.isArray ? this.value[0] : this.value
+	}
 }
 
 //  =============================================================================
@@ -771,6 +817,22 @@ export class AbstractBox {
 //  ======  =====  ====  =======  ====  =  ====  ====  =====  ==  ==  ====  =====
 //  =====    ====  ====        =  ====  =  ====  ====  ======    ===  ====  =====
 //  =============================================================================
+
+export const deep1Iterator = ({ contextUrl = '/', elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async (f) => {
+	let totalElements = 0
+	let clientContext = getClientContext(contextUrl)
+	const clientContexts = [clientContext]
+	const result = await elementBox.chain((element) => {
+		totalElements += 1
+		if (totalElements >= bundleSize) {
+			clientContext = getClientContext(contextUrl)
+			clientContexts.push(clientContext)
+			totalElements = 0
+		}
+		return f({ clientContext, element })
+	})
+	return { clientContexts, result }
+}
 
 export const deep2Iterator = ({ contextBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async (f) => {
 	const clientContexts = {}
