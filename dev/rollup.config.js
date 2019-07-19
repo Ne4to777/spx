@@ -1,13 +1,15 @@
 import babel from 'rollup-plugin-babel'
 import resolve from 'rollup-plugin-node-resolve'
-// import { terser } from 'rollup-plugin-terser'
+import { terser } from 'rollup-plugin-terser'
 
 const input = './src/modules/web.js'
 
 const globals = {
 	SP: 'SP',
 	Microsoft: 'Microsoft',
-	_spPageContextInfo: '_spPageContextInfo'
+	_spPageContextInfo: '_spPageContextInfo',
+	axios: 'axios',
+	'crypto-js': 'cryptoJS'
 }
 
 const external = ['axios', 'crypto-js']
@@ -16,13 +18,13 @@ const extensions = ['.js']
 
 const plugins = [
 	resolve({
-		extensions
+		extensions,
 	}),
 	babel({
 		extensions,
 		exclude: 'node_modules/**',
 		runtimeHelpers: true
-	})
+	}),
 ]
 
 const output = {

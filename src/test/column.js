@@ -1,6 +1,10 @@
-import site from '../modules/site'
+import web from '../modules/web'
 import {
-	assertObject, assertCollection, testIsOk, assert, identity
+	assertObject,
+	assertCollection,
+	testIsOk,
+	assert,
+	identity
 } from '../lib/utility'
 
 const PROPS = [
@@ -37,8 +41,8 @@ const PROPS = [
 const assertObjectProps = assertObject(PROPS)
 const assertCollectionProps = assertCollection(PROPS)
 
-const rootWeb = site()
-const workingWeb = site('test/spx')
+const rootWeb = web()
+const workingWeb = web('test/spx')
 
 const crud = async () => {
 	await workingWeb

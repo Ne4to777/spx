@@ -54,8 +54,6 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
-import web from './web'
-
 const copyOrMove = async (isMove, opts = {}) => {
 	const { contextUrl, listUrl } = this
 	await this.iteratorREST(async ({ element }) => {
@@ -107,8 +105,8 @@ const copyOrMove = async (isMove, opts = {}) => {
 			const spObject = this.getSPObject(elementUrl, listSPObject)
 			const folder = getFolderFromUrl(targetFileUrl)
 			if (folder) {
-				await web(contextUrl)
-					.library(listUrl)
+				await this
+					.parent
 					.folder(folder)
 					.create({ silentInfo: true, expanded: true, view: ['Name'] })
 					.catch(identity)
@@ -461,8 +459,8 @@ class FileList {
 		const { contextUrl, listUrl } = this
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		if (!cache.get(['columns', contextUrl, listUrl])) {
-			const columns = await web(contextUrl)
-				.list(listUrl)
+			const columns = await this
+				.parent
 				.column()
 				.get({
 					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],

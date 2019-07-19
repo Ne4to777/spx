@@ -1,4 +1,4 @@
-import site from '../modules/site'
+import site from '../modules/web'
 import {
 	assertObject,
 	assertCollection,

@@ -15,7 +15,7 @@ import {
 	methodI,
 	getParentUrl,
 	hasUrlTailSlash,
-	contextReport,
+	webReport,
 	isStrictUrl
 } from '../lib/utility'
 
@@ -28,7 +28,7 @@ import recycleBin from './recycleBin'
 import user from './user'
 import tag from './tag'
 import email from './email'
-import * as time from './time'
+import time from './time'
 
 class Web {
 	constructor(urls) {
@@ -159,23 +159,6 @@ class Web {
 		return result
 	}
 
-	getSPObject(clientContext) {
-		return methodEmpty('get_web')(clientContext)
-	}
-
-	getSiteSPObject(clientContext) {
-		return methodEmpty('get_site')(clientContext)
-	}
-
-	getSPObjectCollection(clientContext) {
-		return pipe([this.getSPObject, methodEmpty('get_webs')])(clientContext)
-	}
-
-
-	report(actionType, opts = {}) {
-		contextReport(actionType, { ...opts, name: this.name, box: this.box })
-	}
-
 	async	getSite(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
@@ -237,6 +220,26 @@ class Web {
 
 	time() {
 		return time(this)
+	}
+
+	getSPObject(clientContext) {
+		return methodEmpty('get_web')(clientContext)
+	}
+
+	getSiteSPObject(clientContext) {
+		return methodEmpty('get_site')(clientContext)
+	}
+
+	getSPObjectCollection(clientContext) {
+		return pipe([this.getSPObject, methodEmpty('get_webs')])(clientContext)
+	}
+
+	report(actionType, opts = {}) {
+		webReport(actionType, {
+			...opts,
+			name: this.name,
+			box: this.box
+		})
 	}
 
 	of(urls) {

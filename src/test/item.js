@@ -1,6 +1,13 @@
-import site from '../modules/site'
+import web from '../modules/web'
 import {
-	assertObject, assertCollection, testIsOk, assert, map, prop, reduce, identity
+	assertObject,
+	assertCollection,
+	testIsOk,
+	assert,
+	map,
+	prop,
+	reduce,
+	identity
 } from '../lib/utility'
 
 const PROPS = [
@@ -129,9 +136,9 @@ const assertCollectionProps = assertCollection(PROPS)
 const assertObjectUserProps = assertObject(USER_PROPS)
 const assertCollectionUserProps = assertCollection(USER_PROPS)
 
-const userWebList = site().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
-const workingWebList = site('test/spx').list('Items')
-const workingTagWebList = site('test/spx').list('Keywords')
+const userWebList = web().list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
+const workingWebList = web('test/spx').list('Items')
+const workingTagWebList = web('test/spx').list('Keywords')
 
 const crud = async () => {
 	const folder = 'a'
@@ -223,7 +230,7 @@ const crudCollection = async () => {
 
 const crudBundle = async () => {
 	const itemsToCreate = []
-	const bundleList = site('test/spx').list('Bundle')
+	const bundleList = web('test/spx').list('Bundle')
 	const folder = 'c/b'
 	await bundleList
 		.folder(folder)
@@ -243,7 +250,7 @@ const crudBundle = async () => {
 
 const page = async () => {
 	const limit = 10
-	const spxList = site('test/spx').list('Pager')
+	const spxList = web('test/spx').list('Pager')
 	await spxList.item({ Page: { Id: 20 }, Limit: limit }).get()
 	const items = await spxList.item({ Page: { Id: 10 }, Limit: limit, OrderBy: 'Title>' }).get()
 	console.log(items)

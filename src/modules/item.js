@@ -35,9 +35,11 @@ import {
 
 import * as cache from '../lib/cache'
 import {
-	getCamlView, craftQuery, camlLog, concatQueries
+	getCamlView,
+	craftQuery,
+	camlLog,
+	concatQueries
 } from '../lib/query-parser'
-import web from './web'
 import attachment from './attachment'
 
 const getPagingColumnsStr = columns => {
@@ -251,8 +253,8 @@ class Item {
 							foldersToCreate[elementUrl] = true
 						})
 
-						const res = await web(this.contextUrl)
-							.list(this.listUrl)
+						const res = await this
+							.parent
 							.folder(Object.keys(foldersToCreate))
 							.create({ expanded: true, view: ['Name'] })
 							.then(() => {

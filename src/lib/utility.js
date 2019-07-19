@@ -591,26 +591,12 @@ export const report = (msg, opts = {}) => {
 	if (!opts.silent && !opts.silentInfo) console.log(msg)
 }
 
-export const contextReport = (actionType, opts = {}) => {
-	report(
-		`${ACTION_TYPES[actionType]
-		} ${opts.box.getCount()
-		} ${opts.NAME
-		}(s)${opts.detailed
-			? `: ${opts.box.join()
-			}` : ''
-		}`,
-		opts
-	)
-}
-
-
 export const webReport = (actionType, opts = {}) => {
 	report(
 		`${ACTION_TYPES[actionType]
 		} ${opts.box.getCount()
-		} ${opts.NAME
-		} (s) at ${opts.contextUrl || '/'
+		} ${opts.name
+		}${opts.box.getCount() > 1 ? '(s)' : ''
 		} ${opts.detailed
 			? `: ${opts.box.join()}`
 			: ''
@@ -623,7 +609,7 @@ export const listReport = (actionType, opts = {}) => {
 	report(
 		`${ACTION_TYPES[actionType]
 		} ${opts.box.getCount(actionType)
-		} ${opts.NAME} (s) in ${opts.listBox.join()
+		}${opts.name}${opts.box.getCount() > 1 ? '(s)' : ''} in ${opts.listBox.join()
 		} at ${opts.contextUrl || '/'
 		} ${opts.detailed
 			? `: ${opts.box.join()}`
@@ -636,7 +622,7 @@ export const itemReport = (actionType, opts = {}) => {
 	report(
 		`${ACTION_TYPES[actionType]
 		} ${opts.box.getCount(actionType)
-		} ${opts.NAME} (s) in ${opts.listBox.join()
+		} ${opts.name}${opts.box.getCount() > 1 ? '(s)' : ''} in ${opts.listBox.join()
 		} at ${opts.contextUrl || '/'
 		} ${opts.detailed
 			? `: ${opts.box.join()}`
@@ -1211,7 +1197,7 @@ export const assert = (msg) => (bool) => console.assert(bool === true, msg)
 
 export const assertString = (msg) => (sample) => (str) => assert(`${msg}: ${str}`)(isEqual(sample)(str))
 
-export const assertProp = (property) => (o) => assert(`object has no property "${property}"`)(hasOwnProp(prop)(o))
+export const assertProp = (property) => (o) => assert(`object has no property "${property}"`)(hasOwnProp(property)(o))
 
 export const assertProps = (props) => (o) => {
 	for (let i = 0; i < props.length; i += 1) {

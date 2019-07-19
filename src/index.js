@@ -1,6 +1,6 @@
 import axios from 'axios'
 import $ from 'jquery'
-// import test from './test/index.js'
+import test from './test/index.js'
 
 import spx from './modules/web'
 import {
@@ -32,7 +32,7 @@ window.spx = spx
 
 window.cache = cache
 
-// test()
+test()
 
 $('#send').click(e => {
 	e.preventDefault()
