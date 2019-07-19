@@ -51,8 +51,9 @@ class Box extends AbstractBox {
 
 // Interface
 
-class Mail {
+class EMail {
 	constructor(params) {
+		this.name = 'email'
 		this.box = getInstance(Box)(params)
 	}
 
@@ -129,4 +130,4 @@ class Mail {
 	}
 }
 
-export default getInstance(Mail)
+export default getInstance(EMail)

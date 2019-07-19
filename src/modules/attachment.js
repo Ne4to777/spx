@@ -1,3 +1,4 @@
+/* eslint class-methods-use-this:0 */
 import {
 	AbstractBox,
 	prepareResponseJSOM,
@@ -11,19 +12,8 @@ import {
 	isArrayFilled,
 	map,
 	constant,
-	deep4Iterator
+	deep1Iterator
 } from '../lib/utility'
-
-// Internal
-
-const NAME = 'attachment'
-
-const getSPObject = element => itemSPObject => {
-	const url = element.Url
-	const attachments = getSPObjectCollection(itemSPObject)
-	return url ? attachments.getByFileName(url) : attachments
-}
-const getSPObjectCollection = methodEmpty('get_attachmentFiles')
 
 const liftItemType = switchCase(typeOf)({
 	object: item => Object.assign({}, item),
@@ -40,37 +30,46 @@ class Box extends AbstractBox {
 	}
 }
 
-// Inteface
+class Attachment {
+	constructor(parent, attachments) {
+		this.name = 'attachment'
+		this.parent = parent
+		this.box = getInstance(Box)(attachments)
+		this.listUrl = parent.listUrl
+		this.itemUrl = parent.box.head().Url
+		this.getItemSPObject = this.parent.getSPObject
+		this.getListSPObject = this.parent.parent.getSPObject
+		this.getContextSPObject = this.parent.parent.parent.getSPObject
 
-export default parent => elements => {
-	const instance = {
-		box: getInstance(Box)(elements),
-		NAME,
-		parent
+		this.iterator = deep1Iterator({
+			contextUrl: parent.parent.contextUrl,
+			elementBox: this.box
+		})
 	}
 
-	const iterator = deep4Iterator({
-		contextBox: instance.parent.parent.parent.box,
-		listBox: instance.parent.parent.box,
-		parentBox: instance.parent.box,
-		elementBox: instance.box
-	})
+	async	get(opts = {}) {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const itemSPObject = this.getItemSPObject(this.itemUrl, listSPObject)
+			const spObject = this.getSPObject(element)(itemSPObject)
+			return load(clientContext)(spObject)(opts)
+		})
 
-	return {
-		get: async (opts = {}) => {
-			const { clientContexts, result } = await iterator(({
-				clientContext, listElement, parentElement, element
-			}) => {
-				const contextSPObject = instance.parent.parent.parent.getSPObject(clientContext)
-				const listSPObject = instance.parent.parent.getSPObject(listElement.Url)(contextSPObject)
-				const itemSPObject = instance.parent.getSPObject(parentElement)(listElement.Url)(listSPObject)
-				const spObject = getSPObject(element)(itemSPObject)
-				return load(clientContext)(spObject)(opts)
-			})
-			await instance.parent.parent.parent.box.chain(
-				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-			)
-			return prepareResponseJSOM(opts)(result)
-		}
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	getSPObject(element, itemSPObject) {
+		const url = element.Url
+		const attachments = this.getSPObjectCollection(itemSPObject)
+		return url ? attachments.getByFileName(url) : attachments
+	}
+
+	getSPObjectCollection(url) {
+		return methodEmpty('get_attachmentFiles')(url)
 	}
 }
+
+export default getInstance(Attachment)

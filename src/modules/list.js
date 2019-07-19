@@ -74,7 +74,7 @@ class Box extends AbstractBox {
 
 class List {
 	constructor(parent, lists) {
-		this.NAME = 'list'
+		this.name = 'list'
 		this.parent = parent
 		this.contextUrl = parent.box.head().Url
 		this.box = getInstance(Box)(lists)
@@ -467,18 +467,21 @@ class List {
 	report(actionType, opts = {}) {
 		webReport(actionType, {
 			...opts,
-			NAME: this.NAME,
-			actionType,
+			name: this.name,
 			box: this.box,
 			contextUrl: this.contextUrl
 		})
+	}
+
+	of(lists) {
+		return getInstance(this.constructor)(this.parent, lists)
 	}
 }
 
 class Library extends List {
 	constructor(parent, libraries) {
 		super(parent, libraries)
-		this.NAME = 'library'
+		this.name = 'library'
 	}
 
 	file(elements) {

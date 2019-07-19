@@ -1,3 +1,4 @@
+import axios from 'axios'
 //  ================================================================================================
 //  =======     ====    ===  =======  ==      ==        ====  ====  =======  =        ==      ======
 //  ======  ===  ==  ==  ==   ======  =  ====  ====  ======    ===   ======  ====  ====  ====  =====
@@ -838,108 +839,7 @@ export const deep1Iterator = ({
 	return { clientContexts, result }
 }
 
-export const deep2Iterator = ({ contextBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE }) => async (f) => {
-	const clientContexts = {}
-	const result = await contextBox.chain((contextElement) => {
-		let totalElements = 0
-		const contextUrl = contextElement.Url
-		let clientContext = getClientContext(contextUrl)
-		clientContexts[contextUrl] = [clientContext]
-		return elementBox.chain((element) => {
-			totalElements += 1
-			if (totalElements >= bundleSize) {
-				clientContext = getClientContext(contextUrl)
-				clientContexts[contextUrl].push(clientContext)
-				totalElements = 0
-			}
-			return f({ contextElement, clientContext, element })
-		})
-	})
-	return { clientContexts, result }
-}
-
-export const deep3Iterator = ({
-	contextBox, parentBox, elementBox, bundleSize = REQUEST_BUNDLE_MAX_SIZE
-}) => async (f) => {
-	const clientContexts = {}
-	const result = await contextBox.chain((contextElement) => {
-		let totalElements = 0
-		const contextUrl = contextElement.Url
-		let clientContext = getClientContext(contextUrl)
-		clientContexts[contextUrl] = [clientContext]
-		return parentBox.chain((parentElement) => elementBox.chain((element) => {
-			totalElements += 1
-			if (totalElements >= bundleSize) {
-				clientContext = getClientContext(contextUrl)
-				clientContexts[contextUrl].push(clientContext)
-				totalElements = 0
-			}
-			return f({
-				contextElement, clientContext, parentElement, element
-			})
-		}))
-	})
-	return { clientContexts, result }
-}
-
-export const deep4Iterator = ({
-	contextBox,
-	listBox,
-	parentBox,
-	elementBox,
-	bundleSize = REQUEST_BUNDLE_MAX_SIZE
-}) => async (f) => {
-	const clientContexts = {}
-	const result = await contextBox.chain((contextElement) => {
-		let totalElements = 0
-		const contextUrl = contextElement.Url
-		let clientContext = getClientContext(contextUrl)
-		clientContexts[contextUrl] = [clientContext]
-		return listBox.chain((listElement) => parentBox.chain((parentElement) => elementBox.chain((element) => {
-			totalElements += 1
-			if (totalElements >= bundleSize) {
-				clientContext = getClientContext(contextUrl)
-				clientContexts[contextUrl].push(clientContext)
-				totalElements = 0
-			}
-			return f({
-				contextElement,
-				clientContext,
-				listElement,
-				parentElement,
-				element
-			})
-		})))
-	})
-	return { clientContexts, result }
-}
-
-export const deep2IteratorREST = ({
-	contextBox, elementBox
-}) => (f) => contextBox.chain((contextElement) => elementBox.chain(async (element) => f({ contextElement, element })))
-
-export const deep3IteratorREST = ({
-	contextBox, parentBox, elementBox
-}) => (f) => contextBox.chain(
-	(contextElement) => parentBox.chain((parentElement) => elementBox.chain(async (element) => f({
-		contextElement, parentElement, element
-	})))
-)
-
-
-export const deep4IteratorREST = ({
-	contextBox, listBox, parentBox, elementBox
-}) => (f) => contextBox.chain(
-	(contextElement) => listBox.chain(
-		(listElement) => parentBox.chain(
-			(parentElement) => elementBox.chain(
-				async (element) => f({
-					contextElement, listElement, parentElement, element
-				})
-			)
-		)
-	)
-)
+export const deep1IteratorREST = ({ elementBox }) => (f) => elementBox.chain(async (element) => f({ element }))
 
 //  ===========================================================================
 //  =======     ====    ===  =======  =        =        =   ==   =        =====
@@ -1339,3 +1239,23 @@ export const assertCollection = (props) => (name) => async (promise) => {
 }
 
 export const testIsOk = (name) => () => console.log(`${name} is OK`)
+
+//  ============================================================
+//  ========    ====        ==  ====  ==        ==       =======
+//  =======  ==  ======  =====  ====  ==  ========  ====  ======
+//  ======  ====  =====  =====  ====  ==  ========  ====  ======
+//  ======  ====  =====  =====  ====  ==  ========  ===   ======
+//  ======  ====  =====  =====        ==      ====      ========
+//  ======  ====  =====  =====  ====  ==  ========  ====  ======
+//  ======  ====  =====  =====  ====  ==  ========  ====  ======
+//  =======  ==  ======  =====  ====  ==  ========  ====  ======
+//  ========    =======  =====  ====  ==        ==  ====  ======
+//  ============================================================
+
+export const getRequestDigest = async (contextUrl) => axios({
+	url: `${prependSlash(contextUrl)}/_api/contextinfo`,
+	headers: {
+		Accept: 'application/json; odata=verbose'
+	},
+	method: 'POST'
+}).then(res => res.data.d.GetContextWebInformation.FormDigestValue)

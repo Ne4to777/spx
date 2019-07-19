@@ -32,6 +32,7 @@ import * as time from './time'
 
 class Web {
 	constructor(urls) {
+		this.name = 'web'
 		this.box = getInstance(AbstractBox)(urls)
 		this.id = MD5(new Date().getTime()).toString()
 	}
@@ -172,7 +173,7 @@ class Web {
 
 
 	report(actionType, opts = {}) {
-		contextReport(actionType, { ...opts, NAME: 'web', box: this.box })
+		contextReport(actionType, { ...opts, name: this.name, box: this.box })
 	}
 
 	async	getSite(opts) {
@@ -236,6 +237,10 @@ class Web {
 
 	time() {
 		return time(this)
+	}
+
+	of(urls) {
+		return getInstance(this.constructor)(urls)
 	}
 }
 

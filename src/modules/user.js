@@ -17,9 +17,10 @@ let customUsersList
 
 class User {
 	constructor(parent, users) {
+		this.name = 'user'
 		this.isUsersArray = isArray(users)
 		this.users = users ? (this.isUsersArray ? flatten(users) : [users]) : []
-		this.web = parent.constructor
+		this.web = parent.of
 		if (!defaultUsersList) {
 			defaultUsersList = getInstanceEmpty(parent.constructor).list('User Information List')
 		}
@@ -240,6 +241,10 @@ class User {
 
 	setDefaultUsersList(title) {
 		defaultUsersList = this.web().list(title)
+	}
+
+	of(users) {
+		return getInstance(this.constructor)(this.parent, users)
 	}
 }
 

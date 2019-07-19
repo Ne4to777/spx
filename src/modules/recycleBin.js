@@ -7,10 +7,9 @@ import {
 	report
 } from '../lib/utility'
 
-const NAME = 'recycleBin'
-
 class RecycleBin {
 	constructor(parent) {
+		this.name = 'recycleBin'
 		this.contextUrl = parent.box.head().Url
 		this.getSPObject = this.contextUrl ? parent.getSPObject : parent.getSiteSPObject
 	}
@@ -40,7 +39,7 @@ class RecycleBin {
 	}
 
 	report(actionType, opts = {}) {
-		report(`${ACTION_TYPES[actionType]} ${NAME} at ${this.contextUrl}`, opts)
+		report(`${ACTION_TYPES[actionType]} ${this.name} at ${this.contextUrl}`, opts)
 	}
 
 	getSPObjectCollection(clientContext) {

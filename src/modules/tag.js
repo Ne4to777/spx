@@ -93,6 +93,7 @@ const get = iterator => isExact => async opts => {
 
 class Tag {
 	constructor(tags) {
+		this.name = 'tag'
 		this.tags = tags
 		this.box = getInstance(Box)(tags)
 		this.iterator = deep1Iterator({ elementBox: this.box })
@@ -161,7 +162,7 @@ class Tag {
 	}
 
 	report(actionType, opts = {}) {
-		webReport(actionType, { ...opts, NAME: 'tag', box: this.box })
+		webReport(actionType, { ...opts, name: this.name, box: this.box })
 	}
 }
 

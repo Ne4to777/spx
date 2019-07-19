@@ -11,8 +11,6 @@ import {
 	prop,
 	methodEmpty,
 	identity,
-	deep3Iterator,
-	deep2Iterator,
 	listReport,
 	getListRelativeUrl,
 	isNull,
@@ -31,7 +29,8 @@ import {
 	getArray,
 	popSlash,
 	isDefined,
-	arrayInit
+	arrayInit,
+	deep1Iterator
 } from '../lib/utility'
 
 import * as cache from '../lib/cache'
@@ -40,8 +39,6 @@ import {
 } from '../lib/query-parser'
 import web from './web'
 import attachment from './attachment'
-
-// Internal
 
 const getPagingColumnsStr = columns => {
 	if (!columns) return ''
@@ -69,7 +66,7 @@ const getPagingColumnsStr = columns => {
 	return str
 }
 
-const getTypedSPObject = typeStr => element => listUrl => parentElement => {
+const getTypedSPObject = (typeStr, listUrl) => (element, parentElement) => {
 	let camlQuery = new SP.CamlQuery()
 	const { ID } = element
 	const contextUrl = parentElement.get_context().get_url()
@@ -176,24 +173,210 @@ class Box extends AbstractBox {
 	}
 }
 
-const operateDuplicates = instance => async (opts = {}) => {
-	const { result } = await deep2Iterator({
-		contextBox: instance.parent.parent.box,
-		elementBox: instance.parent.box
-	})(async ({ contextElement, element }) => {
-		const list = web(contextElement.Url).list(element.Url)
-		const items = await list
-			.item({
+class Item {
+	constructor(parent, items) {
+		this.name = 'item'
+		this.parent = parent
+		this.box = getInstance(Box)(items)
+		this.listUrl = parent.box.head().Url
+		this.getSPObject = getTypedSPObject(parent.name === 'list' ? 'Lists/' : '', this.listUrl)
+		this.getListSPObject = this.parent.getSPObject
+		this.getContextSPObject = this.parent.parent.getSPObject
+		this.iterator = deep1Iterator({
+			contextUrl: parent.contextUrl,
+			elementBox: this.box
+		})
+	}
+
+	async	get(opts = {}) {
+		const { showCaml } = opts
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const spObject = this.getSPObject(element, listSPObject)
+			if (showCaml && spObject.camlQuery) camlLog(spObject.camlQuery.get_viewXml())
+			return load(clientContext)(spObject)(opts)
+		})
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async create(opts = {}) {
+		if (this.parent.name !== 'list') {
+			throw new Error('There is no "create" method in "item" module. Use "file" module instead of "item".')
+		}
+		const { contextUrl, listUrl } = this
+		await this.cacheColumns()
+		const cacheUrl = ['itemCreationRetries', this.parent.parent.id]
+		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
+			const { Folder, Columns } = element
+			let folder = Folder
+			let newElement
+			if (isObjectFilled(Columns)) {
+				if (Columns.Folder) folder = Columns.Folder
+				newElement = { ...Columns }
+			} else {
+				newElement = { ...element }
+				delete newElement.ID
+				delete newElement.Url
+				delete newElement.Folder
+			}
+			if (!isObjectFilled(newElement)) return undefined
+			if (folder) {
+				const folderUrl = getListRelativeUrl(contextUrl)(listUrl)({ Folder: folder })
+				itemCreationInfo.set_folderUrl(`/${contextUrl}/Lists/${listUrl}/${folderUrl}`)
+			}
+			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(newElement)(
+				listSPObject.addItem(itemCreationInfo)
+			)
+			return load(clientContext)(spObject)(opts)
+		})
+		let needToRetry; let
+			isError
+		if (this.box.getCount()) {
+			for (let i = 0; i < clientContexts.length; i += 1) {
+				const clientContext = clientContexts[i]
+				await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+					if (/There is no file with URL/.test(err.get_message())) {
+						const foldersToCreate = {}
+						await this.iterator(({ element }) => {
+							const { Folder, Columns = {} } = element
+							const elementUrl = getListRelativeUrl(this.contextUrl)(this.listUrl)({
+								Folder: Folder || Columns.Folder
+							})
+							foldersToCreate[elementUrl] = true
+						})
+
+						const res = await web(this.contextUrl)
+							.list(this.listUrl)
+							.folder(Object.keys(foldersToCreate))
+							.create({ expanded: true, view: ['Name'] })
+							.then(() => {
+								const retries = cache.get(cacheUrl)
+								if (retries) {
+									cache.set(retries - 1)(cacheUrl)
+									return true
+								}
+								return false
+							})
+							.catch(error => {
+								console.log(error)
+								if (/already exists/.test(error.get_message())) return true
+								return false
+							})
+						if (res) needToRetry = true
+					} else {
+						throw err
+					}
+					isError = true
+				})
+				if (needToRetry) break
+			}
+		}
+		if (needToRetry) {
+			return this.create(opts)
+		}
+		if (!isError) {
+			this.report('create', opts)
+			return prepareResponseJSOM(opts)(result)
+		}
+		return undefined
+	}
+
+	async	update(opts) {
+		const { contextUrl, listUrl } = this
+		await this.cacheColumns()
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			if (!element.Url) return undefined
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
+			const elementNew = Object.assign({}, element)
+			delete elementNew.ID
+			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(elementNew)(
+				this.getSPObject(element, listSPObject)
+			)
+			return load(clientContext)(spObject)(opts)
+		})
+		if (isFilled(result)) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		}
+		this.report('update')(opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async	updateByQuery(opts) {
+		const { result } = await this.iterator(async ({ element }) => {
+			const { Folder, Query, Columns = {} } = element
+			if (Query === undefined) throw new Error('Query is missed')
+			const items = await this.of({ Folder, Query }).get({ ...opts, expanded: false })
+			if (items.length) {
+				const itemsToUpdate = items.map(item => {
+					const columns = { ...Columns }
+					columns.ID = item.ID
+					return columns
+				})
+				return this.of(itemsToUpdate).update(opts)
+			}
+			return undefined
+		})
+		return result
+	}
+
+	async	delete(opts = {}) {
+		const { noRecycle, isSerial } = opts
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const elementUrl = element.Url
+			if (!elementUrl) return undefined
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const spObject = this.getSPObject(element, listSPObject)
+			if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
+			return elementUrl
+		})
+
+		if (this.box.getCount()) {
+			if (isSerial) {
+				for (let i = 0; i < clientContexts.length; i += 1) {
+					await executorJSOM(clientContexts[i])(opts)
+				}
+			} else {
+				await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			}
+		}
+		this.report(noRecycle ? 'delete' : 'recycle', opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async	deleteByQuery(opts) {
+		const { result } = await this.iterator(async ({ element }) => {
+			if (element === undefined) throw new Error('Query is missed')
+			const items = await this.of(element).get(opts)
+			if (items.length) {
+				await this.of(items.map(prop('ID'))).delete({ isSerial: true })
+				return items
+			}
+			return undefined
+		})
+		return result
+	}
+
+	async	getDuplicates() {
+		const items = await this
+			.of({
 				Scope: 'allItems',
 				Limit: MAX_ITEMS_LIMIT
 			})
 			.get({
-				view: ['ID', 'FSObjType', 'Modified', ...instance.box.join()]
+				view: ['ID', 'FSObjType', 'Modified', ...this.box.join()]
 			})
 		const itemsMap = new Map()
 		const getHashedColumnName = itemData => {
 			const values = []
-			instance.box.chain(column => {
+			this.box.chain(column => {
 				const value = itemData[column.ID]
 				if (isDefined(value)) values.push(value.get_lookupId ? value.get_lookupId() : value)
 			})
@@ -217,27 +400,172 @@ const operateDuplicates = instance => async (opts = {}) => {
 				])
 			}
 		}
+		return duplicatedsSorted.map(arrayInit)
+	}
 
-		const duplicatedsFiltered = duplicatedsSorted.map(arrayInit)
-		if (opts.delete) {
-			await list
-				.item([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])])
-				.delete({ ...opts, isSerial: true })
-		} else {
-			return duplicatedsFiltered
-		}
-		return undefined
-	})
-	return result
-}
+	async	deleteDuplicates(opts = {}) {
+		const duplicatedsFiltered = await this.getDuplicates()
+		await this
+			.of([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])])
+			.delete({ ...opts, isSerial: true })
+	}
 
-const cacheColumns = contextBox => elementBox => deep2Iterator({ contextBox, elementBox })(
-	async ({ contextElement, element }) => {
-		const contextUrl = contextElement.Url
-		const listUrl = element.Url
+	async getEmpties(opts) {
+		const columns = this.box.value.map(prop('ID'))
+		const { result } = await this.iterator(async ({ element }) => this
+			.of({
+				Query: craftQuery({ operator: 'isnull', columns }),
+				Scope: 'allItems',
+				Limit: MAX_ITEMS_LIMIT,
+				Folder: element.Folder
+			})
+			.get(opts))
+		return result
+	}
+
+	async	deleteEmpties(opts) {
+		const columns = this.box.value.map(prop('ID'))
+		const { result } = await this
+			.of(await this.of(columns).getEmpties(opts)).map(prop('ID'))
+			.delete({ isSerial: true })
+		return result
+	}
+
+	async merge(opts) {
+		const { contextUrl, listUrl } = this
+		this.iterator(async ({ element }) => {
+			const {
+				Key,
+				Forced,
+				To,
+				From,
+				Mediator = () => identity
+			} = element
+			if (!Key) throw new Error('Key is missed')
+			const sourceColumn = From.Column
+			if (!sourceColumn) throw new Error('From Column is missed')
+			const targetColumn = To.Column
+			if (!targetColumn) throw new Error('To Column is missed')
+			const [sourceItems, targetItems] = await Promise.all([
+				this.parent.parent
+					.of(From.WebUrl || contextUrl)[this.parent.name](From.List || listUrl)
+					.item({
+						Query: concatQueries()([`${Key} IsNotNull`, From.Query]),
+						Scope: 'allItems',
+						Limit: MAX_ITEMS_LIMIT
+					})
+					.get({
+						view: ['ID', Key, sourceColumn]
+					}),
+				this
+					.of({
+						Query: concatQueries()([`${Key} IsNotNull`, To.Query]),
+						Scope: 'allItems',
+						Limit: MAX_ITEMS_LIMIT
+					})
+					.get({
+						view: ['ID', Key, targetColumn],
+						groupBy: Key
+					})
+			])
+			const itemsToMerge = []
+			await Promise.all(
+				sourceItems.map(async sourceItem => {
+					const targetItemGroup = targetItems[sourceItem[Key]]
+					if (targetItemGroup) {
+						const targetItem = targetItemGroup[0]
+						const itemToMerge = { ID: targetItem.ID }
+						if (isNull(targetItem[targetColumn]) || Forced) {
+							itemToMerge[targetColumn] = await Mediator(sourceColumn)(sourceItem[sourceColumn])
+							itemsToMerge.push(itemToMerge)
+						}
+					}
+				})
+			)
+			return itemsToMerge.length && this.of(itemsToMerge).update(opts)
+		})
+	}
+
+	async	erase(opts) {
+		const { result } = await this.iterator(({ element }) => {
+			const { Query = '', Folder, Columns } = element
+			if (!Columns) return undefined
+			const columns = getArray(Columns)
+			return this
+				.of({
+					Folder,
+					Query,
+					Columns: columns.reduce((acc, el) => {
+						acc[el] = null
+						return acc
+					}, {})
+				})
+				.updateByQuery(opts)
+		})
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async	createDiscussion(opts = {}) {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const skippedProps = {
+				Url: true,
+				ID: true
+			}
+			const spObject = SP.Utilities.Utility.createNewDiscussion(clientContext, listSPObject, element.Title)
+			const keys = Reflect.ownKeys(element)
+			for (let i = 0; i < keys.length; i += 1) {
+				const columnName = keys[i]
+				if (!skippedProps[columnName]) spObject.set_item(columnName, element[columnName])
+			}
+			spObject.update()
+			return spObject
+		})
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		this.report('create', opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	async	createReply(opts = {}) {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const { Columns } = element
+			const contextSPObject = this.getContextSPObject(clientContext)
+			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const spItemObject = this.getSPObject(element, listSPObject)
+			const spObject = SP.Utilities.Utility.createNewDiscussionReply(clientContext, spItemObject)
+			const keys = Reflect.ownKeys(Columns)
+			for (let i = 0; i < keys.length; i += 1) {
+				const columnName = keys[i]
+				spObject.set_item(columnName, Columns[columnName])
+			}
+			spObject.update()
+			return spObject
+		})
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		this.report('create', opts)
+		return prepareResponseJSOM(opts)(result)
+	}
+
+	attachment(attachments) {
+		return attachment(this, attachments)
+	}
+
+	report(actionType, opts = {}) {
+		listReport(actionType, {
+			...opts,
+			name: this.name,
+			box: this.box,
+			listBox: this.parent.box,
+			contextBox: this.parent.parent.box
+		})
+	}
+
+	async	cacheColumns() {
+		const { contextUrl, listUrl } = this
 		if (!cache.get(['columns', contextUrl, listUrl])) {
-			const columns = await web(contextUrl)
-				.list(listUrl)
+			const columns = await this
+				.parent
 				.column()
 				.get({
 					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
@@ -246,402 +574,10 @@ const cacheColumns = contextBox => elementBox => deep2Iterator({ contextBox, ele
 			cache.set(columns)(['columns', contextUrl, listUrl])
 		}
 	}
-)
 
-const updateByQuery = instance => iterator => async (opts = {}) => {
-	const module = instance.parent.NAME
-	const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
-		const { Folder, Query, Columns = {} } = element
-		if (Query === undefined) throw new Error('Query is missed')
-		const list = web(contextElement.Url)[module](parentElement.Url)
-		const items = await list.item({ Folder, Query }).get({ ...opts, expanded: false })
-		if (items.length) {
-			const itemsToUpdate = items.map(item => {
-				const row = Object.assign({}, Columns)
-				row.ID = item.ID
-				return row
-			})
-			return list.item(itemsToUpdate).update(opts)
-		}
-		return undefined
-	})
-	return result
-}
-
-const deleteByQuery = instance => iterator => async opts => {
-	const module = instance.parent.NAME
-	const { result } = await iterator(async ({ contextElement, parentElement, element }) => {
-		if (element === undefined) throw new Error('Query is missed')
-		const list = web(contextElement.Url)[module](parentElement.Url)
-		const items = await list.item(element).get(opts)
-		if (items.length) {
-			await list.item(items.map(prop('ID'))).delete({ isSerial: true })
-			return items
-		}
-		return undefined
-	})
-	return result
-}
-
-const erase = instance => iterator => async opts => {
-	const module = instance.parent.NAME
-	const { result } = await iterator(({ contextElement, parentElement, element }) => {
-		const { Query = '', Folder, Columns } = element
-		if (!Columns) return undefined
-		const columns = getArray(Columns)
-		return web(contextElement.Url)[module](parentElement.Url)
-			.item({
-				Folder,
-				Query,
-				Columns: columns.reduce((acc, el) => {
-					acc[el] = null
-					return acc
-				}, {})
-			})
-			.updateByQuery(opts)
-	})
-	return prepareResponseJSOM(opts)(result)
-}
-
-const getEmpties = instance => iterator => async opts => {
-	const module = instance.parent.NAME
-	const columns = instance.box.value.map(prop('ID'))
-	const { result } = await iterator(async ({ contextElement, element }) => web(
-		contextElement.Url
-	)[module](element.Url)
-		.item({
-			Query: craftQuery({ operator: 'isnull', columns }),
-			Scope: 'allItems',
-			Limit: MAX_ITEMS_LIMIT,
-			Folder: element.Folder
-		})
-		.get(opts))
-	return result
-}
-
-const merge = instance => iterator => async opts => {
-	const module = instance.parent.NAME
-	iterator(async ({ contextElement, parentElement, element }) => {
-		const {
-			Key, Forced, To, From, Mediator = () => identity
-		} = element
-		if (!Key) throw new Error('Key is missed')
-		const contextUrl = contextElement.Url
-		const listUrl = parentElement.Url
-		const sourceColumn = From.Column
-		if (!sourceColumn) throw new Error('From Column is missed')
-		const targetColumn = To.Column
-		if (!targetColumn) throw new Error('To Column is missed')
-		const list = web(contextUrl)[module](listUrl)
-		const [sourceItems, targetItems] = await Promise.all([
-			web(From.WebUrl || contextUrl)[module](From.List || listUrl)
-				.item({
-					Query: concatQueries()([`${Key} IsNotNull`, From.Query]),
-					Scope: 'allItems',
-					Limit: MAX_ITEMS_LIMIT
-				})
-				.get({
-					view: ['ID', Key, sourceColumn]
-				}),
-			list
-				.item({
-					Query: concatQueries()([`${Key} IsNotNull`, To.Query]),
-					Scope: 'allItems',
-					Limit: MAX_ITEMS_LIMIT
-				})
-				.get({
-					view: ['ID', Key, targetColumn],
-					groupBy: Key
-				})
-		])
-		const itemsToMerge = []
-		await Promise.all(
-			sourceItems.map(async sourceItem => {
-				const targetItemGroup = targetItems[sourceItem[Key]]
-				if (targetItemGroup) {
-					const targetItem = targetItemGroup[0]
-					const itemToMerge = { ID: targetItem.ID }
-					if (isNull(targetItem[targetColumn]) || Forced) {
-						itemToMerge[targetColumn] = await Mediator(sourceColumn)(sourceItem[sourceColumn])
-						itemsToMerge.push(itemToMerge)
-					}
-				}
-			})
-		)
-		return itemsToMerge.length && list.item(itemsToMerge).update(opts)
-	})
-}
-
-// Inteface
-
-export default parent => elements => {
-	const instance = {
-		box: getInstance(Box)(elements),
-		NAME: 'item',
-		parent
-	}
-	const getSPObject = getTypedSPObject(instance.parent.NAME === 'list' ? 'Lists/' : '')
-	instance.getSPObject = getSPObject
-	const iterator = deep3Iterator({
-		contextBox: instance.parent.parent.box,
-		parentBox: instance.parent.box,
-		elementBox: instance.box
-	})
-
-	const iteratorParent = deep2Iterator({
-		contextBox: instance.parent.parent.box,
-		elementBox: instance.parent.box
-	})
-
-	const report = actionType => (opts = {}) => listReport({
-		...opts,
-		NAME: instance.NAME,
-		actionType,
-		box: instance.box,
-		listBox: instance.parent.box,
-		contextBox: instance.parent.parent.box
-	})
-
-	return {
-		attachment: attachment(instance),
-		get: async (opts = {}) => {
-			const { showCaml } = opts
-			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
-				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
-				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-				const spObject = getSPObject(element)(parentElement.Url)(listSPObject)
-				if (showCaml && spObject.camlQuery) camlLog(spObject.camlQuery.get_viewXml())
-				return load(clientContext)(spObject)(opts)
-			})
-			await instance.parent.parent.box.chain(el => Promise.all(
-				clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))
-			))
-			return prepareResponseJSOM(opts)(result)
-		},
-
-		create:
-			instance.parent.NAME === 'list'
-				? async function create(opts = {}) {
-					await cacheColumns(instance.parent.parent.box)(instance.parent.box)
-					const cacheUrl = ['itemCreationRetries', instance.parent.parent.id]
-					if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
-					const { clientContexts, result } = await iterator(
-						({
-							contextElement, clientContext, parentElement, element
-						}) => {
-							const contextUrl = contextElement.Url
-							const listUrl = parentElement.Url
-							const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
-							const contextSPObject = instance.parent.parent.getSPObject(clientContext)
-							const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-							const { Folder, Columns } = element
-							let folder = Folder
-							let newElement
-							if (isObjectFilled(Columns)) {
-								if (Columns.Folder) folder = Columns.Folder
-								newElement = Object.assign({}, Columns)
-							} else {
-								newElement = Object.assign({}, element)
-								delete newElement.ID
-								delete newElement.Url
-								delete newElement.Folder
-							}
-							if (!isObjectFilled(newElement)) return undefined
-							if (folder) {
-								const folderUrl = getListRelativeUrl(contextUrl)(listUrl)({ Folder: folder })
-								itemCreationInfo.set_folderUrl(`/${contextUrl}/Lists/${listUrl}/${folderUrl}`)
-							}
-							const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(newElement)(
-								listSPObject.addItem(itemCreationInfo)
-							)
-							return load(clientContext)(spObject)(opts)
-						}
-					)
-					let needToRetry; let
-						isError
-					if (instance.box.getCount()) {
-						await instance.parent.parent.box.chain(async el => {
-							const clientContextByUrl = clientContexts[el.URL]
-							for (let i = 0; i < clientContextByUrl.length; i += 1) {
-								const clientContext = clientContextByUrl[i]
-								await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
-									if (/There is no file with URL/.test(err.get_message())) {
-										const foldersToCreate = {}
-										await iterator(({ contextElement, parentElement, element }) => {
-											const { Folder, Columns = {} } = element
-											const elementUrl = getListRelativeUrl(contextElement.Url)(
-												parentElement.Url
-											)({
-												Folder: Folder || Columns.Folder
-											})
-											foldersToCreate[elementUrl] = true
-										})
-										await iteratorParent(async ({ contextElement, element }) => {
-											const res = await web(contextElement.Url)
-												.list(element.Url)
-												.folder(Object.keys(foldersToCreate))
-												.create({ expanded: true, view: ['Name'] })
-												.then(() => {
-													const retries = cache.get(cacheUrl)
-													if (retries) {
-														cache.set(retries - 1)(cacheUrl)
-														return true
-													}
-													return false
-												})
-												.catch(error => {
-													console.log(error)
-													if (/already exists/.test(error.get_message())) return true
-													return false
-												})
-											if (res) needToRetry = true
-										})
-									} else {
-										throw err
-									}
-									isError = true
-								})
-								if (needToRetry) break
-							}
-						})
-					}
-					if (needToRetry) {
-						return create(opts)
-					}
-					if (!isError) {
-						report('create')(opts)
-						return prepareResponseJSOM(opts)(result)
-					}
-					return undefined
-				}
-				: () => new Promise((resolve, reject) => reject(
-					new Error('There is no "create" method in "item" module. Use "file" module instead.')
-				)),
-
-		update: async opts => {
-			await cacheColumns(instance.parent.parent.box)(instance.parent.box)
-			const { clientContexts, result } = await iterator(({
-				contextElement, clientContext, parentElement, element
-			}) => {
-				if (!element.Url) return undefined
-				const contextUrl = contextElement.Url
-				const listUrl = parentElement.Url
-				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
-				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-				const elementNew = Object.assign({}, element)
-				delete elementNew.ID
-				const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(elementNew)(
-					getSPObject(element)(parentElement.Url)(listSPObject)
-				)
-				return load(clientContext)(spObject)(opts)
-			})
-			if (isFilled(result)) {
-				await instance.parent.parent.box.chain(
-					async el => Promise.all(
-						clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))
-					)
-				)
-			}
-			report('update')(opts)
-			return prepareResponseJSOM(opts)(result)
-		},
-
-		updateByQuery: updateByQuery(instance)(iterator),
-
-		delete: async (opts = {}) => {
-			const { noRecycle, isSerial } = opts
-			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
-				const elementUrl = element.Url
-				if (!elementUrl) return undefined
-				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
-				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-				const spObject = getSPObject(element)(parentElement.Url)(listSPObject)
-				if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
-				return elementUrl
-			})
-
-			if (instance.box.getCount()) {
-				if (isSerial) {
-					await instance.parent.parent.box.chain(async el => {
-						const clientContextByUrl = clientContexts[el.URL]
-						for (let i = 0; i < clientContextByUrl.length; i += 1) {
-							const clientContext = clientContextByUrl[i]
-							await executorJSOM(clientContext)(opts)
-						}
-					})
-				} else {
-					await instance.parent.parent.box.chain(el => Promise.all(
-						clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts))
-					))
-				}
-			}
-			report(noRecycle ? 'delete' : 'recycle')(opts)
-			return prepareResponseJSOM(opts)(result)
-		},
-
-		deleteByQuery: deleteByQuery(instance)(iterator),
-
-		getDuplicates: operateDuplicates(instance),
-		deleteDuplicates: (opts = {}) => operateDuplicates(instance)({ ...opts, delete: true }),
-
-		getEmpties: getEmpties(instance)(iteratorParent),
-		deleteEmpties: async opts => {
-			const columns = instance.box.value.map(prop('ID'))
-			const { result } = await iteratorParent(async ({ contextElement, element }) => {
-				const list = web(contextElement.Url).list(element.Url)
-				return list.item((await list.item(columns).getEmpties(opts)).map(prop('ID'))).delete({ isSerial: true })
-			})
-			return result
-		},
-
-		merge: merge(instance)(iterator),
-
-		erase: erase(instance)(iterator),
-
-		createDiscussion: async (opts = {}) => {
-			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
-				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
-				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-				const skippedProps = {
-					Url: true,
-					ID: true
-				}
-				const spObject = SP.Utilities.Utility.createNewDiscussion(clientContext, listSPObject, element.Title)
-				const keys = Reflect.ownKeys(element)
-				for (let i = 0; i < keys.length; i += 1) {
-					const columnName = keys[i]
-					if (!skippedProps[columnName]) spObject.set_item(columnName, element[columnName])
-				}
-				spObject.update()
-				return spObject
-			})
-			await instance.parent.parent.box.chain(
-				async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-			)
-			report('create')(opts)
-			return prepareResponseJSOM(opts)(result)
-		},
-
-		createReply: async (opts = {}) => {
-			const { clientContexts, result } = await iterator(({ clientContext, parentElement, element }) => {
-				const { Columns } = element
-				const contextSPObject = instance.parent.parent.getSPObject(clientContext)
-				const listSPObject = instance.parent.getSPObject(parentElement.Url)(contextSPObject)
-				const spItemObject = getSPObject(element)(parentElement.Url)(listSPObject)
-				const spObject = SP.Utilities.Utility.createNewDiscussionReply(clientContext, spItemObject)
-				const keys = Reflect.ownKeys(Columns)
-				for (let i = 0; i < keys.length; i += 1) {
-					const columnName = keys[i]
-					spObject.set_item(columnName, Columns[columnName])
-				}
-				spObject.update()
-				return spObject
-			})
-			await instance.parent.parent.box.chain(
-				async el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
-			)
-			report('create')(opts)
-			return prepareResponseJSOM(opts)(result)
-		}
+	of(items) {
+		return getInstance(this.constructor)(this.parent, items)
 	}
 }
+
+export default getInstance(Item)
