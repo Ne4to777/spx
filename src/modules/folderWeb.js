@@ -30,8 +30,6 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
-// Internal
-
 const liftFolderType = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
@@ -66,11 +64,9 @@ class Box extends AbstractBox {
 	}
 }
 
-// Inteface
-
 class FolderWeb {
 	constructor(parent, folders) {
-		this.name = 'folderweb'
+		this.name = 'folder'
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
 		this.contextUrl = parent.box.head().Url

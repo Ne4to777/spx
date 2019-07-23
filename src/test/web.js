@@ -1,3 +1,4 @@
+/* eslint no-unused-vars:0 */
 import web from '../modules/web'
 import {
 	assertObject,
@@ -94,32 +95,32 @@ const assertObjectProps = assertObject(PROPS)
 const assertCollectionProps = assertCollection(PROPS)
 
 const crud = async () => {
-	await web('test/spx/createdWebSingle')
+	await web('test/spx/createdWebSingle1')
 		.delete({ noRecycle: true, silentErrors: true })
 		.catch(identity)
 	const newWeb = await assertObjectProps('new web')(web({
-		Url: 'test/spx/createdWebSingle',
+		Url: 'test/spx/createdWebSingle1',
 		Description: 'Default Aura Web Template'
 	}).create())
 	assert('Description is not a "Default Aura Web Template"')(newWeb.Description === 'Default Aura Web Template')
 	const updatedWeb = await assertObjectProps('updated web')(
-		web({ Url: 'test/spx/createdWebSingle', Description: 'Test description' }).update()
+		web({ Url: 'test/spx/createdWebSingle1', Description: 'Test description' }).update()
 	)
 	assert('Description is not a "Test description"')(updatedWeb.Description === 'Test description')
-	await web('test/spx/createdWebSingle').delete({ noRecycle: true })
+	await web('test/spx/createdWebSingle1').delete({ noRecycle: true })
 }
 const crudCollection = async () => {
-	await web([{
-		Url: 'test/spx/createdWebMulti',
-		Description: 'Default Aura Web Template'
-	}, {
-		Url: 'test/spx/createdWebMultiAnother',
-		Description: 'Default Aura Web Template'
-	}])
+	await web(['test/spx/createdWebMulti', 'test/spx/createdWebMultiAnother'])
 		.delete({ noRecycle: true, silentErrors: true })
 		.catch(identity)
 	const newWebs = await assertCollectionProps('new webs')(
-		web(['test/spx/createdWebMulti', 'test/spx/createdWebMultiAnother']).create()
+		web([{
+			Url: 'test/spx/createdWebMulti',
+			Description: 'Default Aura Web Template'
+		}, {
+			Url: 'test/spx/createdWebMultiAnother',
+			Description: 'Default Aura Web Template'
+		}]).create()
 	)
 	map(newWeb => assert('Description is not a "Default Aura Web Template"')(
 		newWeb.Description === 'Default Aura Web Template'
@@ -154,6 +155,6 @@ export default () => Promise.all([
 	// assertCollectionProps('web')(web(['test/spx/testWeb', 'test/spx/testWebAnother']).get()),
 	// assertCollectionProps('web')(web([{ Url: 'test/spx/testWeb' }, { Url: 'test/spx/testWebAnother' }]).get()),
 	// doesUserHavePermissions(),
-	crud(),
+	// crud(),
 	// crudCollection()
 ]).then(testIsOk('web'))

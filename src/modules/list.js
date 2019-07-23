@@ -79,6 +79,7 @@ class List {
 		this.contextUrl = parent.box.head().Url
 		this.box = getInstance(Box)(lists)
 		this.web = parent.constructor
+		this.getContextSPObject = parent.getSPObject
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box

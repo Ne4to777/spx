@@ -387,7 +387,7 @@ class Box extends AbstractBox {
 
 class FileList {
 	constructor(parent, files) {
-		this.name = 'filelist'
+		this.name = 'file'
 		this.parent = parent
 		this.box = getInstance(Box)(files)
 		this.contextUrl = parent.contextUrl

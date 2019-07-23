@@ -1,3 +1,4 @@
+/* eslint no-unused-vars:0 */
 import { set, unset, inspect } from '../lib/cache'
 import { assert, testIsOk } from '../lib/utility'
 

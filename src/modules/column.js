@@ -76,7 +76,7 @@ class Column {
 		this.box = getInstance(Box)(folders)
 		this.contextUrl = parent.contextUrl
 		this.getContextSPObject = parent.getContextSPObject
-		this.getListSPObject = parent.getListSPObject
+		this.getListSPObject = parent.getSPObject
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box,
@@ -88,6 +88,7 @@ class Column {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
+			console.log(listSPObject)
 			const elementUrl = element.Url
 			const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl)
 			const spObject = isCollection
@@ -272,6 +273,7 @@ class Column {
 	}
 
 	getSPObject(elementUrl, parentSPObject) {
+		console.log(parentSPObject)
 		const fields = parentSPObject.get_fields()
 		return isGUID(elementUrl)
 			? fields.getById(elementUrl)

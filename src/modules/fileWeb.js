@@ -7,7 +7,6 @@ import {
 	prepareResponseJSOM,
 	load,
 	executorJSOM,
-	getContext,
 	isStringEmpty,
 	getParentUrl,
 	prependSlash,
@@ -82,7 +81,7 @@ class Box extends AbstractBox {
 
 class FileWeb {
 	constructor(parent, files) {
-		this.name = 'fileweb'
+		this.name = 'file'
 		this.parent = parent
 		this.box = getInstance(Box)(files)
 		this.contextUrl = parent.box.head().Url
@@ -109,14 +108,14 @@ class FileWeb {
 			})
 			return prepareResponseREST(opts)(result)
 		}
-		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...options }
+		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
 			const parentSPObject = this.getContextSPObject(clientContext)
 			const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl)
 			const spObject = isCollection
-				? this.getSPObjectCollection(elementUrl)(parentSPObject)
-				: this.getSPObject(elementUrl)(parentSPObject)
+				? this.getSPObjectCollection(elementUrl, parentSPObject)
+				: this.getSPObject(elementUrl, parentSPObject)
 			return load(clientContext)(spObject)(options)
 		})
 		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(options)))
@@ -224,7 +223,7 @@ class FileWeb {
 		if (this.box.getCount()) {
 			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
 		}
-		this.report(noRecycle ? 'delete' : 'recycle')(opts)
+		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(opts)(result)
 	}
 
@@ -263,19 +262,19 @@ class FileWeb {
 	}
 
 	getSPObject(elementUrl, spObject) {
+		const { contextUrl } = this
 		const folder = getFolderFromUrl(elementUrl)
 		const filename = getFilenameFromUrl(elementUrl)
-		const contextUrl = getContext(spObject).get_url()
 		return spObject.getFileByServerRelativeUrl(
-			mergeSlashes(`${folder ? `${contextUrl}/${folder}` : contextUrl}/${filename}`)
+			mergeSlashes(`/${folder ? `${contextUrl}/${folder}` : contextUrl}/${filename}`)
 		)
 	}
 
 	getSPObjectCollection(elementUrl, spObject) {
-		const contextUrl = getContext(spObject).get_url()
+		const { contextUrl } = this
 		const folder = getFolderFromUrl(elementUrl)
 		return folder
-			? spObject.getFolderByServerRelativeUrl(`${contextUrl}/${folder}`).get_files()
+			? spObject.getFolderByServerRelativeUrl(`/${contextUrl}/${folder}`).get_files()
 			: spObject.get_rootFolder().get_files()
 	}
 

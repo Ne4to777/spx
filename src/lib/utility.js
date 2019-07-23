@@ -591,41 +591,53 @@ export const report = (msg, opts = {}) => {
 	if (!opts.silent && !opts.silentInfo) console.log(msg)
 }
 
-export const webReport = (actionType, opts = {}) => {
+export const rootReport = (actionType, opts = {}) => {
+	const {
+		box,
+		name,
+		detailed
+	} = opts
+	const count = box.getCount()
 	report(
-		`${ACTION_TYPES[actionType]
-		} ${opts.box.getCount()
-		} ${opts.name
-		}${opts.box.getCount() > 1 ? '(s)' : ''
-		} ${opts.detailed
-			? `: ${opts.box.join()}`
-			: ''
-		} `,
+		`${ACTION_TYPES[actionType]} ${count} ${name}${count > 1 ? 's' : ''} ${detailed ? `: ${box.join()}` : ''} `,
 		opts
 	)
 }
 
-export const listReport = (actionType, opts = {}) => {
+export const webReport = (actionType, opts = {}) => {
+	const {
+		box,
+		name,
+		detailed,
+		contextUrl
+	} = opts
+	const count = box.getCount(actionType)
 	report(
 		`${ACTION_TYPES[actionType]
-		} ${opts.box.getCount(actionType)
-		}${opts.name}${opts.box.getCount() > 1 ? '(s)' : ''} in ${opts.listBox.join()
-		} at ${opts.contextUrl || '/'
-		} ${opts.detailed
-			? `: ${opts.box.join()}`
+		} ${count} ${name}${count > 1 ? 's' : ''} at ${contextUrl || '/'
+		} ${detailed
+			? `: ${box.join()}`
 			: ''}`,
 		opts
 	)
 }
 
-export const itemReport = (actionType, opts = {}) => {
+export const listReport = (actionType, opts = {}) => {
+	const {
+		box,
+		name,
+		detailed,
+		contextUrl,
+		listUrl
+	} = opts
+	const count = box.getCount(actionType)
 	report(
 		`${ACTION_TYPES[actionType]
-		} ${opts.box.getCount(actionType)
-		} ${opts.name}${opts.box.getCount() > 1 ? '(s)' : ''} in ${opts.listBox.join()
-		} at ${opts.contextUrl || '/'
-		} ${opts.detailed
-			? `: ${opts.box.join()}`
+		} ${count
+		} ${name}${count > 1 ? 's' : ''} in ${listUrl
+		} at ${contextUrl || '/'
+		} ${detailed
+			? `: ${box.join()}`
 			: ''}`,
 		opts
 	)

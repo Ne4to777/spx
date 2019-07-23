@@ -71,7 +71,7 @@ class Box extends AbstractBox {
 
 class FolderList {
 	constructor(parent, folders) {
-		this.name = 'folderlist'
+		this.name = 'folder'
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
 		this.contextUrl = parent.contextUrl

@@ -12,7 +12,7 @@ class Time {
 		this.parent = parent
 	}
 
-	async	getCurrent() {
+	async	get() {
 		return new Promise(
 			(resolve, reject) => new SP.RequestExecutor('/').executeAsync({
 				url: '/_api/web/RegionalSettings/TimeZone',

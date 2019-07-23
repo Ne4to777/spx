@@ -1,3 +1,5 @@
+
+/* eslint no-unused-vars:0 */
 import cache from './cache'
 import web from './web'
 import column from './column'
@@ -15,10 +17,10 @@ import { testIsOk } from '../lib/utility'
 export default async () => {
 	// await cache()
 	// await web()
-	// await folderWeb();
-	// await fileWeb();
-	// await list();
-	// await column();
+	// await folderWeb()
+	// await fileWeb()
+	// await list()
+	await column()
 	// await folderList();
 	// await fileList();
 	// await item()

@@ -1,3 +1,5 @@
+/* eslint no-unused-vars:0 */
+
 import { getCamlQuery } from '../lib/query-parser'
 import { assertString, testIsOk, identity } from '../lib/utility'
 

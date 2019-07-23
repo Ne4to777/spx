@@ -15,7 +15,7 @@ import {
 	methodI,
 	getParentUrl,
 	hasUrlTailSlash,
-	webReport,
+	rootReport,
 	isStrictUrl
 } from '../lib/utility'
 
@@ -235,7 +235,7 @@ class Web {
 	}
 
 	report(actionType, opts = {}) {
-		webReport(actionType, {
+		rootReport(actionType, {
 			...opts,
 			name: this.name,
 			box: this.box
