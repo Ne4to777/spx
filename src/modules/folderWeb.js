@@ -11,16 +11,12 @@ import {
 	getTitleFromUrl,
 	popSlash,
 	getParentUrl,
-	ifThen,
-	constant,
 	pipe,
 	hasUrlTailSlash,
 	getWebRelativeUrl,
 	typeOf,
 	shiftSlash,
 	mergeSlashes,
-	isArrayFilled,
-	map,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	webReport,
@@ -30,7 +26,8 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
-const liftFolderType = switchCase(typeOf)({
+const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		if (!context.Url && context.ServerRelativeUrl) newContext.Url = context.ServerRelativeUrl
@@ -53,14 +50,8 @@ const liftFolderType = switchCase(typeOf)({
 
 class Box extends AbstractBox {
 	constructor(value) {
-		super(value)
+		super(value, lifter, arrayValidator)
 		this.joinProp = 'ServerRelativeUrl'
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([
-				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftFolderType()])
-			])(value)
-			: liftFolderType(value)
 	}
 }
 
@@ -86,10 +77,10 @@ class FolderWeb {
 			const spObject = isCollection
 				? this.getSPObjectCollection(elementUrl, parentSPObject)
 				: this.getSPObject(elementUrl, parentSPObject)
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
-		return prepareResponseJSOM(opts)(result)
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	create(opts = {}) {
@@ -104,13 +95,13 @@ class FolderWeb {
 			const parentFolderUrl = getParentUrl(elementUrl)
 			const spObject = this.getSPObjectCollection(`${parentFolderUrl}/`, this.getContextSPObject(clientContext))
 				.add(getTitleFromUrl(elementUrl))
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
 
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext, { ...opts, silentErrors: true }).catch(async err => {
 					const msg = err.get_message()
 					if (/already exists/.test(msg)) return
 					isError = true
@@ -148,7 +139,7 @@ class FolderWeb {
 		}
 		if (!isError) {
 			this.report('create', opts)
-			return prepareResponseJSOM(opts)(result)
+			return prepareResponseJSOM(result, opts)
 		}
 		return undefined
 	}
@@ -165,10 +156,10 @@ class FolderWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	getSPObject(elementUrl, parentSPObject) {

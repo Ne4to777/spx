@@ -20,11 +20,11 @@ export default async () => {
 	// await folderWeb()
 	// await fileWeb()
 	// await list()
-	await column()
+	// await column()
 	// await folderList();
 	// await fileList();
 	// await item()
-	// await tag();
-	// await queryParser();
+	// await tag()
+	// await queryParser()
 	testIsOk('whole test')()
 }

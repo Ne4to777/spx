@@ -12,8 +12,6 @@ import {
 	getInstanceEmpty,
 	setItem,
 	hasUrlTailSlash,
-	ifThen,
-	constant,
 	methodEmpty,
 	getSPFolderByUrl,
 	pipe,
@@ -21,8 +19,6 @@ import {
 	getListRelativeUrl,
 	switchCase,
 	typeOf,
-	isArrayFilled,
-	map,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	shiftSlash,
@@ -36,7 +32,9 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
-const liftFolderType = switchCase(typeOf)({
+const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+
+const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		if (!context.Url) newContext.Url = context.ServerRelativeUrl || context.FileRef
@@ -58,14 +56,8 @@ const liftFolderType = switchCase(typeOf)({
 
 class Box extends AbstractBox {
 	constructor(value) {
-		super(value)
+		super(value, lifter, arrayValidator)
 		this.joinProp = 'ServerRelativeUrl'
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([
-				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftFolderType()])
-			])(value)
-			: liftFolderType(value)
 	}
 }
 
@@ -95,10 +87,10 @@ class FolderList {
 			const spObject = isCollection
 				? this.getSPObjectCollection(elementUrl, listSPObject)
 				: this.getSPObject(elementUrl, listSPObject)
-			return load(clientContext)(spObject)(options)
+			return load(clientContext, spObject, options)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(options)))
-		return prepareResponseJSOM(options)(result)
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
+		return prepareResponseJSOM(result, options)
 	}
 
 	async	create(opts = {}) {
@@ -130,14 +122,14 @@ class FolderList {
 			const spObject = setItem(
 				cache.get(['columns', contextUrl, listUrl])
 			)(Object.assign({}, newElement))(listSPObject.addItem(itemCreationInfo))
-			return load(clientContext)(spObject.get_folder())(options)
+			return load(clientContext, spObject.get_folder(), options)
 		})
 		let needToRetry
 		let isError
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext)({ ...options, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async err => {
 					const msg = err.get_message()
 					if (/already exists/.test(msg)) return
 					isError = true
@@ -175,7 +167,7 @@ class FolderList {
 		}
 		if (!isError) {
 			this.report('create', options)
-			return prepareResponseJSOM(opts)(result)
+			return prepareResponseJSOM(result, opts)
 		}
 		return undefined
 	}
@@ -203,13 +195,13 @@ class FolderList {
 			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, element))(
 				this.getSPObject(elementUrl, listSPObject).get_listItemAllFields()
 			)
-			return load(clientContext)(spObject.get_folder())(options)
+			return load(clientContext, spObject.get_folder(), options)
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('update', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	delete(opts = {}) {
@@ -228,11 +220,11 @@ class FolderList {
 		})
 		if (this.box.getCount()) {
 			await this.parent.parent.box.chain(
-				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext)(opts)))
+				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext, opts)))
 			)
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	getSPObject(elementUrl, parentSPObject) {

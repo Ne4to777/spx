@@ -18,9 +18,9 @@ let customUsersList
 class User {
 	constructor(parent, users) {
 		this.name = 'user'
+		this.parent = parent
 		this.isUsersArray = isArray(users)
 		this.users = users ? (this.isUsersArray ? flatten(users) : [users]) : []
-		this.web = parent.of
 		if (!defaultUsersList) {
 			defaultUsersList = getInstanceEmpty(parent.constructor).list('User Information List')
 		}
@@ -29,16 +29,14 @@ class User {
 	async	get(opts = {}) {
 		if (this.users.length) {
 			const el = this.users[0]
-			const values = this.users
 			return isNumber(el) || Number(el) === el || (typeOf(el) === 'object' && el.uid)
-				? this.getByUid(values, opts)
+				? this.getByUid(opts)
 				: /\s/.test(el) || /[а-яА-ЯЁё]/.test(el)
-					? this.getByName(values)(opts)
+					? this.getByName(opts)
 					: /@.+\./.test(el)
-						? this.getByEMail(values, opts)
-						: this.getByLogin(values, opts)
+						? this.getByEMail(opts)
+						: this.getByLogin(opts)
 		}
-
 		return this.getAll(opts)
 	}
 
@@ -47,7 +45,7 @@ class User {
 		if (isSP || !customUsersList) {
 			const clientContext = getClientContext('/')
 			const spUser = clientContext.get_web().get_currentUser()
-			return prepareResponseJSOM(opts)(await executeJSOM(clientContext)(spUser)(opts))
+			return prepareResponseJSOM(await executeJSOM(clientContext, spUser, opts), opts)
 		}
 		const uid = _spPageContextInfo
 			? _spPageContextInfo.userId
@@ -212,7 +210,7 @@ class User {
 		if (!customUsersList) throw new Error('Custom user list is missed')
 		const ids = this.users.filter(el => !!el.uid)
 		if (ids.length) {
-			const userObjects = await this.web().user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' })
+			const userObjects = await this.parent.of().user(ids).get({ view: ['ID', 'uid'], groupBy: 'uid' })
 			const usersToUpdate = this.users.reduce((acc, el) => {
 				const userID = userObjects[el.uid] ? userObjects[el.uid].ID : undefined
 				if (userID) {
@@ -233,14 +231,14 @@ class User {
 
 	setCustomUsersList(data = {}) {
 		if (data.listTitle) {
-			customUsersList = this.web(data.webTitle).list(data.listTitle)
+			customUsersList = this.parent.of(data.webTitle).list(data.listTitle)
 		} else {
 			throw new Error('Wrong data object. Need {webTitle, listTitle}')
 		}
 	}
 
 	setDefaultUsersList(title) {
-		defaultUsersList = this.web().list(title)
+		defaultUsersList = this.parent.of().list(title)
 	}
 
 	of(users) {

@@ -35,12 +35,9 @@ import {
 	listReport,
 	switchCase,
 	shiftSlash,
-	isArrayFilled,
 	pipe,
-	map,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
-	constant,
 	stringTest,
 	isUndefined,
 	isBlob,
@@ -112,7 +109,7 @@ const copyOrMove = async (isMove, opts = {}) => {
 					.catch(identity)
 			}
 			spObject[isMove ? 'moveTo' : 'copyTo'](mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`))
-			await executeJSOM(clientContext)(spObject)(opts)
+			await executeJSOM(clientContext, spObject, opts)
 			await spxTargetList
 				.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate })
 				.update({ silentInfo: true })
@@ -133,7 +130,9 @@ const copyOrMove = async (isMove, opts = {}) => {
 	console.log(`${ACTION_TYPES[isMove ? 'move' : 'copy']} ${this.box.getCount()} ${this.name}(s)`)
 }
 
-const liftFolderType = switchCase(typeOf)({
+const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+
+const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		const name = context.Content ? context.Content.name : undefined
@@ -215,12 +214,12 @@ const createWithJSOM = async (opts = {}) => {
 			set_fieldValues: fieldsToCreate
 		})(binaryInfo)
 		spObject.saveBinary(binaryInfo)
-		return load(clientContext)(spObject)(options)
+		return load(clientContext, spObject, options)
 	})
 	if (this.box.getCount()) {
 		for (let i = 0; i < clientContexts.length; i += 1) {
 			const clientContext = clientContexts[i]
-			await executorJSOM(clientContext)({ ...options, silentErrors: true }).catch(async () => {
+			await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async () => {
 				isError = true
 				needToRetry = await createUnexistedFolder.call(this)
 			})
@@ -234,7 +233,7 @@ const createWithJSOM = async (opts = {}) => {
 		throw new Error('can\'t create file(s)')
 	} else {
 		this.report('create', options)
-		return prepareResponseJSOM(options)(result)
+		return prepareResponseJSOM(result, options)
 	}
 }
 
@@ -370,14 +369,8 @@ const createWithRESTFromBlob = async (element, opts = {}) => {
 
 class Box extends AbstractBox {
 	constructor(value) {
-		super(value)
+		super(value, lifter, arrayValidator)
 		this.joinProp = 'ServerRelativeUrl'
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([
-				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftFolderType()])
-			])(value)
-			: liftFolderType(value)
 	}
 
 	getCount() {
@@ -408,12 +401,12 @@ class FileList {
 		if (opts.asBlob) {
 			const result = await this.iteratorREST(({ element }) => {
 				const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-				return executorREST(contextUrl)({
+				return executorREST(contextUrl, {
 					url: `${this.getRESTObject(elementUrl, listUrl, contextUrl)}/$value`,
 					binaryStringResponseBody: true
 				})
 			})
-			return prepareResponseREST(opts)(result)
+			return prepareResponseREST(result, opts)
 		}
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
@@ -424,8 +417,8 @@ class FileList {
 				: this.getSPObject(elementUrl, listSPObject)
 			return load(clientContext)(spObject)(options)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
-		return prepareResponseJSOM(options)(result)
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		return prepareResponseJSOM(result, options)
 	}
 
 	async	create(opts = {}) {
@@ -496,13 +489,13 @@ class FileList {
 				spObject.saveBinary(binaryInfo)
 				spObject = spObject.get_listItemAllFields()
 			}
-			return load(clientContext)(spObject.get_file())(options)
+			return load(clientContext, spObject.get_file(), options)
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(options)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
 		}
 		this.report('update', options)
-		return prepareResponseJSOM(options)(result)
+		return prepareResponseJSOM(result, options)
 	}
 
 	async	delete(opts = {}) {
@@ -517,10 +510,10 @@ class FileList {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	copy(opts) {

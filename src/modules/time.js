@@ -26,11 +26,12 @@ class Time {
 
 	async	getZone(opts) {
 		const clientContext = getClientContext('/')
-		const result = await executeJSOM(clientContext)(clientContext
+		const spObject = clientContext
 			.get_web()
 			.get_regionalSettings()
-			.get_timeZone())(opts)
-		return prepareResponseJSOM(opts)(result)
+			.get_timeZone()
+		const result = await executeJSOM(clientContext, spObject, opts)
+		return prepareResponseJSOM(result, opts)
 	}
 }
 

@@ -16,26 +16,26 @@ class RecycleBin {
 
 	async get(opts) {
 		const clientContext = getClientContext(this.contextUrl)
-		const result = await executeJSOM(clientContext)(this.getSPObjectCollection(clientContext))(opts)
-		return prepareResponseJSOM(opts)(result)
+		const result = await executeJSOM(clientContext, this.getSPObjectCollection(clientContext), opts)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	restoreAll(opts) {
 		const clientContext = getClientContext(this.contextUrl)
 		const spObject = this.getSPObjectCollection(clientContext)
 		spObject.restoreAll()
-		const result = await executeJSOM(clientContext)(spObject)(opts)
+		const result = await executeJSOM(clientContext, spObject, opts)
 		this.report('restore', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async deleteAll(opts) {
 		const clientContext = getClientContext(this.contextUrl)
 		const spObject = this.getSPObjectCollection(clientContext)
 		spObject.deleteAll()
-		const result = await executeJSOM(clientContext)(spObject)(opts)
+		const result = await executeJSOM(clientContext, spObject, opts)
 		this.report('delete', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	report(actionType, opts = {}) {

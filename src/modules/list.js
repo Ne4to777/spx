@@ -24,11 +24,7 @@ import {
 	switchCase,
 	typeOf,
 	getInstance,
-	shiftSlash,
-	mergeSlashes,
-	isArrayFilled,
 	isGUID,
-	map,
 	method,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
@@ -41,43 +37,30 @@ import file from './fileList'
 import item from './item'
 import { getCamlQuery } from '../lib/query-parser'
 
-const liftListType = switchCase(typeOf)({
+const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+
+const lifter = switchCase(typeOf)({
 	object: list => {
 		const newList = Object.assign({}, list)
-		if (!list.Url) newList.Url = list.EntityTypeName || list.Title
-		if (list.Url !== '/') newList.Url = shiftSlash(newList.Url)
-		if (!list.Title) newList.Title = list.EntityTypeName || list.Url
+		if (!list.EntityTypeName) newList.EntityTypeName = list.Title
+		if (!list.Title) newList.Title = list.EntityTypeName
 		return newList
 	},
 	string: list => ({
-		Url: list === '/' ? '/' : shiftSlash(mergeSlashes(list)),
 		Title: getTitleFromUrl(list)
 	}),
 	default: () => ({
-		Url: '/',
 		Title: ''
 	})
 })
-
-class Box extends AbstractBox {
-	constructor(value) {
-		super(value)
-
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([
-				pipe([map(liftListType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftListType()])
-			])(value)
-			: liftListType(value)
-	}
-}
 
 class List {
 	constructor(parent, lists) {
 		this.name = 'list'
 		this.parent = parent
 		this.contextUrl = parent.box.head().Url
-		this.box = getInstance(Box)(lists)
+		this.box = getInstance(AbstractBox)(lists, lifter, arrayValidator)
+		this.count = parent.box.getCount()
 		this.web = parent.constructor
 		this.getContextSPObject = parent.getSPObject
 		this.iterator = deep1Iterator({
@@ -89,17 +72,17 @@ class List {
 	async	get(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const parentSPObject = this.parent.getSPObject(clientContext)
-			const elementUrl = element.Url
-			const isCollection = hasUrlTailSlash(elementUrl)
+			const elementTitle = element.Title
+			const isCollection = hasUrlTailSlash(elementTitle)
 			const spObject = isCollection
 				? this.getSPObjectCollection(parentSPObject)
-				: this.getSPObject(elementUrl, parentSPObject)
-			return load(clientContext)(spObject)(opts)
+				: this.getSPObject(elementTitle, parentSPObject)
+			return load(clientContext, spObject, opts)
 		})
 
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	create(opts) {
@@ -171,15 +154,15 @@ class List {
 				),
 				overstep(methodEmpty('update'))
 			])(SP.ListCreationInformation)
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
-		if (this.box.getCount()) {
+		if (this.count) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
-				await executorJSOM(clientContexts[i])(opts)
+				await executorJSOM(clientContexts[i], opts)
 			}
 		}
 		this.report('create', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	update(opts) {
@@ -222,30 +205,30 @@ class List {
 				}),
 				overstep(methodEmpty('update'))
 			])(this.getSPObject(element.Url, parentSPObject))
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
-		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		if (this.count) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('update', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	delete(opts = {}) {
 		const { noRecycle } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = element.Url
-			if (!isStrictUrl(elementUrl)) return undefined
+			const elementTitle = element.Title
+			if (!isStrictUrl(elementTitle)) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(elementUrl, parentSPObject)
+			const spObject = this.getSPObject(elementTitle, parentSPObject)
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
-			return elementUrl
+			return elementTitle
 		})
-		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		if (this.count) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	cloneLayout() {
@@ -416,7 +399,7 @@ class List {
 			const aggregationsQuery = list.renderListData(
 				`<View${scopeStr}>${caml}<Aggregations>${fieldRefs}</Aggregations></View>`
 			)
-			await executorJSOM(clientContext)(opts)
+			await executorJSOM(clientContext, opts)
 			const aggregationsData = JSON.parse(aggregationsQuery.get_value()).Row[0]
 			const aggregationKeys = Reflect.ownKeys(aggregationsData)
 			for (let i = 0; i < aggregationKeys.length; i += 1) {
@@ -434,9 +417,9 @@ class List {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = this.getSPObject(element.Url, parentSPObject)
-			return load(clientContext)(spObject)({ view: 'EffectiveBasePermissions' })
+			return load(clientContext, spObject, { view: 'EffectiveBasePermissions' })
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)()))
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)))
 		return isArray(result)
 			? result.map(el => el.get_effectiveBasePermissions().has(SP.PermissionKind[type]))
 			: result.get_effectiveBasePermissions().has(SP.PermissionKind[type])
@@ -454,10 +437,13 @@ class List {
 		return item(this, elements)
 	}
 
-	getSPObject(elementUrl, parentSPObject) {
+	getSPObject(elementTitle, parentSPObject) {
 		return pipe([
 			this.getSPObjectCollection,
-			ifThen(constant(isGUID(elementUrl)))([method('getById')(elementUrl), method('getByTitle')(elementUrl)])
+			ifThen(constant(isGUID(elementTitle)))([
+				method('getById')(elementTitle),
+				method('getByTitle')(elementTitle)
+			])
 		])(parentSPObject)
 	}
 

@@ -18,11 +18,6 @@ import {
 	getInstance,
 	switchCase,
 	typeOf,
-	shiftSlash,
-	ifThen,
-	isArrayFilled,
-	map,
-	constant,
 	hasUrlTailSlash,
 	isNumberFilled,
 	isObjectFilled,
@@ -121,27 +116,16 @@ const getTypedSPObject = (typeStr, listUrl) => (element, parentElement) => {
 	return spObject
 }
 
-const liftItemType = switchCase(typeOf)({
-	object: item => {
-		const newItem = Object.assign({}, item)
-		if (!item.Url) newItem.Url = item.ID
-		if (!item.ID) newItem.ID = item.Url
-		return newItem
-	},
-	string: (item = '') => {
-		const url = shiftSlash(item)
-		return {
-			Url: url,
-			ID: url
-		}
-	},
+const lifter = switchCase(typeOf)({
+	object: item => Object.assign({}, item),
+	string: (item = '') => ({
+		ID: item
+	}),
 	number: item => ({
-		ID: item,
-		Url: item
+		ID: item
 	}),
 	default: () => ({
-		ID: undefined,
-		Url: undefined
+		ID: undefined
 	})
 })
 
@@ -153,18 +137,14 @@ const hasObjectProperties = o => {
 		newObject = Object.assign({}, o)
 		delete newObject.Folder
 		delete newObject.ID
-		delete newObject.Url
 	}
 	return !!Object.keys(newObject).length
 }
 
 class Box extends AbstractBox {
 	constructor(value) {
-		super(value)
+		super(value, lifter)
 		this.joinProp = 'ID'
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([map(liftItemType), constant([liftItemType()])])(value)
-			: liftItemType(value)
 	}
 
 	getCount(actionType) {
@@ -224,7 +204,6 @@ class Item {
 			} else {
 				newElement = { ...element }
 				delete newElement.ID
-				delete newElement.Url
 				delete newElement.Folder
 			}
 			if (!isObjectFilled(newElement)) return undefined
@@ -293,7 +272,7 @@ class Item {
 		const { contextUrl, listUrl } = this
 		await this.cacheColumns()
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			if (!element.Url) return undefined
+			if (!element.ID) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const elementNew = Object.assign({}, element)
@@ -331,13 +310,13 @@ class Item {
 	async	delete(opts = {}) {
 		const { noRecycle, isSerial } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = element.Url
-			if (!elementUrl) return undefined
+			const elementID = element.ID
+			if (!elementID) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
 			const spObject = this.getSPObject(element, listSPObject)
 			if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
-			return elementUrl
+			return elementID
 		})
 
 		if (this.box.getCount()) {

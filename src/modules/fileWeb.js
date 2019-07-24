@@ -22,13 +22,9 @@ import {
 	switchCase,
 	typeOf,
 	shiftSlash,
-	ifThen,
-	isArrayFilled,
 	pipe,
-	map,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
-	constant,
 	webReport,
 	removeEmptyFilenames,
 	hasUrlFilename,
@@ -39,9 +35,9 @@ import {
 
 import * as cache from '../lib/cache'
 
-// Internal
+const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
-const liftFolderType = switchCase(typeOf)({
+const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
@@ -64,14 +60,8 @@ const liftFolderType = switchCase(typeOf)({
 
 class Box extends AbstractBox {
 	constructor(value) {
-		super(value)
+		super(value, lifter, arrayValidator)
 		this.joinProp = 'ServerRelativeUrl'
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([
-				pipe([map(liftFolderType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftFolderType()])
-			])(value)
-			: liftFolderType(value)
 	}
 
 	getCount() {
@@ -101,12 +91,12 @@ class FileWeb {
 			const { contextUrl } = this
 			const result = await this.iteratorREST(({ element }) => {
 				const elementUrl = getWebRelativeUrl(contextUrl)(element)
-				return executorREST(contextUrl)({
+				return executorREST(contextUrl, {
 					url: `${this.getRESTObject(elementUrl, contextUrl)}/$value`,
 					binaryStringResponseBody: true
 				})
 			})
-			return prepareResponseREST(opts)(result)
+			return prepareResponseREST(result, opts)
 		}
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
@@ -116,11 +106,11 @@ class FileWeb {
 			const spObject = isCollection
 				? this.getSPObjectCollection(elementUrl, parentSPObject)
 				: this.getSPObject(elementUrl, parentSPObject)
-			return load(clientContext)(spObject)(options)
+			return load(clientContext, spObject, options)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(options)))
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
 
-		return prepareResponseJSOM(options)(result)
+		return prepareResponseJSOM(result, options)
 	}
 
 	async	create(opts = {}) {
@@ -142,12 +132,12 @@ class FileWeb {
 				set_overwrite: Overwrite
 			})(fileCreationInfo)
 			const spObject = parentSPObject.add(fileCreationInfo)
-			return load(clientContext)(spObject)(options)
+			return load(clientContext, spObject, options)
 		})
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext, { ...opts, silentErrors: true }).catch(async err => {
 					isError = true
 					if (err.get_message() === 'File Not Found.') {
 						const foldersToCreate = {}
@@ -184,7 +174,7 @@ class FileWeb {
 		}
 		if (!isError) {
 			this.report('create', opts)
-			return prepareResponseJSOM(opts)(result)
+			return prepareResponseJSOM(result, opts)
 		}
 		return undefined
 	}
@@ -203,11 +193,11 @@ class FileWeb {
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext)(opts)
+				await executorJSOM(clientContext, opts)
 			}
 		}
 		this.report('update', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	delete(opts = {}) {
@@ -221,10 +211,10 @@ class FileWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	copy(opts) {
@@ -238,10 +228,10 @@ class FileWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('copy', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	move(opts) {
@@ -255,10 +245,10 @@ class FileWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('move', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	getSPObject(elementUrl, spObject) {

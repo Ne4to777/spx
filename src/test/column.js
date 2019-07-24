@@ -133,29 +133,29 @@ export default () => Promise.all([
 			.column('Title')
 			.get()
 	),
-	assertCollectionProps('root web list column')(
-		rootWeb
-			.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
-			.column()
-			.get()
-	),
-	assertObjectProps('web list column')(
-		workingWeb
-			.list('Test')
-			.column('Title')
-			.get()
-	),
-	assertCollectionProps('web root list column')(
-		workingWeb
-			.list('Test')
-			.column()
-			.get()
-	),
-	assertCollectionProps('web Test, TestAnother list column')(
-		workingWeb
-			.list(['Test', 'TestAnother'])
-			.column(['Title', 'Author'])
-			.get()
-	),
-	crud().then(crudCollection)
+	// assertCollectionProps('root web list column')(
+	// 	rootWeb
+	// 		.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
+	// 		.column()
+	// 		.get()
+	// ),
+	// assertObjectProps('web list column')(
+	// 	workingWeb
+	// 		.list('Test')
+	// 		.column('Title')
+	// 		.get()
+	// ),
+	// assertCollectionProps('web root list column')(
+	// 	workingWeb
+	// 		.list('Test')
+	// 		.column()
+	// 		.get()
+	// ),
+	// assertCollectionProps('web Test, TestAnother list column')(
+	// 	workingWeb
+	// 		.list(['Test', 'TestAnother'])
+	// 		.column(['Title', 'Author'])
+	// 		.get()
+	// ),
+	// crud().then(crudCollection)
 ]).then(testIsOk('column'))

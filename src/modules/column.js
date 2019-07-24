@@ -21,50 +21,42 @@ import {
 	typeOf,
 	shiftSlash,
 	mergeSlashes,
-	isArrayFilled,
-	map,
-	removeEmptyUrls,
-	removeDuplicatedUrls,
 	listReport,
 	isStrictUrl,
 	isFilled,
-	deep1Iterator
+	deep1Iterator,
+	removeEmptiesByProp,
+	removeDuplicatedProp
 } from '../lib/utility'
 
 const addFieldAsXml = spParentObject => schema => spParentObject.addFieldAsXml(
 	schema, true, SP.AddFieldOptions.defaultValue
 )
 
-const liftColumnType = switchCase(typeOf)({
+const arrayValidator = pipe([removeEmptiesByProp('Title'), removeDuplicatedProp('Title')])
+
+const lifter = switchCase(typeOf)({
 	object: column => {
 		const newColumn = Object.assign({}, column)
-		if (!column.Url) newColumn.Url = column.Title
-		if (column.Url !== '/') newColumn.Url = shiftSlash(newColumn.Url)
+		if (column.Title !== '/') newColumn.Title = shiftSlash(newColumn.Title)
 		if (!column.Title) newColumn.Title = column.EntityPropertyName || column.InternalName || column.StaticName
 		if (!column.Type) newColumn.Type = 'Text'
 		return newColumn
 	},
 	string: column => ({
-		Title: column,
-		Url: column === '/' ? '/' : shiftSlash(mergeSlashes(column)),
+		Title: column === '/' ? '/' : shiftSlash(mergeSlashes(column)),
 		Type: 'Text'
 	}),
 	default: () => ({
 		Title: '',
-		Url: '',
 		Type: 'Text'
 	})
 })
 
 class Box extends AbstractBox {
 	constructor(value = '') {
-		super(value)
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([
-				pipe([map(liftColumnType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftColumnType()])
-			])(value)
-			: liftColumnType(value)
+		super(value, lifter, arrayValidator),
+			this.joinProp = 'Title'
 	}
 }
 
@@ -88,27 +80,26 @@ class Column {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
-			console.log(listSPObject)
-			const elementUrl = element.Url
-			const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl)
+			const elementTitle = element.Title
+			const isCollection = isStringEmpty(elementTitle) || hasUrlTailSlash(elementTitle)
 			const spObject = isCollection
 				? this.getSPObjectCollection(listSPObject)
-				: this.getSPObject(elementUrl, listSPObject)
-			return load(clientContext)(spObject)(opts)
+				: this.getSPObject(elementTitle, listSPObject)
+			return load(clientContext, spObject, opts)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
-		return prepareResponseJSOM(opts)(result)
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	create(opts) {
 		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const url = element.Title || element.Url
-			if (!isStrictUrl(url)) return undefined
+			const title = element.Title
+			if (!isStrictUrl(title)) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const {
-				Title = url,
+				Title = title,
 				Type = element.TypeAsString || 'Text',
 				AllowMultipleValues,
 				LookupWebId,
@@ -197,19 +188,19 @@ class Column {
 				overstep(ifThen(isExists)([methodEmpty('update')]))
 			])(SchemaXml)
 
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('create', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	update(opts) {
 		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			if (!isStrictUrl(element.Url)) return undefined
+			if (!isStrictUrl(element.Title)) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const { MaxLength, Title } = element
@@ -244,36 +235,35 @@ class Column {
 						methodEmpty('update')
 					])
 				)
-			])(this.getSPObject(element.Url, listSPObject))
-			return load(clientContext)(spObject)(opts)
+			])(this.getSPObject(element.Title, listSPObject))
+			return load(clientContext, spObject, opts)
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('update', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	delete(opts) {
 		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = element.Url
-			if (!isStrictUrl(elementUrl)) return undefined
+			const elementTitle = element.Title
+			if (!isStrictUrl(elementTitle)) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
-			const spObject = this.getSPObject(elementUrl, listSPObject)
+			const spObject = this.getSPObject(elementTitle, listSPObject)
 			spObject.deleteObject()
-			return elementUrl
+			return elementTitle
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('delete', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	getSPObject(elementUrl, parentSPObject) {
-		console.log(parentSPObject)
 		const fields = parentSPObject.get_fields()
 		return isGUID(elementUrl)
 			? fields.getById(elementUrl)

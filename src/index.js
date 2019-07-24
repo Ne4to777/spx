@@ -1,6 +1,10 @@
+/* eslint max-len:0 */
+/* eslint no-unused-vars:0 */
+/* eslint no-restricted-syntax:0 */
+/* eslint import/no-extraneous-dependencies:0 */
 import axios from 'axios'
 import $ from 'jquery'
-import test from './test/index.js'
+import test from './test/index'
 
 import spx from './modules/web'
 import {
@@ -137,15 +141,7 @@ const retrieveAllUsersInGroup = async () => {
 	const userEnumerator = collUser.getEnumerator()
 	while (userEnumerator.moveNext()) {
 		const oUser = userEnumerator.get_current()
-		userInfo
-			+= `\nUser: ${
-				oUser.get_title()
-			}\nID: ${
-				oUser.get_id()
-			}\nEmail: ${
-				oUser.get_email()
-			}\nLogin Name: ${
-				oUser.get_loginName()}`
+		userInfo += `\nUser: ${oUser.get_title()}\nID: ${oUser.get_id()}\nEmail: ${oUser.get_email()}\nLogin Name: ${oUser.get_loginName()}`
 	}
 	console.log(userInfo)
 }

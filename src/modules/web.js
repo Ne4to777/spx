@@ -16,7 +16,14 @@ import {
 	getParentUrl,
 	hasUrlTailSlash,
 	rootReport,
-	isStrictUrl
+	isStrictUrl,
+	switchCase,
+	typeOf,
+	removeEmptyUrls,
+	removeDuplicatedUrls,
+	shiftSlash,
+	getTitleFromUrl,
+	mergeSlashes
 } from '../lib/utility'
 
 
@@ -27,13 +34,33 @@ import file from './fileWeb'
 import recycleBin from './recycleBin'
 import user from './user'
 import tag from './tag'
-import email from './email'
+import mail from './mail'
 import time from './time'
+
+const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+
+const lifter = switchCase(typeOf)({
+	object: context => {
+		const newContext = Object.assign({}, context)
+		if (!context.Url && context.Title) newContext.Url = context.Title
+		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
+		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url)
+		return newContext
+	},
+	string: (contextUrl = '') => ({
+		Url: contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl)),
+		Title: getTitleFromUrl(contextUrl)
+	}),
+	default: () => ({
+		Url: '',
+		Title: ''
+	})
+})
 
 class Web {
 	constructor(urls) {
 		this.name = 'web'
-		this.box = getInstance(AbstractBox)(urls)
+		this.box = getInstance(AbstractBox)(urls, lifter, arrayValidator)
 		this.id = MD5(new Date().getTime()).toString()
 	}
 
@@ -44,9 +71,9 @@ class Web {
 			const spObject = hasUrlTailSlash(elementUrl)
 				? this.getSPObjectCollection(clientContext)
 				: this.getSPObject(clientContext)
-			return executeJSOM(clientContext)(spObject)(opts)
+			return executeJSOM(clientContext, spObject, opts)
 		})
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async create(opts) {
@@ -89,10 +116,10 @@ class Web {
 				overstep(methodEmpty('update'))
 			])(SP.WebCreationInformation)
 
-			return executeJSOM(clientContext)(spObject)(opts)
+			return executeJSOM(clientContext, spObject, opts)
 		})
 		this.report('create', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async update(opts) {
@@ -123,10 +150,10 @@ class Web {
 				}),
 				overstep(methodEmpty('update'))
 			])(this.getSPObject(clientContext))
-			return executeJSOM(clientContext)(spObject)(opts)
+			return executeJSOM(clientContext, spObject, opts)
 		})
 		this.report('update', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async delete(opts) {
@@ -140,11 +167,11 @@ class Web {
 			} catch (err) {
 				return new Error('Context url is wrong')
 			}
-			await executorJSOM(clientContext)(opts)
+			await executorJSOM(clientContext, opts)
 			return elementUrl
 		})
 		this.report('delete', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	doesUserHavePermissions(type = 'fullMask') {
@@ -153,7 +180,7 @@ class Web {
 			const ob = getInstanceEmpty(SP.BasePermissions)
 			ob.set(SP.PermissionKind[type])
 			const spObject = this.getSPObject(clientContext).doesUserHavePermissions(ob)
-			await executorJSOM(clientContext)()
+			await executorJSOM(clientContext)
 			return spObject.get_value()
 		})
 		return result
@@ -162,24 +189,24 @@ class Web {
 	async	getSite(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
-		const currentSPObjects = await executeJSOM(clientContext)(spObject)(opts)
-		return prepareResponseJSOM(opts)(currentSPObjects)
+		const currentSPObjects = await executeJSOM(clientContext, spObject, opts)
+		return prepareResponseJSOM(currentSPObjects, opts)
 	}
 
 	async	getCustomListTemplates(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
 		const templates = spObject.getCustomListTemplates(clientContext.get_web())
-		const currentSPObjects = await executeJSOM(clientContext)(templates)(opts)
-		return prepareResponseJSOM(opts)(currentSPObjects)
+		const currentSPObjects = await executeJSOM(clientContext, templates, opts)
+		return prepareResponseJSOM(currentSPObjects, opts)
 	}
 
 	async	getWebTemplates(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
 		const templates = spObject.getWebTemplates(1033, 0)
-		const currentSPObjects = await executeJSOM(clientContext)(templates)(opts)
-		return prepareResponseJSOM(opts)(currentSPObjects)
+		const currentSPObjects = await executeJSOM(clientContext, templates, opts)
+		return prepareResponseJSOM(currentSPObjects, opts)
 	}
 
 	recycleBin() {
@@ -203,7 +230,7 @@ class Web {
 	}
 
 	// search(elements) {
-	// 	return search(this,elements)
+	// 	return search(this, elements)
 	// }
 
 	tag(elements) {
@@ -214,8 +241,8 @@ class Web {
 		return user(this, elements)
 	}
 
-	email(elements) {
-		return email(this, elements)
+	mail(elements) {
+		return mail(this, elements)
 	}
 
 	time() {
@@ -223,15 +250,15 @@ class Web {
 	}
 
 	getSPObject(clientContext) {
-		return methodEmpty('get_web')(clientContext)
+		return clientContext.get_web()
 	}
 
 	getSiteSPObject(clientContext) {
-		return methodEmpty('get_site')(clientContext)
+		return clientContext.get_site()
 	}
 
 	getSPObjectCollection(clientContext) {
-		return pipe([this.getSPObject, methodEmpty('get_webs')])(clientContext)
+		return this.getSPObject(clientContext).get_webs()
 	}
 
 	report(actionType, opts = {}) {

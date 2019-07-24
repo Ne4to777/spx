@@ -12,24 +12,12 @@ import {
 	switchCase,
 	typeOf,
 	identity,
-	ifThen,
-	isArrayFilled,
-	constant,
 	report
 } from '../lib/utility'
 
-import user from './user'
-
-// Internal
-
-const NAME = 'email'
-
 const EMAIL_RE = /@.+\./
 
-const getSender = opts => user.get({ ...opts, isSP: true, view: 'Email' })
-const getRecievers = opts => users => user(users).get({ ...opts, isSP: true, view: 'EMail' })
-
-const liftMailType = switchCase(typeOf)({
+const lifter = switchCase(typeOf)({
 	object: identity,
 	default: () => ({
 		To: ''
@@ -38,10 +26,7 @@ const liftMailType = switchCase(typeOf)({
 
 class Box extends AbstractBox {
 	constructor(value = '') {
-		super(value)
-		this.value = this.isArray
-			? ifThen(isArrayFilled)([map(liftMailType), constant([liftMailType()])])(value)
-			: liftMailType(value)
+		super(value, lifter)
 	}
 
 	getCount() {
@@ -49,12 +34,13 @@ class Box extends AbstractBox {
 	}
 }
 
-// Interface
-
-class EMail {
-	constructor(params) {
-		this.name = 'email'
+class Mail {
+	constructor(parent, params) {
+		this.name = 'mail'
+		this.parent = parent
 		this.box = getInstance(Box)(params)
+		this.count = this.box.getCount()
+		this.user = this.parent.user.of
 	}
 
 	async	send(opts = {}) {
@@ -84,18 +70,49 @@ class EMail {
 
 			if (!From) {
 				if (missedUsers.length) {
-					const [sender, missedRecievers] = await Promise.all([getSender(), getRecievers(missedUsers)])
+					const [sender, missedRecievers] = await Promise.all([
+						this.user()
+							.getCurrent({
+								...opts,
+								isSP: true,
+								view: 'Email'
+							}),
+						this.user(missedUsers)
+							.get({
+								...opts,
+								isSP: true,
+								view: 'EMail'
+							})
+					])
 					senderEmail = sender.Email
 					recieversEmails = recieversEmails.concat(missedRecievers.map(prop('EMail')))
 				} else {
-					senderEmail = (await getSender(opts)).Email
+					senderEmail = (await this.user()
+						.getCurrent({
+							...opts,
+							isSP: true,
+							view: 'Email'
+						}))
+						.Email
 				}
 			} else if (!EMAIL_RE.test(From)) {
-				const foundUsers = await getRecievers(opts)(missedUsers.concat(From))
+				const foundUsers = await this.user(missedUsers.concat(From))
+					.get({
+						...opts,
+						isSP: true,
+						view: 'EMail'
+					})
 				recieversEmails = recieversEmails.concat(arrayInit(foundUsers).map(prop('EMail')))
 				senderEmail = arrayLast(foundUsers).EMail
 			} else if (missedUsers.length) {
-				recieversEmails = recieversEmails.concat((await getRecievers(opts)(missedUsers)).map(prop('EMail')))
+				recieversEmails = recieversEmails
+					.concat((await this.user(missedUsers)
+						.get({
+							...opts,
+							isSP: true,
+							view: 'EMail'
+						}))
+						.map(prop('EMail')))
 			}
 
 			if (isFake) return undefined
@@ -124,10 +141,14 @@ class EMail {
 			return response
 		})
 
-		report(`${ACTION_TYPES.send} ${this.box.getCount()} ${NAME}(s)`, opts)
+		report(`${ACTION_TYPES.send} ${this.count} ${this.name}(s)`, opts)
 
 		return result
 	}
+
+	of(params) {
+		return getInstance(this.constructor)(params)
+	}
 }
 
-export default getInstance(EMail)
+export default getInstance(Mail)

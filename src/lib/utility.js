@@ -395,8 +395,13 @@ export const chunkArrayFrom = (start = 0) => (size) => (value) => {
 		return acc
 	})([])(value)
 }
-
 export const chunkArray = chunkArrayFrom()
+
+export const removeEmptiesByProp = property => filter((x) => !!x[property])
+export const removeDuplicatedProp = property => pipe([reduce((acc) => (x) => {
+	acc[x[property]] = x
+	return acc
+})({}), Object.values])
 
 //  ===============================================================
 //  =======    ===      =======    =        ===     ==        =====
@@ -661,7 +666,9 @@ const groupSimple = (by) => reduce((acc) => (el) => {
 	const groupValue = acc[trueValue]
 	acc[trueValue] = isUndefined(groupValue)
 		? [el]
-		: isArray(groupValue) ? concat(groupValue)(el) : [groupValue, el]
+		: isArray(groupValue)
+			? concat(groupValue)(el)
+			: [groupValue, el]
 	return acc
 })({})
 
@@ -672,7 +679,9 @@ const groupMapper = (f) => fix((fR) => (acc) => switchType({
 		for (let i = 0; i < props.length; i += 1) {
 			const property = props[i]
 			const childEl = el[property]
-			acc[property] = isArray(childEl) ? f(childEl) : fR({})(childEl)
+			acc[property] = isArray(childEl)
+				? f(childEl)
+				: fR({})(childEl)
 		}
 		return acc
 	},
@@ -703,13 +712,10 @@ const mapper = (by) => (xs) => reduce((acc) => (el) => {
 
 export const hasUrlTailSlash = stringTest(/\/$/)
 export const hasUrlFilename = stringTest(/\.[^/]+$/)
-export const removeEmptyUrls = filter((x) => !!x.Url)
+export const removeEmptyUrls = removeEmptiesByProp('Url')
 export const removeEmptyIDs = filter(pipe([prop('ID'), isNumberFilled]))
 export const removeEmptyFilenames = filter((x) => x.Url && hasUrlFilename(x.Url))
-export const removeDuplicatedUrls = pipe([reduce((acc) => (x) => {
-	acc[x.Url] = x
-	return acc
-})({}), Object.values])
+export const removeDuplicatedUrls = removeDuplicatedProp('Url')
 export const prependSlash = ifThen(stringTest(/^\//))([identity, sum('/')])
 export const popSlash = stringCut(/\/$/)
 export const pushSlash = (str) => `${str} /`
@@ -755,35 +761,20 @@ export const getWebRelativeUrl = (webUrl) => (element = {}) => {
 		: Url
 }
 
-const liftAbstractType = switchCase(typeOf)({
-	object: context => {
-		const newContext = Object.assign({}, context)
-		if (!context.Url && context.Title) newContext.Url = context.Title
-		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
-		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url)
-		return newContext
-	},
-	string: (contextUrl = '') => ({
-		Url: contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl)),
-		Title: getTitleFromUrl(contextUrl)
-	}),
-	default: () => ({
-		Url: '',
-		Title: ''
-	})
-})
-
 export class AbstractBox {
-	constructor(value) {
+	constructor(value, lifter, arrayValidator = identity) {
 		this.isArray = isArray(value)
 		this.prop = 'Url'
 		this.joinProp = 'Url'
 		this.value = this.isArray
 			? ifThen(isArrayFilled)([
-				pipe([map(liftAbstractType), removeEmptyUrls, removeDuplicatedUrls]),
-				constant([liftAbstractType()])
+				pipe([
+					map(lifter),
+					arrayValidator
+				]),
+				constant([lifter()])
 			])(value)
-			: liftAbstractType(value)
+			: lifter(value)
 	}
 
 	async chain(f) {
@@ -886,7 +877,7 @@ const getRESTValues = pipe([
 	ifThen(hasProp('d'))([pipe([prop('d'), ifThen(hasProp('results'))([prop('results')])])])
 ])
 
-export const prepareResponseJSOM = (opts = {}) => ifThen(isArray)([
+export const prepareResponseJSOM = (results, opts = {}) => ifThen(isArray)([
 	pipe([
 		flatten,
 		removeUndefineds,
@@ -902,9 +893,9 @@ export const prepareResponseJSOM = (opts = {}) => ifThen(isArray)([
 		])
 	]),
 	ifThen(constant(opts.expanded))([identity, getSPObjectValues(opts.asItem)])
-])
+])(results)
 
-export const prepareResponseREST = (opts = {}) => ifThen(isArray)([
+export const prepareResponseREST = (results, opts = {}) => ifThen(isArray)([
 	pipe([
 		flatten,
 		pipe([
@@ -917,7 +908,7 @@ export const prepareResponseREST = (opts = {}) => ifThen(isArray)([
 		])
 	]),
 	getRESTValues
-])
+])(results)
 
 //  =============================================
 //  =====  =========    ======  ====       ======
@@ -942,7 +933,7 @@ const getViewOption = ifThen(isObjectFilled)([
 	EMPTY_ARRAY
 ])
 
-export const load = (clientContext) => (spObject) => (opts = {}) => ifThen(hasProp('getEnumerator'))([
+export const load = (clientContext, spObject, opts = {}) => ifThen(hasProp('getEnumerator'))([
 	pipe([
 		(data) => pipe([
 			constant(getViewOption(opts)),
@@ -973,7 +964,7 @@ export const load = (clientContext) => (spObject) => (opts = {}) => ifThen(hasPr
 //  =====        =  ====  =        ===     ===      =====  ======    ===  ====  =====
 //  =================================================================================
 
-export const executorJSOM = (clientContext) => (opts = {}) => new Promise((resolve, reject) => {
+export const executorJSOM = async (clientContext, opts = {}) => new Promise((resolve, reject) => {
 	clientContext.executeQueryAsync(
 		() => resolve(),
 		(sender, args) => {
@@ -994,13 +985,13 @@ export const executorJSOM = (clientContext) => (opts = {}) => new Promise((resol
 	)
 })
 
-export const executeJSOM = (clientContext) => (spObject) => async (opts) => {
-	const spObjects = load(clientContext)(spObject)(opts)
-	await executorJSOM(clientContext)(opts)
+export const executeJSOM = async (clientContext, spObject, opts) => {
+	const spObjects = load(clientContext, spObject, opts)
+	await executorJSOM(clientContext, opts)
 	return spObjects
 }
 
-export const executorREST = (contextUrl) => (opts = {}) => pipe([
+export const executorREST = async (contextUrl, opts = {}) => pipe([
 	mergeSlashes,
 	popSlash,
 	prependSlash,
