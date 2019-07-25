@@ -5,9 +5,6 @@ import {
 	AbstractBox,
 	getArray,
 	map,
-	arrayInit,
-	arrayLast,
-	prop,
 	getInstance,
 	switchCase,
 	typeOf,
@@ -15,18 +12,21 @@ import {
 	report
 } from '../lib/utility'
 
-const EMAIL_RE = /@.+\./
+const EMAIL_RE = /\S+@\S+\.\S+/
+const KEY_PROP = 'To'
 
 const lifter = switchCase(typeOf)({
 	object: identity,
 	default: () => ({
-		To: ''
+		[KEY_PROP]: ''
 	})
 })
 
 class Box extends AbstractBox {
 	constructor(value = '') {
 		super(value, lifter)
+		this.joinProp = KEY_PROP
+		this.prop = KEY_PROP
 	}
 
 	getCount() {
@@ -40,7 +40,7 @@ class Mail {
 		this.parent = parent
 		this.box = getInstance(Box)(params)
 		this.count = this.box.getCount()
-		this.user = this.parent.user.of
+		this.user = parent.user
 	}
 
 	async	send(opts = {}) {
@@ -65,56 +65,18 @@ class Mail {
 
 			map(el => (EMAIL_RE.test(el) ? availableRecievers : missedUsers).push(el))(recievers)
 
-			let recieversEmails = availableRecievers
+			const recieversEmails = availableRecievers
 			let senderEmail = From
 
 			if (!From) {
-				if (missedUsers.length) {
-					const [sender, missedRecievers] = await Promise.all([
-						this.user()
-							.getCurrent({
-								...opts,
-								isSP: true,
-								view: 'Email'
-							}),
-						this.user(missedUsers)
-							.get({
-								...opts,
-								isSP: true,
-								view: 'EMail'
-							})
-					])
-					senderEmail = sender.Email
-					recieversEmails = recieversEmails.concat(missedRecievers.map(prop('EMail')))
-				} else {
-					senderEmail = (await this.user()
-						.getCurrent({
-							...opts,
-							isSP: true,
-							view: 'Email'
-						}))
-						.Email
-				}
-			} else if (!EMAIL_RE.test(From)) {
-				const foundUsers = await this.user(missedUsers.concat(From))
+				const sender = await this
+					.user()
 					.get({
-						...opts,
 						isSP: true,
-						view: 'EMail'
+						view: 'Email'
 					})
-				recieversEmails = recieversEmails.concat(arrayInit(foundUsers).map(prop('EMail')))
-				senderEmail = arrayLast(foundUsers).EMail
-			} else if (missedUsers.length) {
-				recieversEmails = recieversEmails
-					.concat((await this.user(missedUsers)
-						.get({
-							...opts,
-							isSP: true,
-							view: 'EMail'
-						}))
-						.map(prop('EMail')))
+				senderEmail = sender.Email
 			}
-
 			if (isFake) return undefined
 			const response = await axios({
 				url: '/_api/SP.Utilities.Utility.SendEmail',
@@ -135,14 +97,12 @@ class Mail {
 			})
 
 			if (detailed) {
-				report(`Email is sent\nSender: ${senderEmail}\nRecievers: ${recieversEmails.join(', ')}`, opts)
+				report(`Mail is sent\nSender: ${senderEmail}\nRecievers: ${recieversEmails.join(', ')}`, opts)
 			}
 
 			return response
 		})
-
 		report(`${ACTION_TYPES.send} ${this.count} ${this.name}(s)`, opts)
-
 		return result
 	}
 

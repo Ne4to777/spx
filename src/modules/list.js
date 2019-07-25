@@ -29,7 +29,9 @@ import {
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	getListRelativeUrl,
-	deep1Iterator
+	deep1Iterator,
+	shiftSlash,
+	mergeSlashes
 } from '../lib/utility'
 import column from './column'
 import folder from './folderList'
@@ -37,20 +39,26 @@ import file from './fileList'
 import item from './item'
 import { getCamlQuery } from '../lib/query-parser'
 
+const KEY_PROP = 'Title'
+
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
 const lifter = switchCase(typeOf)({
 	object: list => {
 		const newList = Object.assign({}, list)
-		if (!list.EntityTypeName) newList.EntityTypeName = list.Title
-		if (!list.Title) newList.Title = list.EntityTypeName
+		if (!list.Url) newList.Url = list.EntityTypeName || list[KEY_PROP]
+		const titleFromUrl = shiftSlash(list.Url)
+		if (!list.EntityTypeName) newList.EntityTypeName = titleFromUrl
+		if (!list[KEY_PROP]) newList[KEY_PROP] = list.EntityTypeName || titleFromUrl
 		return newList
 	},
-	string: list => ({
-		Title: getTitleFromUrl(list)
+	string: (listUrl = '/') => ({
+		Url: listUrl,
+		Title: listUrl === '/' ? '/' : shiftSlash(mergeSlashes(listUrl)),
 	}),
 	default: () => ({
-		Title: ''
+		Url: '/',
+		Title: '/'
 	})
 })
 
@@ -58,7 +66,7 @@ class List {
 	constructor(parent, lists) {
 		this.name = 'list'
 		this.parent = parent
-		this.contextUrl = parent.box.head().Url
+		this.contextUrl = parent.box.getHeadPropValue()
 		this.box = getInstance(AbstractBox)(lists, lifter, arrayValidator)
 		this.count = parent.box.getCount()
 		this.web = parent.constructor
@@ -87,9 +95,8 @@ class List {
 
 	async	create(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const title = element.Title || getTitleFromUrl(element.Url)
-			const url = element.Url || title
-			if (!isStrictUrl(url)) return undefined
+			const title = element[KEY_PROP]
+			if (!isStrictUrl(title)) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = pipe([
 				getInstanceEmpty,
@@ -98,7 +105,7 @@ class List {
 					set_templateType: element.BaseTemplate
 						|| SP.ListTemplateType[element.TemplateType
 						|| 'genericList'],
-					set_url: url,
+					set_url: element.Url,
 					set_templateFeatureId: element.TemplateFeatureId,
 					set_customSchemaXml: element.CustomSchemaXml,
 					set_dataSourceProperties: element.DataSourceProperties,
@@ -167,11 +174,12 @@ class List {
 
 	async	update(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			if (!isStrictUrl(element.Url)) return undefined
+			const title = element[KEY_PROP]
+			if (!isStrictUrl(title)) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = pipe([
 				setFields({
-					set_title: element.Title,
+					set_title: title,
 					set_enableFolderCreation: element.EnableFolderCreation,
 					set_contentTypesEnabled: element.ContentTypesEnabled,
 					set_defaultContentApprovalWorkflowId: element.DefaultContentApprovalWorkflowId,
@@ -217,12 +225,12 @@ class List {
 	async	delete(opts = {}) {
 		const { noRecycle } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementTitle = element.Title
-			if (!isStrictUrl(elementTitle)) return undefined
+			const title = element[KEY_PROP]
+			if (!isStrictUrl(title)) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(elementTitle, parentSPObject)
+			const spObject = this.getSPObject(title, parentSPObject)
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
-			return elementTitle
+			return title
 		})
 		if (this.count) {
 			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
@@ -245,7 +253,7 @@ class List {
 				targetWebUrl = To.WebUrl || contextUrl
 				targetListUrl = To.ListUrl
 			}
-			const sourceListUrl = Title || Url
+			const sourceListUrl = Url || Title
 			if (!targetListUrl) throw new Error('Target listUrl is missed')
 			if (!sourceListUrl) throw new Error('Source list Title is missed')
 			const targetTitle = getTitleFromUrl(targetListUrl)
@@ -416,7 +424,7 @@ class List {
 	async	doesUserHavePermissions(type = 'manageWeb') {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(element.Url, parentSPObject)
+			const spObject = this.getSPObject(element[KEY_PROP], parentSPObject)
 			return load(clientContext, spObject, { view: 'EffectiveBasePermissions' })
 		})
 		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)))
@@ -448,7 +456,7 @@ class List {
 	}
 
 	getSPObjectCollection(parentSPObject) {
-		return methodEmpty('get_lists')(parentSPObject)
+		return parentSPObject.get_lists()
 	}
 
 	report(actionType, opts = {}) {

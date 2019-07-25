@@ -7,7 +7,7 @@ const input = './src/modules/web.js'
 const globals = {
 	SP: 'SP',
 	Microsoft: 'Microsoft',
-	_spPageContextInfo: '_spPageContextInfo',
+	window: 'window',
 	axios: 'axios',
 	'crypto-js': 'cryptoJS'
 }

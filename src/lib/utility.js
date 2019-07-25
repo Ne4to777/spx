@@ -604,7 +604,7 @@ export const rootReport = (actionType, opts = {}) => {
 	} = opts
 	const count = box.getCount()
 	report(
-		`${ACTION_TYPES[actionType]} ${count} ${name}${count > 1 ? 's' : ''} ${detailed ? `: ${box.join()}` : ''} `,
+		`${ACTION_TYPES[actionType]} ${count} ${name}${count > 1 ? 's' : ''}${detailed ? `: ${box.join()}` : ''} `,
 		opts
 	)
 }
@@ -620,7 +620,7 @@ export const webReport = (actionType, opts = {}) => {
 	report(
 		`${ACTION_TYPES[actionType]
 		} ${count} ${name}${count > 1 ? 's' : ''} at ${contextUrl || '/'
-		} ${detailed
+		}${detailed
 			? `: ${box.join()}`
 			: ''}`,
 		opts
@@ -641,7 +641,7 @@ export const listReport = (actionType, opts = {}) => {
 		} ${count
 		} ${name}${count > 1 ? 's' : ''} in ${listUrl
 		} at ${contextUrl || '/'
-		} ${detailed
+		}${detailed
 			? `: ${box.join()}`
 			: ''}`,
 		opts
@@ -783,16 +783,20 @@ export class AbstractBox {
 
 	join() {
 		return this.isArray
-			? join(', ')(pipe([removeEmptyUrls, map(prop(this.joinProp))])(this.value))
+			? join(', ')(map(prop(this.joinProp))(this.value))
 			: this.value[this.joinProp]
 	}
 
 	getCount() {
-		return this.isArray ? removeEmptyUrls(this.value).length : isStrictUrl(this.value[this.prop]) ? 1 : 0
+		return this.isArray ? this.value.length : this.value[this.prop] ? 1 : 0
 	}
 
-	head() {
+	getHead() {
 		return this.isArray ? this.value[0] : this.value
+	}
+
+	getHeadPropValue() {
+		return this.isArray ? (this.value[0] ? this.value[0][this.prop] : undefined) : this.value[this.prop]
 	}
 }
 
@@ -1107,11 +1111,9 @@ export const setItem = (fieldsInfo) => (fields) => (spObject) => {
 	const props = Reflect.ownKeys(fields)
 	for (let i = 0; i < props.length; i += 1) {
 		const property = props[i]
-		const name = fields[property]
-		const fieldInfoArray = fieldsInfo[name]
-		if (fieldInfoArray) {
-			const fieldValues = fields[name]
-			const fieldInfo = fieldInfoArray[0]
+		const fieldInfo = fieldsInfo[property]
+		if (fieldInfo) {
+			const fieldValues = fields[property]
 			const set = setItemSP(fieldInfo.InternalName)(spObject)
 			const setLookupAndUser = (f) => (constructor) => pipe([f(constructor), set])
 			switch (fieldInfo.TypeAsString) {

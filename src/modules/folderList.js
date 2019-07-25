@@ -66,9 +66,11 @@ class FolderList {
 		this.name = 'folder'
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
-		this.contextUrl = parent.contextUrl
-		this.getContextSPObject = parent.getContextSPObject
-		this.getListSPObject = parent.getListSPObject
+		this.contextUrl = parent.parent.box.getHeadPropValue()
+		this.listUrl = parent.box.getHeadPropValue()
+		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
+		this.getListSPObject = parent.getSPObject.bind(parent)
+		this.count = this.box.getCount()
 		this.iterator = bundleSize => deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box,
@@ -95,17 +97,9 @@ class FolderList {
 
 	async	create(opts = {}) {
 		const { contextUrl, listUrl } = this
-		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
-		if (!cache.get(['columns', contextUrl, listUrl])) {
-			const columns = await this
-				.parent
-				.column()
-				.get({
-					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
-					groupBy: 'InternalName'
-				})
-			cache.set(columns)(['columns', contextUrl, listUrl])
-		}
+		const { asItem } = opts
+		const options = asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
+		await this.cacheColumns()
 		const cacheUrl = ['folderCreationRetries', this.parent.parent.id]
 		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
 		const { clientContexts, result } = await this.iterator(
@@ -121,12 +115,12 @@ class FolderList {
 			const newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
 			const spObject = setItem(
 				cache.get(['columns', contextUrl, listUrl])
-			)(Object.assign({}, newElement))(listSPObject.addItem(itemCreationInfo))
+			)(newElement)(listSPObject.addItem(itemCreationInfo))
 			return load(clientContext, spObject.get_folder(), options)
 		})
 		let needToRetry
 		let isError
-		if (this.box.getCount()) {
+		if (this.count) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
 				await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async err => {
@@ -175,16 +169,7 @@ class FolderList {
 	async	update(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
-		if (!cache.get(['columns', contextUrl, listUrl])) {
-			const columns = await this
-				.parent
-				.column()
-				.get({
-					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
-					groupBy: 'InternalName'
-				})
-			cache.set(columns)(['columns', contextUrl, listUrl])
-		}
+		await this.cacheColumns()
 		const { clientContexts, result } = await this.iterator(
 			REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE
 		)(({ clientContext, element }) => {
@@ -197,7 +182,7 @@ class FolderList {
 			)
 			return load(clientContext, spObject.get_folder(), options)
 		})
-		if (this.box.getCount()) {
+		if (this.count) {
 			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report('update', opts)
@@ -218,10 +203,8 @@ class FolderList {
 			if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementUrl
 		})
-		if (this.box.getCount()) {
-			await this.parent.parent.box.chain(
-				el => Promise.all(clientContexts[el.Url].map(clientContext => executorJSOM(clientContext, opts)))
-			)
+		if (this.count) {
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(result, opts)
@@ -248,9 +231,23 @@ class FolderList {
 			...opts,
 			name: this.name,
 			box: this.box,
-			listBox: this.parent.box,
-			contextBox: this.parent.parent.box
+			listUrl: this.listUrl,
+			contextUrl: this.contextUrl
 		})
+	}
+
+	async	cacheColumns() {
+		const { contextUrl, listUrl } = this
+		if (!cache.get(['columns', contextUrl, listUrl])) {
+			const columns = await this
+				.parent
+				.column()
+				.get({
+					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
+					mapBy: 'InternalName'
+				})
+			cache.set(columns)(['columns', contextUrl, listUrl])
+		}
 	}
 
 	of(folders) {

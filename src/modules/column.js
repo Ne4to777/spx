@@ -29,46 +29,50 @@ import {
 	removeDuplicatedProp
 } from '../lib/utility'
 
+const KEY_PROP = 'Title'
+
 const addFieldAsXml = spParentObject => schema => spParentObject.addFieldAsXml(
 	schema, true, SP.AddFieldOptions.defaultValue
 )
 
-const arrayValidator = pipe([removeEmptiesByProp('Title'), removeDuplicatedProp('Title')])
+const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
 const lifter = switchCase(typeOf)({
 	object: column => {
 		const newColumn = Object.assign({}, column)
-		if (column.Title !== '/') newColumn.Title = shiftSlash(newColumn.Title)
-		if (!column.Title) newColumn.Title = column.EntityPropertyName || column.InternalName || column.StaticName
+		if (column[KEY_PROP] !== '/') newColumn[KEY_PROP] = shiftSlash(newColumn[KEY_PROP])
+		if (!column[KEY_PROP]) newColumn[KEY_PROP] = column.EntityPropertyName || column.InternalName || column.StaticName
 		if (!column.Type) newColumn.Type = 'Text'
 		return newColumn
 	},
 	string: column => ({
-		Title: column === '/' ? '/' : shiftSlash(mergeSlashes(column)),
+		[KEY_PROP]: column === '/' ? '/' : shiftSlash(mergeSlashes(column)),
 		Type: 'Text'
 	}),
 	default: () => ({
-		Title: '',
+		[KEY_PROP]: undefined,
 		Type: 'Text'
 	})
 })
 
 class Box extends AbstractBox {
 	constructor(value = '') {
-		super(value, lifter, arrayValidator),
-			this.joinProp = 'Title'
+		super(value, lifter, arrayValidator)
+		this.prop = KEY_PROP
+		this.joinProp = KEY_PROP
 	}
 }
 
 
 class Column {
-	constructor(parent, folders) {
+	constructor(parent, columns) {
 		this.name = 'column'
 		this.parent = parent
-		this.box = getInstance(Box)(folders)
-		this.contextUrl = parent.contextUrl
-		this.getContextSPObject = parent.getContextSPObject
-		this.getListSPObject = parent.getSPObject
+		this.box = getInstance(Box)(columns)
+		this.contextUrl = parent.parent.box.getHeadPropValue()
+		this.listUrl = parent.box.getHeadPropValue()
+		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
+		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box,
@@ -80,7 +84,7 @@ class Column {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
-			const elementTitle = element.Title
+			const elementTitle = element[KEY_PROP]
 			const isCollection = isStringEmpty(elementTitle) || hasUrlTailSlash(elementTitle)
 			const spObject = isCollection
 				? this.getSPObjectCollection(listSPObject)
@@ -94,7 +98,7 @@ class Column {
 	async	create(opts) {
 		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const title = element.Title
+			const title = element[KEY_PROP]
 			if (!isStrictUrl(title)) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
@@ -137,7 +141,7 @@ class Column {
 							? element.SchemaXml.replace(/\sID="{[^}]+}"/, '')
 							: undefined,
 						set_staticName: element.StaticName,
-						set_title: element.Title,
+						set_title: element[KEY_PROP],
 						set_typeAsString: element.TypeAsString,
 						set_validationFormula: element.ValidationFormula || undefined,
 						set_validationMessage: element.ValidationMessage || undefined
@@ -200,7 +204,7 @@ class Column {
 	async	update(opts) {
 		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			if (!isStrictUrl(element.Title)) return undefined
+			if (!isStrictUrl(element[KEY_PROP])) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const { MaxLength, Title } = element
@@ -220,7 +224,7 @@ class Column {
 					set_required: element.Required,
 					set_schemaXml: element.SchemaXml,
 					set_staticName: element.StaticName,
-					set_title: element.Title,
+					set_title: element[KEY_PROP],
 					set_typeAsString: element.TypeAsString,
 					set_validationFormula: element.ValidationFormula,
 					set_validationMessage: element.ValidationMessage
@@ -235,7 +239,7 @@ class Column {
 						methodEmpty('update')
 					])
 				)
-			])(this.getSPObject(element.Title, listSPObject))
+			])(this.getSPObject(element[KEY_PROP], listSPObject))
 			return load(clientContext, spObject, opts)
 		})
 		if (this.box.getCount()) {
@@ -248,7 +252,7 @@ class Column {
 	async	delete(opts) {
 		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementTitle = element.Title
+			const elementTitle = element[KEY_PROP]
 			if (!isStrictUrl(elementTitle)) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
@@ -263,11 +267,11 @@ class Column {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	getSPObject(elementUrl, parentSPObject) {
+	getSPObject(elementTitle, parentSPObject) {
 		const fields = parentSPObject.get_fields()
-		return isGUID(elementUrl)
-			? fields.getById(elementUrl)
-			: fields.getByInternalNameOrTitle(elementUrl)
+		return isGUID(elementTitle)
+			? fields.getById(elementTitle)
+			: fields.getByInternalNameOrTitle(elementTitle)
 	}
 
 	getSPObjectCollection(parentSPObject) {
@@ -279,8 +283,8 @@ class Column {
 			...opts,
 			name: this.name,
 			box: this.box,
-			listBox: this.parent.box,
-			contextBox: this.parent.parent.box
+			listUrl: this.listUrl,
+			contextUrl: this.contextUrl
 		})
 	}
 

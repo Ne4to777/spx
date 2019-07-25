@@ -84,6 +84,6 @@ export default () => Promise.all([
 	// assertCollectionProps('web root file')(workingWeb.file('/').get()),
 	// assertCollectionProps('web index.aspx, default.aspx file')(workingWeb.file(['index.aspx', 'default.aspx']).get()),
 	// crud(),
-	// crudCollection()
+	// crudCollection(),
 	// crudBundle()
 ]).then(testIsOk('fileWeb'))

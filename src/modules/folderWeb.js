@@ -60,8 +60,8 @@ class FolderWeb {
 		this.name = 'folder'
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
-		this.contextUrl = parent.box.head().Url
-		this.getContextSPObject = parent.getSPObject
+		this.contextUrl = parent.box.getHeadPropValue()
+		this.getContextSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
@@ -167,7 +167,7 @@ class FolderWeb {
 		if (elementUrl) {
 			folder = parentSPObject.getFolderByServerRelativeUrl(elementUrl)
 		} else {
-			const rootFolder = methodEmpty('get_rootFolder')(parentSPObject)
+			const rootFolder = parentSPObject.get_rootFolder()
 			rootFolder.isRoot = true
 			folder = rootFolder
 		}

@@ -16,6 +16,7 @@ import { testIsOk } from '../lib/utility'
 
 export default async () => {
 	// await cache()
+	// await queryParser()
 	// await web()
 	// await folderWeb()
 	// await fileWeb()
@@ -25,6 +26,5 @@ export default async () => {
 	// await fileList();
 	// await item()
 	// await tag()
-	// await queryParser()
 	testIsOk('whole test')()
 }

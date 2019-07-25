@@ -43,7 +43,7 @@ const crudBundle = async () => {
 	const foldersToCreate = []
 	const folder = 'b'
 	for (let i = 0; i < 253; i += 1) foldersToCreate.push(`${folder}/test${i}`)
-	console.log(foldersToCreate)
+	// console.log(foldersToCreate)
 	await workingWeb
 		.folder(foldersToCreate)
 		.delete({ noRecycle: true })

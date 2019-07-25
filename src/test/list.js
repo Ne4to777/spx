@@ -136,7 +136,7 @@ export default () => Promise.all([
 	// assertObjectProps('web list')(workingWeb.list('Test').get()),
 	// assertCollectionProps('web root list')(workingWeb.list('/').get()),
 	// assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
+	// doesUserHavePermissions()
 	// crud(),
 	// crudCollection(),
-	// doesUserHavePermissions()
 ]).then(testIsOk('list'))

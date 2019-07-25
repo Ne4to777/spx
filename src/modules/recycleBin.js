@@ -10,7 +10,7 @@ import {
 class RecycleBin {
 	constructor(parent) {
 		this.name = 'recycleBin'
-		this.contextUrl = parent.box.head().Url
+		this.contextUrl = parent.box.getHeadPropValue()
 		this.getSPObject = this.contextUrl ? parent.getSPObject : parent.getSiteSPObject
 	}
 

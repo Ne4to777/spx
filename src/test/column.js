@@ -55,7 +55,7 @@ const crud = async () => {
 		workingWeb
 			.list('Test')
 			.column({ Title: 'single', Description: 'new column' })
-			.create()
+			.create({ detailed: true })
 	)
 	assert('Description is not a "new column"')(newColumn.Description === 'new column')
 	const updatedColumn = await assertObjectProps('updated column')(
@@ -75,8 +75,9 @@ const crudCollection = async () => {
 	await workingWeb
 		.list('Test')
 		.column(['multi', 'multiAnother'])
-		.delete({ silent: true })
+		.delete({ silentErrors: true })
 		.catch(identity)
+
 	const newColumns = await assertCollectionProps('new column')(
 		workingWeb
 			.list('Test')
@@ -126,13 +127,13 @@ const crudCollection = async () => {
 		.delete()
 }
 
-export default () => Promise.all([
-	assertObjectProps('root web list column')(
-		rootWeb
-			.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
-			.column('Title')
-			.get()
-	),
+export default async () => Promise.all([
+	// assertObjectProps('root web list column')(
+	// 	rootWeb
+	// 		.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
+	// 		.column('Title')
+	// 		.get()
+	// ),
 	// assertCollectionProps('root web list column')(
 	// 	rootWeb
 	// 		.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
@@ -157,5 +158,6 @@ export default () => Promise.all([
 	// 		.column(['Title', 'Author'])
 	// 		.get()
 	// ),
-	// crud().then(crudCollection)
+	// await crud(),
+	// crudCollection()
 ]).then(testIsOk('column'))

@@ -1,3 +1,4 @@
+/* eslint max-len:0 */
 import {
 	chunkArray,
 	stringMatch,
@@ -15,6 +16,7 @@ import {
 	stringTest
 } from './utility'
 
+const LIMIT = 160000
 const IN_CHUNK_SIZE = 500
 const IN_CUSTOM_DELIMETER = '_DELIMITER_'
 const GROUP_REGEXP_STR = '\\s(&&||||and|or)\\s'
@@ -212,7 +214,7 @@ const convertExpression = str => {
 			value = value.split(value.indexOf(IN_CUSTOM_DELIMETER) >= 0 ? IN_CUSTOM_DELIMETER : ',')
 			for (let i = 0; i < value.length; i += 1) {
 				const valueItem = value[i]
-				valueStrings.push(`<Value Type="${typeNorm}"${valueOpts}>${valueItem}</Value>`)
+				valueStrings.push(`<Value Type="${typeNorm}"${valueOpts}>${stripQuotes(valueItem)}</Value>`)
 			}
 			if (value.length > IN_CHUNK_SIZE) {
 				const chunks = chunkArray(IN_CHUNK_SIZE)(valueStrings)
@@ -247,9 +249,11 @@ const convertExpression = str => {
 			// default
 		}
 	}
-	const valueOrNull = /null/.test(operator) ? '' : `<Value Type="${typeNorm}"${valueOpts}>${value}</Value>`
+	const valueOrNull = /null/.test(operator) ? '' : `<Value Type="${typeNorm}"${valueOpts}>${stripQuotes(value)}</Value>`
 	return `<${operatorNorm}><FieldRef Name="${name}"${fieldOption}/>${valueOrNull}</${operatorNorm}>`
 }
+
+const stripQuotes = (str) => /^"[^"]*"$/.test(str) ? str.slice(1, -1) : str
 
 const convertGroupR = str => {
 	let firstExpr; let secondExpr; let
@@ -339,17 +343,17 @@ export const getCamlQuery = str => {
 	}
 }
 
-export const getCamlView = (str = {}) => {
+export const getCamlView = (params = {}) => {
 	let orderBys
 	let orderByStr = ''
 	let scopeStr = ''
 	const {
 		OrderBy, Scope, Limit
-	} = str
+	} = params
 	let {
 		Query = ''
-	} = str
-	if (!isObject(str)) Query = str
+	} = params
+	if (!isObject(params)) Query = params
 	if (OrderBy) {
 		orderBys = getArray(OrderBy)
 		for (let i = 0; i < orderBys.length; i += 1) {
@@ -369,7 +373,7 @@ export const getCamlView = (str = {}) => {
 	}
 	const whereStr = Query ? `<Where>${getCamlQuery(Query)}</Where>` : ''
 	const queryStr = whereStr || orderByStr ? `<Query>${whereStr}${orderByStr}</Query>` : ''
-	const limitStr = `<RowLimit>${Limit || 160000}</RowLimit>`
+	const limitStr = `<RowLimit>${Limit || LIMIT}</RowLimit>`
 	return `<View${scopeStr}>${queryStr}${limitStr}</View>`
 }
 

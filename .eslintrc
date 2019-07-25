@@ -2,6 +2,6 @@
   "globals": {
     "SP": "readonly",
     "Microsoft": "readonly",
-    "_spPageContextInfo": "readonly"
+    "window": "readonly"
   }
 }

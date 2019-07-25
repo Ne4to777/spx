@@ -74,8 +74,8 @@ class FileWeb {
 		this.name = 'file'
 		this.parent = parent
 		this.box = getInstance(Box)(files)
-		this.contextUrl = parent.box.head().Url
-		this.getContextSPObject = parent.getSPObject
+		this.contextUrl = parent.box.getHeadPropValue()
+		this.getContextSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box

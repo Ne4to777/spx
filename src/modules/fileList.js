@@ -51,7 +51,7 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
-const copyOrMove = async (isMove, opts = {}) => {
+async function copyOrMove(isMove, opts = {}) {
 	const { contextUrl, listUrl } = this
 	await this.iteratorREST(async ({ element }) => {
 		const { To, OnlyContent } = element
@@ -127,7 +127,7 @@ const copyOrMove = async (isMove, opts = {}) => {
 		}
 	})
 
-	console.log(`${ACTION_TYPES[isMove ? 'move' : 'copy']} ${this.box.getCount()} ${this.name}(s)`)
+	console.log(`${ACTION_TYPES[isMove ? 'move' : 'copy']} ${this.count} ${this.name}(s)`)
 }
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
@@ -153,7 +153,7 @@ const lifter = switchCase(typeOf)({
 	})
 })
 
-const createUnexistedFolder = async () => {
+async function createUnexistedFolder() {
 	const foldersToCreate = {}
 	await this.iteratorREST(({ element }) => {
 		foldersToCreate[element.Folder || getFolderFromUrl(element.Url)] = true
@@ -178,66 +178,7 @@ const createUnexistedFolder = async () => {
 		})
 }
 
-const createWithJSOM = async (opts = {}) => {
-	let needToRetry
-	let isError
-	const { contextUrl, listUrl } = this
-	const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
-
-	const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-		const { Content = '', Columns = {}, Overwrite = true } = element
-		const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-		if (!hasUrlFilename(elementUrl)) return undefined
-		const contextSPObject = this.getContextSPObject(clientContext)
-		const listSPObject = this.getListSPObject(listUrl)(contextSPObject)
-		const spObjects = this.getSPObjectCollection(elementUrl)(listSPObject)
-		const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation)
-		setFields({
-			set_url: `/${contextUrl}/${listUrl}/${elementUrl}`,
-			set_content: '',
-			set_overwrite: Overwrite
-		})(fileCreationInfo)
-		const spObject = spObjects.add(fileCreationInfo)
-		const fieldsToCreate = {}
-		if (isObjectFilled(Columns)) {
-			const props = Reflect.ownKeys(Columns)
-			for (let i = 0; i < props.length; i += 1) {
-				const prop = props[i]
-				const fieldName = Columns[prop]
-				const field = Columns[fieldName]
-				fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field)
-			}
-		}
-		const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation)
-		setFields({
-			set_content: convertFileContent(Content),
-			set_fieldValues: fieldsToCreate
-		})(binaryInfo)
-		spObject.saveBinary(binaryInfo)
-		return load(clientContext, spObject, options)
-	})
-	if (this.box.getCount()) {
-		for (let i = 0; i < clientContexts.length; i += 1) {
-			const clientContext = clientContexts[i]
-			await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async () => {
-				isError = true
-				needToRetry = await createUnexistedFolder.call(this)
-			})
-			if (needToRetry) break
-		}
-	}
-	if (needToRetry) {
-		return createWithJSOM(options)
-	}
-	if (isError) {
-		throw new Error('can\'t create file(s)')
-	} else {
-		this.report('create', options)
-		return prepareResponseJSOM(result, options)
-	}
-}
-
-const createWithRESTFromString = async (element, opts = {}) => {
+async function createWithRESTFromString(element, opts = {}) {
 	let needToRetry
 	let isError
 	const { needResponse } = opts
@@ -262,7 +203,7 @@ const createWithRESTFromString = async (element, opts = {}) => {
 		}
 	})
 	if (needToRetry) {
-		return createWithRESTFromString(element, opts)
+		return createWithRESTFromString.call(this, element, opts)
 	}
 	if (isError) {
 		throw new Error(`can't create file "${element.Url}" at ${contextUrl}/${listUrl}`)
@@ -281,7 +222,7 @@ const createWithRESTFromString = async (element, opts = {}) => {
 	}
 }
 
-const createWithRESTFromBlob = async (element, opts = {}) => {
+async function createWithRESTFromBlob(element, opts = {}) {
 	let isError
 	let needToRetry
 	const inputs = []
@@ -349,10 +290,10 @@ const createWithRESTFromBlob = async (element, opts = {}) => {
 	if (isArray(errorMsgMatches) && !silent && !silentErrors) console.error(errorMsgMatches[1])
 	if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
 		isError = true
-		needToRetry = await createUnexistedFolder()
+		needToRetry = await createUnexistedFolder.call(this)
 	}
 	if (needToRetry) {
-		return createWithRESTFromBlob(element, opts)
+		return createWithRESTFromBlob.call(this, element, opts)
 	}
 	if (isError) {
 		throw new Error(`can't create file "${elementUrl}" at ${contextUrl}/${listUrl}`)
@@ -383,16 +324,18 @@ class FileList {
 		this.name = 'file'
 		this.parent = parent
 		this.box = getInstance(Box)(files)
-		this.contextUrl = parent.contextUrl
-		this.getContextSPObject = parent.getContextSPObject
-		this.getListSPObject = parent.getListSPObject
+		this.count = this.box.getCount()
+		this.contextUrl = parent.parent.box.getHeadPropValue()
+		this.listUrl = parent.box.getHeadPropValue()
+		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
+		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
 		})
 
 		this.iteratorREST = deep1IteratorREST({
-			elementBox: this.parent.box
+			elementBox: this.box
 		})
 	}
 
@@ -411,11 +354,11 @@ class FileList {
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-			const listSPObject = this.getListSPObject(listUrl)(this.getContextSPObject(clientContext))
+			const listSPObject = this.getListSPObject(listUrl, this.getContextSPObject(clientContext))
 			const spObject = isExists(elementUrl) && hasUrlTailSlash(elementUrl)
 				? this.getSPObjectCollection(elementUrl, listSPObject)
 				: this.getSPObject(elementUrl, listSPObject)
-			return load(clientContext)(spObject)(options)
+			return load(clientContext, spObject, options)
 		})
 		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		return prepareResponseJSOM(result, options)
@@ -426,6 +369,7 @@ class FileList {
 		if (!cache.get(['listGUIDs', contextUrl, listUrl])) {
 			const listProps = await this
 				.parent
+				.of(listUrl)
 				.get({ view: 'Id' })
 			cache.set(listProps.Id.toString())(['listGUIDs', contextUrl, listUrl])
 		}
@@ -451,16 +395,7 @@ class FileList {
 	async	update(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
-		if (!cache.get(['columns', contextUrl, listUrl])) {
-			const columns = await this
-				.parent
-				.column()
-				.get({
-					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
-					groupBy: 'InternalName'
-				})
-			cache.set(columns)(['columns', contextUrl, listUrl])
-		}
+		await this.cacheColumns()
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const { Content, Columns } = element
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
@@ -491,7 +426,7 @@ class FileList {
 			}
 			return load(clientContext, spObject.get_file(), options)
 		})
-		if (this.box.getCount()) {
+		if (this.count) {
 			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
 		}
 		this.report('update', options)
@@ -509,7 +444,7 @@ class FileList {
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementUrl
 		})
-		if (this.box.getCount()) {
+		if (this.count) {
 			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
@@ -565,9 +500,24 @@ class FileList {
 			...opts,
 			name: this.name,
 			box: this.box,
-			listBox: this.parent.box,
-			contextBox: this.parent.parent.box
+			listUrl: this.listUrl,
+			contextUrl: this.contextUrl
 		})
+	}
+
+	async	cacheColumns() {
+		const { contextUrl, listUrl } = this
+		if (!cache.get(['columns', contextUrl, listUrl])) {
+			const columns = await this
+				.parent
+				.column
+				.of()
+				.get({
+					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
+					mapBy: 'InternalName'
+				})
+			cache.set(columns)(['columns', contextUrl, listUrl])
+		}
 	}
 
 	of(files) {
@@ -576,3 +526,63 @@ class FileList {
 }
 
 export default getInstance(FileList)
+
+
+// async function createWithJSOM(opts = {}) {
+// 	let needToRetry
+// 	let isError
+// 	const { contextUrl, listUrl } = this
+// 	const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
+
+// 	const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+// 		const { Content = '', Columns = {}, Overwrite = true } = element
+// 		const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
+// 		if (!hasUrlFilename(elementUrl)) return undefined
+// 		const contextSPObject = this.getContextSPObject(clientContext)
+// 		const listSPObject = this.getListSPObject(listUrl, contextSPObject)
+// 		const spObjects = this.getSPObjectCollection(elementUrl, listSPObject)
+// 		const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation)
+// 		setFields({
+// 			set_url: `/${contextUrl}/${listUrl}/${elementUrl}`,
+// 			set_content: '',
+// 			set_overwrite: Overwrite
+// 		})(fileCreationInfo)
+// 		const spObject = spObjects.add(fileCreationInfo)
+// 		const fieldsToCreate = {}
+// 		if (isObjectFilled(Columns)) {
+// 			const props = Reflect.ownKeys(Columns)
+// 			for (let i = 0; i < props.length; i += 1) {
+// 				const prop = props[i]
+// 				const fieldName = Columns[prop]
+// 				const field = Columns[fieldName]
+// 				fieldsToCreate[fieldName] = ifThen(isArray)([join(';#;#')])(field)
+// 			}
+// 		}
+// 		const binaryInfo = getInstanceEmpty(SP.FileSaveBinaryInformation)
+// 		setFields({
+// 			set_content: convertFileContent(Content),
+// 			set_fieldValues: fieldsToCreate
+// 		})(binaryInfo)
+// 		spObject.saveBinary(binaryInfo)
+// 		return load(clientContext, spObject, options)
+// 	})
+// 	if (this.count) {
+// 		for (let i = 0; i < clientContexts.length; i += 1) {
+// 			const clientContext = clientContexts[i]
+// 			await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async () => {
+// 				isError = true
+// 				needToRetry = await createUnexistedFolder.call(this)
+// 			})
+// 			if (needToRetry) break
+// 		}
+// 	}
+// 	if (needToRetry) {
+// 		return createWithJSOM.call(this, options)
+// 	}
+// 	if (isError) {
+// 		throw new Error('can\'t create file(s)')
+// 	} else {
+// 		this.report('create', options)
+// 		return prepareResponseJSOM(result, options)
+// 	}
+// }

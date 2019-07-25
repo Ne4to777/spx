@@ -41,11 +41,14 @@ const crud = async () => {
 		.tag(tagName)
 		.delete({ silentErrors: true })
 		.catch(identity)
-	const newTag = await assertObjectProps('new tag')(web().tag({ Url: tagName }).create())
+	const newTag = await assertObjectProps('new tag')(web().tag({ Label: tagName }).create({ detailed: true }))
 	assert(`Name is not a "${tagName}"`)(newTag.Name === tagName)
-	const updatedTag = await assertObjectProps('updated tag')(web().tag({ Url: tagName, Name: newTagName }).update())
+	const updatedTag = await assertObjectProps('updated tag')(web().tag({
+		Label: tagName,
+		Name: newTagName
+	}).update({ detailed: true }))
 	assert(`Name is not a "${newTagName}"`)(updatedTag.Name === newTagName)
-	await web().tag(newTagName).delete()
+	await web().tag(newTagName).delete({ detailed: true })
 }
 
 const crudCollection = async () => {
@@ -58,13 +61,13 @@ const crudCollection = async () => {
 		.delete({ silentErrors: true })
 		.catch(identity)
 	const newTags = await assertCollectionProps('new tags')(
-		web().tag([{ Url: tagName }, { Url: tagNameAnother }]).create()
+		web().tag([{ Label: tagName }, { Label: tagNameAnother }]).create()
 	)
 	assert(`Name is not a "${tagName}"`)(newTags[0].Name === tagName)
 	assert(`Name is not a "${tagNameAnother}"`)(newTags[1].Name === tagNameAnother)
 	const updatedTags = await assertCollectionProps('updated tag')(
 		web()
-			.tag([{ Url: tagName, Name: newTagName }, { Url: tagNameAnother, Name: newTagNameAnother }])
+			.tag([{ Label: tagName, Name: newTagName }, { Label: tagNameAnother, Name: newTagNameAnother }])
 			.update()
 			.catch(() => web().tag([newTagName, newTagNameAnother]).delete())
 	)

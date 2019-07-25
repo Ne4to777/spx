@@ -9,13 +9,15 @@ import {
 	typeOf,
 	shiftSlash,
 	pipe,
-	removeEmptyUrls,
-	removeDuplicatedUrls,
+	removeEmptiesByProp,
+	removeDuplicatedProp,
 	setFields,
 	getInstanceEmpty,
 	rootReport,
 	deep1Iterator
 } from '../lib/utility'
+
+const KEY_PROP = 'Label'
 
 const getTermStore = clientContext => SP
 	.Taxonomy
@@ -30,35 +32,39 @@ const getAllTerms = clientContext => getTermSet(clientContext).getAllTerms()
 
 const getSPObject = (clientContext, elementUrl) => getAllTerms(clientContext).getByName(elementUrl)
 
-const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
 const lifter = switchCase(typeOf)({
 	object: tag => {
 		const newTag = Object.assign({}, tag)
-		if (!tag.Url) newTag.Url = tag.Name
-		if (tag.Url !== '/') newTag.Url = shiftSlash(newTag.Url)
-		if (!tag.Name) newTag.Name = tag.Url
+		if (tag[KEY_PROP] !== '/') newTag[KEY_PROP] = shiftSlash(newTag[KEY_PROP])
 		return newTag
 	},
 	string: tag => {
 		const tagName = tag === '/' || !tag ? undefined : tag
 		return {
-			Url: tagName,
-			Name: tagName
+			[KEY_PROP]: tagName
 		}
 	},
 	default: () => ({
-		Url: undefined,
-		Name: undefined
+		[KEY_PROP]: undefined
 	})
 })
+
+class Box extends AbstractBox {
+	constructor(value) {
+		super(value, lifter, arrayValidator)
+		this.joinProp = KEY_PROP
+		this.prop = KEY_PROP
+	}
+}
 
 class Tag {
 	constructor(parent, tags) {
 		this.name = 'tag'
 		this.parent = parent
 		this.tags = tags
-		this.box = getInstance(AbstractBox)(tags, lifter, arrayValidator)
+		this.box = getInstance(Box)(tags)
 		this.count = this.box.getCount()
 		this.iterator = deep1Iterator({ elementBox: this.box })
 	}
@@ -71,7 +77,7 @@ class Tag {
 				// set_excludeKeyword: element.ExcludeKeyword || false,
 				set_resultCollectionSize: element.ResultCollectionSize || element.Limit || 100000,
 				set_stringMatchOption: SP.Taxonomy.StringMatchOption[isExact ? 'exactMatch' : 'startsWith'],
-				set_termLabel: element.Url,
+				set_termLabel: element[KEY_PROP],
 				set_trimDepricated: element.TrimDepricated || true,
 				set_trimUnavailable: element.TrimUnavailable || true
 			})(SP.Taxonomy.LabelMatchInformation.newObject(clientContext))
@@ -93,10 +99,10 @@ class Tag {
 
 	async	create(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = element.Url
-			if (!elementUrl) return undefined
+			const elementLabel = element[KEY_PROP]
+			if (!elementLabel) return undefined
 			const spObject = getTermSet(clientContext).createTerm(
-				elementUrl,
+				elementLabel,
 				1033,
 				getInstanceEmpty(SP.Guid.newGuid).toString()
 			)
@@ -111,9 +117,9 @@ class Tag {
 
 	async	update(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = element.Url
-			if (!elementUrl) return undefined
-			const spObject = getSPObject(clientContext, elementUrl)
+			const elementLabel = element[KEY_PROP]
+			if (!elementLabel) return undefined
+			const spObject = getSPObject(clientContext, elementLabel)
 			setFields({
 				set_isAvailableForTagging: element.IsAvailableForTagging,
 				set_name: element.Name,
@@ -130,13 +136,13 @@ class Tag {
 
 	async delete(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = element.Url
-			if (!elementUrl) return undefined
+			const elementLabel = element[KEY_PROP]
+			if (!elementLabel) return undefined
 			const termStore = getTermStore(clientContext)
-			const spObject = getSPObject(clientContext, elementUrl)
+			const spObject = getSPObject(clientContext, elementLabel)
 			methodEmpty('deleteObject')(spObject)
 			methodEmpty('commitAll')(termStore)
-			return elementUrl
+			return elementLabel
 		})
 		if (this.count) {
 			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))

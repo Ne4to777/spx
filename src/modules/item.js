@@ -1,3 +1,4 @@
+/* eslint no-shadow:0 */
 import { MD5 } from 'crypto-js'
 import {
 	MAX_ITEMS_LIMIT,
@@ -37,14 +38,16 @@ import {
 } from '../lib/query-parser'
 import attachment from './attachment'
 
+const KEY_PROP = 'ID'
+
 const getPagingColumnsStr = columns => {
 	if (!columns) return ''
 	let str = ''
-	const keys = Reflect.keys(columns)
+	const keys = Reflect.ownKeys(columns)
 	for (let i = 0; i < keys.length; i += 1) {
-		let valueStr = value
 		const name = keys[i]
 		const value = columns[name]
+		let valueStr = value
 		switch (typeOf(value)) {
 			case 'object':
 				if (value.get_lookupValue) valueStr = value.get_lookupValue()
@@ -100,11 +103,11 @@ const getTypedSPObject = (typeStr, listUrl) => (element, parentElement) => {
 				}
 				camlQuery.set_viewXml(getCamlView(element))
 				if (Page) {
-					const { IsPrevious, Id, Columns } = Page
-					if (Id) {
+					const { IsPrevious, ID, Columns } = Page
+					if (ID) {
 						const position = getInstanceEmpty(SP.ListItemCollectionPosition)
 						position.set_pagingInfo(
-							`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${Id}${getPagingColumnsStr(Columns)}`
+							`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${ID}${getPagingColumnsStr(Columns)}`
 						)
 						camlQuery.set_listItemCollectionPosition(position)
 					}
@@ -119,13 +122,13 @@ const getTypedSPObject = (typeStr, listUrl) => (element, parentElement) => {
 const lifter = switchCase(typeOf)({
 	object: item => Object.assign({}, item),
 	string: (item = '') => ({
-		ID: item
+		[KEY_PROP]: item
 	}),
 	number: item => ({
-		ID: item
+		[KEY_PROP]: item
 	}),
 	default: () => ({
-		ID: undefined
+		[KEY_PROP]: undefined
 	})
 })
 
@@ -136,7 +139,7 @@ const hasObjectProperties = o => {
 	} else {
 		newObject = Object.assign({}, o)
 		delete newObject.Folder
-		delete newObject.ID
+		delete newObject[KEY_PROP]
 	}
 	return !!Object.keys(newObject).length
 }
@@ -144,7 +147,8 @@ const hasObjectProperties = o => {
 class Box extends AbstractBox {
 	constructor(value) {
 		super(value, lifter)
-		this.joinProp = 'ID'
+		this.prop = KEY_PROP
+		this.joinProp = KEY_PROP
 	}
 
 	getCount(actionType) {
@@ -160,10 +164,11 @@ class Item {
 		this.name = 'item'
 		this.parent = parent
 		this.box = getInstance(Box)(items)
-		this.listUrl = parent.box.head().Url
+		this.contextUrl = parent.parent.box.getHeadPropValue()
+		this.listUrl = parent.box.getHeadPropValue()
 		this.getSPObject = getTypedSPObject(parent.name === 'list' ? 'Lists/' : '', this.listUrl)
-		this.getListSPObject = this.parent.getSPObject
-		this.getContextSPObject = this.parent.parent.getSPObject
+		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
+		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: parent.contextUrl,
 			elementBox: this.box
@@ -177,10 +182,10 @@ class Item {
 			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
 			const spObject = this.getSPObject(element, listSPObject)
 			if (showCaml && spObject.camlQuery) camlLog(spObject.camlQuery.get_viewXml())
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
-		return prepareResponseJSOM(opts)(result)
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async create(opts = {}) {
@@ -203,7 +208,7 @@ class Item {
 				newElement = { ...Columns }
 			} else {
 				newElement = { ...element }
-				delete newElement.ID
+				delete newElement[KEY_PROP]
 				delete newElement.Folder
 			}
 			if (!isObjectFilled(newElement)) return undefined
@@ -214,14 +219,14 @@ class Item {
 			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(newElement)(
 				listSPObject.addItem(itemCreationInfo)
 			)
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
 		let needToRetry; let
 			isError
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext)({ ...opts, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext, { ...opts, silentErrors: true }).catch(async err => {
 					if (/There is no file with URL/.test(err.get_message())) {
 						const foldersToCreate = {}
 						await this.iterator(({ element }) => {
@@ -263,7 +268,7 @@ class Item {
 		}
 		if (!isError) {
 			this.report('create', opts)
-			return prepareResponseJSOM(opts)(result)
+			return prepareResponseJSOM(result, opts)
 		}
 		return undefined
 	}
@@ -272,21 +277,21 @@ class Item {
 		const { contextUrl, listUrl } = this
 		await this.cacheColumns()
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			if (!element.ID) return undefined
+			if (!element[KEY_PROP]) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const elementNew = Object.assign({}, element)
-			delete elementNew.ID
+			delete elementNew[KEY_PROP]
 			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(elementNew)(
 				this.getSPObject(element, listSPObject)
 			)
-			return load(clientContext)(spObject)(opts)
+			return load(clientContext, spObject, opts)
 		})
 		if (isFilled(result)) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		}
-		this.report('update')(opts)
-		return prepareResponseJSOM(opts)(result)
+		this.report('update', opts)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	updateByQuery(opts) {
@@ -297,7 +302,7 @@ class Item {
 			if (items.length) {
 				const itemsToUpdate = items.map(item => {
 					const columns = { ...Columns }
-					columns.ID = item.ID
+					columns[KEY_PROP] = item[KEY_PROP]
 					return columns
 				})
 				return this.of(itemsToUpdate).update(opts)
@@ -310,7 +315,7 @@ class Item {
 	async	delete(opts = {}) {
 		const { noRecycle, isSerial } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementID = element.ID
+			const elementID = element[KEY_PROP]
 			if (!elementID) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
@@ -325,11 +330,11 @@ class Item {
 					await executorJSOM(clientContexts[i])(opts)
 				}
 			} else {
-				await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+				await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 			}
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	deleteByQuery(opts) {
@@ -358,7 +363,7 @@ class Item {
 		const getHashedColumnName = itemData => {
 			const values = []
 			this.box.chain(column => {
-				const value = itemData[column.ID]
+				const value = itemData[column[KEY_PROP]]
 				if (isDefined(value)) values.push(value.get_lookupId ? value.get_lookupId() : value)
 			})
 			return MD5(values.join('.')).toString()
@@ -455,7 +460,7 @@ class Item {
 					const targetItemGroup = targetItems[sourceItem[Key]]
 					if (targetItemGroup) {
 						const targetItem = targetItemGroup[0]
-						const itemToMerge = { ID: targetItem.ID }
+						const itemToMerge = { ID: targetItem[KEY_PROP] }
 						if (isNull(targetItem[targetColumn]) || Forced) {
 							itemToMerge[targetColumn] = await Mediator(sourceColumn)(sourceItem[sourceColumn])
 							itemsToMerge.push(itemToMerge)
@@ -483,7 +488,7 @@ class Item {
 				})
 				.updateByQuery(opts)
 		})
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	createDiscussion(opts = {}) {
@@ -503,9 +508,9 @@ class Item {
 			spObject.update()
 			return spObject
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		this.report('create', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(opts, result)
 	}
 
 	async	createReply(opts = {}) {
@@ -523,9 +528,9 @@ class Item {
 			spObject.update()
 			return spObject
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)(opts)))
+		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
 		this.report('create', opts)
-		return prepareResponseJSOM(opts)(result)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	attachment(attachments) {
@@ -537,8 +542,8 @@ class Item {
 			...opts,
 			name: this.name,
 			box: this.box,
-			listBox: this.parent.box,
-			contextBox: this.parent.parent.box
+			listUrl: this.listUrl,
+			contextUrl: this.contextUrl
 		})
 	}
 
@@ -550,7 +555,7 @@ class Item {
 				.column()
 				.get({
 					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
-					groupBy: 'InternalName'
+					mapBy: 'InternalName'
 				})
 			cache.set(columns)(['columns', contextUrl, listUrl])
 		}
