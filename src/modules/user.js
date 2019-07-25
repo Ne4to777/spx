@@ -1,7 +1,6 @@
 /* eslint class-methods-use-this:0 */
 /* eslint no-underscore-dangle:0 */
 /* eslint prefer-destructuring:0 */
-import { isObject } from 'util'
 import {
 	getClientContext,
 	executeJSOM,
@@ -11,7 +10,8 @@ import {
 	isNumberFilled,
 	reduce,
 	getInstance,
-	isPropExists
+	isPropExists,
+	isObject
 } from '../lib/utility'
 
 

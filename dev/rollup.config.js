@@ -19,6 +19,7 @@ const extensions = ['.js']
 const plugins = [
 	resolve({
 		extensions,
+		preferBuiltins: false
 	}),
 	babel({
 		extensions,
@@ -43,16 +44,16 @@ export default [
 		},
 		plugins
 	},
-	// {
-	// 	input,
-	// 	external,
-	// 	output: {
-	// 		...output,
-	// 		file: 'dist/bundle.min.js'
-	// 	},
-	// 	plugins: [
-	// 		...plugins,
-	// 		terser()
-	// 	]
-	// }
+	{
+		input,
+		external,
+		output: {
+			...output,
+			file: 'dist/bundle.min.js'
+		},
+		plugins: [
+			...plugins,
+			terser()
+		]
+	}
 ]
