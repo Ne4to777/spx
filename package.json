@@ -13,12 +13,13 @@
 		"copy": "webpack --config dev/webpack.copy.js",
 		"patchPublish": "npm run publish && cd publish && npm version patch && npm publish",
 		"prebuild": "rm -rf dist",
-		"build": "rollup -c dev/rollup.config.js"
+		"build": "webpack --config dev/webpack.build.js",
+		"build:rollup": "rollup -c dev/rollup.config.js"
 	},
 	"sideEffects": false,
 	"devDependencies": {
 		"@babel/core": "^7.5.4",
-		"@babel/plugin-transform-runtime": "^7.5.0",
+		"@babel/plugin-transform-runtime": "^7.5.5",
 		"@babel/preset-env": "^7.5.4",
 		"babel-core": "^6.26.3",
 		"babel-loader": "^7.1.5",

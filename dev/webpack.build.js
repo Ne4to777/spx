@@ -4,15 +4,15 @@ const config = require('./private.json')
 module.exports = {
 	mode: 'production',
 	devtool: 'source-map',
-	entry: ['babel-polyfill', './src/modules/web.js'],
-	module: {
-		rules: [
-			{
-				test: /\.js$/,
-				loader: 'babel-loader'
-			}
-		]
-	},
+	entry: [/* 'babel-polyfill', */ './src/modules/web.js'],
+	// module: {
+	// 	rules: [
+	// 		{
+	// 			test: /\.js$/,
+	// 			loader: 'babel-loader'
+	// 		}
+	// 	]
+	// },
 	output: {
 		filename: config.filename,
 		path: path.resolve(__dirname, '../build'),

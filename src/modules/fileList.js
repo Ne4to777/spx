@@ -480,16 +480,29 @@ class FileList {
 	}
 
 	getRESTObject(elementUrl, listUrl, contextUrl) {
+		let url = elementUrl
+		if (/\'/.test(elementUrl)) {
+			url = url.replace(/\'/, '%27%27')
+		}
 		return mergeSlashes(
 			`${this.getRESTObjectCollection(elementUrl, listUrl, contextUrl)
-			}/getbyurl('${getFilenameFromUrl(elementUrl)
+			}/getbyurl('${getFilenameFromUrl(url)
 			}')`
 		)
 	}
 
 	getRESTObjectCollection(elementUrl, listUrl, contextUrl) {
 		const folder = getFolderFromUrl(elementUrl)
-		const folderUrl = folder ? `/folders/getbyurl('${folder}')` : ''
+		let folderUrl = ''
+		if (folder) {
+			const folders = mergeSlashes(folder).split('/')
+			folderUrl = folders.reduce((acc, el) => {
+				acc += `/folders/getbyurl('${el}')`
+				return acc
+			}, '')
+
+		}
+
 		return mergeSlashes(
 			`/${contextUrl}/_api/web/lists/getbytitle('${listUrl}')/rootfolder${folderUrl}/files`
 		)
@@ -510,8 +523,7 @@ class FileList {
 		if (!cache.get(['columns', contextUrl, listUrl])) {
 			const columns = await this
 				.parent
-				.column
-				.of()
+				.column()
 				.get({
 					view: ['TypeAsString', 'InternalName', 'Title', 'Sealed'],
 					mapBy: 'InternalName'
