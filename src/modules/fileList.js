@@ -481,8 +481,8 @@ class FileList {
 
 	getRESTObject(elementUrl, listUrl, contextUrl) {
 		let url = elementUrl
-		if (/\'/.test(elementUrl)) {
-			url = url.replace(/\'/, '%27%27')
+		if (/'/.test(elementUrl)) {
+			url = url.replace(/'/, '%27%27')
 		}
 		return mergeSlashes(
 			`${this.getRESTObjectCollection(elementUrl, listUrl, contextUrl)
@@ -496,11 +496,7 @@ class FileList {
 		let folderUrl = ''
 		if (folder) {
 			const folders = mergeSlashes(folder).split('/')
-			folderUrl = folders.reduce((acc, el) => {
-				acc += `/folders/getbyurl('${el}')`
-				return acc
-			}, '')
-
+			folderUrl = folders.reduce((acc, el) => `${acc}/folders/getbyurl('${el}')`, '')
 		}
 
 		return mergeSlashes(
