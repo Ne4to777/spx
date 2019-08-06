@@ -3,7 +3,6 @@
 /* eslint no-restricted-syntax:0 */
 /* eslint import/no-extraneous-dependencies:0 */
 import axios from 'axios'
-import $ from 'jquery'
 import test from './test/index'
 
 import spx from './modules/web'
@@ -42,5 +41,3 @@ spx().user().setDefaults({
 })
 
 // test()
-
-console.log(10)

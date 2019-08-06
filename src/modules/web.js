@@ -77,11 +77,9 @@ class Web {
 	}
 
 	async create(opts) {
-		const result = await this.box.chain(async element => {
-			const elementUrl = getParentUrl(element.Url)
-			if (!isStrictUrl(elementUrl)) return undefined
-			const clientContext = getClientContext(elementUrl)
-
+		const result = await this.box.chain(element => {
+			const parentElementUrl = getParentUrl(element.Url)
+			const clientContext = getClientContext(parentElementUrl)
 			const spObject = pipe([
 				getInstanceEmpty,
 				setFields({
@@ -118,6 +116,7 @@ class Web {
 
 			return executeJSOM(clientContext, spObject, opts)
 		})
+
 		this.report('create', opts)
 		return prepareResponseJSOM(result, opts)
 	}

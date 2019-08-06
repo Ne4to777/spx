@@ -3,8 +3,8 @@
 		[
 			"@babel/env",
 			{
-				"useBuiltIns": "usage",
-				"corejs": "3.0.0",
+				// "useBuiltIns": "usage",
+				// "corejs": "3.0.0",
 				"modules": false,
 				"targets": {
 					"browsers": "> 0.05%, not ie < 10, not op_mini all",

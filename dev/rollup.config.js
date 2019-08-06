@@ -1,42 +1,24 @@
 import babel from 'rollup-plugin-babel'
 import resolve from 'rollup-plugin-node-resolve'
 import commonjs from 'rollup-plugin-commonjs'
-// import { terser } from 'rollup-plugin-terser'
+import { terser } from 'rollup-plugin-terser'
 
-// const plugins = [
-// 	resolve({
-// 		extensions,
-// 		preferBuiltins: false
-// 	}),
-// 	babel({
-// 		extensions,
-// 		exclude: 'node_modules/**',
-// 		// runtimeHelpers: true
-// 	}),
-// ]
-
-export default {
+const getBundle = (file, plugins = []) => ({
 	input: './src/modules/web.js',
 	output: [{
-		file: 'dist/bundle.cjs.js',
-		format: 'cjs'
-	},
-	{
-		file: 'dist/bundle.esm.js',
-		format: 'esm'
-	},
-	{
 		globals: {
 			axios: 'axios',
 			'crypto-js': 'CryptoJS'
 		},
+		sourcemap: true,
+		sourcemapExcludeSources: true,
 		name: 'spx',
-		file: 'dist/bundle.umd.js',
-		format: 'umd'
-	},
-	],
+		file: `dist/${file}`,
+		format: 'iife'
+	}],
 	external: ['axios', 'crypto-js'],
 	plugins: [
+		...plugins,
 		resolve(),
 		commonjs(),
 		babel({
@@ -44,28 +26,9 @@ export default {
 			extensions: ['.js']
 		})
 	]
-}
+})
 
-// export default [
-// 	{
-// 		input,
-// 		external,
-// 		output: {
-// 			...output,
-// 			file: 'dist/bundle.js'
-// 		},
-// 		plugins
-// 	},
-// 	{
-// 		input,
-// 		external,
-// 		output: {
-// 			...output,
-// 			file: 'dist/bundle.min.js'
-// 		},
-// 		plugins: [
-// 			...plugins,
-// 			terser()
-// 		]
-// 	}
-// ]
+export default [
+	// getBundle('bundle.js'),
+	getBundle('bundle.min.js', [terser()])
+]

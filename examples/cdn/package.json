@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node proxy.js && npx serve -l 3000"
   },
   "dependencies": {
-    "spx-com": "file:../.."
+    "spx-com": "file:../..",
+    "sp-rest-proxy": "^2.8.10"
   },
   "devDependencies": {
     "serve": "^11.1.0"
