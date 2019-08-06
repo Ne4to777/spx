@@ -78,7 +78,7 @@ class User {
 
 	async getByUid(opts = {}) {
 		const { isSP } = opts
-		const isNative = isSP || (!customList && !customIdColumn)
+		const isNative = isSP || (!customList || !customIdColumn)
 		const userIds = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
@@ -114,7 +114,7 @@ class User {
 
 	async getByLogin(opts = {}) {
 		const { isSP } = opts
-		const isNative = isSP || (!customList && !customLoginColumn)
+		const isNative = isSP || !customList
 		const userLogins = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
@@ -145,7 +145,7 @@ class User {
 
 	async getByName(opts = {}) {
 		const { isSP } = opts
-		const isNative = isSP || (!customList && !customNameColumn)
+		const isNative = isSP || !customList
 		const userNames = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
@@ -174,7 +174,7 @@ class User {
 
 	async getByEMail(opts = {}) {
 		const { isSP } = opts
-		const isNative = isSP || (!customList && !customEmailColumn)
+		const isNative = isSP || !customList
 		const userEMails = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':

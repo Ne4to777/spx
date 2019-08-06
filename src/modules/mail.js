@@ -40,7 +40,7 @@ class Mail {
 		this.parent = parent
 		this.box = getInstance(Box)(params)
 		this.count = this.box.getCount()
-		this.user = parent.user
+		this.user = parent.user.bind(parent)
 	}
 
 	async	send(opts = {}) {

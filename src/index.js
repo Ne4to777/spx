@@ -42,3 +42,5 @@ spx().user().setDefaults({
 })
 
 // test()
+
+console.log(10)
