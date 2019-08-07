@@ -190,8 +190,8 @@ async function createWithRESTFromString(element, opts = {}) {
 	await axios({
 		url: `${filesUrl}/add(url='${filename}',overwrite=${Overwrite})`,
 		headers: {
-			accept: 'application/json;odata=verbose',
-			'content-type': 'application/json;odata=verbose',
+			Accept: 'application/json;odata=verbose',
+			'Content-Type': 'application/json;odata=verbose',
 			'X-RequestDigest': await getRequestDigest()
 		},
 		method: 'POST',

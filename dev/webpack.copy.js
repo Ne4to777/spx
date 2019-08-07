@@ -2,13 +2,13 @@ const CopyPlugin = require('copy-webpack-plugin')
 const config = require('./private.json')
 
 module.exports = {
+	mode: 'none',
 	plugins: [
 		new CopyPlugin(
 			[
 				{
-					from: '**/*',
-					to: `${config.path}/project`,
-					ignore: ['node_modules/**']
+					from: '../dist',
+					to: config.path
 				}
 			],
 			{

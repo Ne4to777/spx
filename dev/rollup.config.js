@@ -29,6 +29,6 @@ const getBundle = (file, plugins = []) => ({
 })
 
 export default [
-	// getBundle('bundle.js'),
-	getBundle('bundle.min.js', [terser()])
+	// getBundle('index.js'),
+	getBundle('index.min.js', [terser()])
 ]

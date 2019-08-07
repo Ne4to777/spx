@@ -10,7 +10,7 @@
     "prod": "webpack --config dev/webpack.prod.js",
     "publish": "webpack --config dev/webpack.publish.js",
     "commit": "webpack --config dev/webpack.commit.js",
-    "copy": "webpack --config dev/webpack.copy.js",
+    "copy": "node dev/copy.js",
     "patchPublish": "npm run publish && cd publish && npm version patch && npm publish",
     "prebuild": "rm -rf dist",
     "build:webpack": "webpack --config dev/webpack.build.js",
@@ -44,11 +44,11 @@
   },
   "dependencies": {
     "axios": ">=0.18.1",
-    "html-webpack-plugin": "^3.2.0",
-    "copy-webpack-plugin": "^5.0.0",
     "core-js": "^3.1.4",
     "cpass": "^2.0.4",
     "crypto-js": "^3.1.9-1",
+    "html-webpack-plugin": "^3.2.0",
+    "robocopy": "^0.1.16",
     "sp-rest-proxy": "^2.8.10",
     "webpack": "^4.39.1"
   }

@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { executorREST, prepareResponseREST } from '../lib/utility'
 
 import {
 	ACTION_TYPES,
@@ -78,18 +78,23 @@ class Mail {
 				senderEmail = sender.Email
 			}
 			if (isFake) return undefined
-			const response = await axios({
+
+			const response = await executorREST('/', {
 				url: '/_api/SP.Utilities.Utility.SendEmail',
 				headers: {
 					Accept: 'application/json;odata=verbose',
-					'content-type': 'application/json;odata=verbose'
+					'Content-Type': 'application/json;odata=verbose'
 				},
 				method: 'POST',
-				data: JSON.stringify({
+				body: JSON.stringify({
 					properties: {
-						__metadata: { type: 'SP.Utilities.EmailProperties' },
+						__metadata: {
+							type: 'SP.Utilities.EmailProperties'
+						},
 						From: senderEmail,
-						To: { results: recieversEmails },
+						To: {
+							results: recieversEmails
+						},
 						Subject,
 						Body
 					}
@@ -100,9 +105,9 @@ class Mail {
 				report(`Mail is sent\nSender: ${senderEmail}\nRecievers: ${recieversEmails.join(', ')}`, opts)
 			}
 
-			return response
+			return prepareResponseREST(response, opts)
 		})
-		report(`${ACTION_TYPES.send} ${this.count} ${this.name}(s)`, opts)
+		report(`${ACTION_TYPES.send} ${this.count} ${this.name}${this.count > 1 ? '(s)' : ''}`, opts)
 		return result
 	}
 
