@@ -1,4 +1,5 @@
 const webpack = require('webpack')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 const RestProxy = require('sp-rest-proxy')
 const path = require('path')
 
@@ -11,7 +12,7 @@ module.exports = {
 		path: path.resolve(__dirname, 'dist'),
 	},
 	devServer: {
-		contentBase: './public',
+		contentBase: './assets',
 		port: 3000,
 		hot: true,
 		before: (app) => {
@@ -22,7 +23,15 @@ module.exports = {
 			}, app).serveProxy()
 		}
 	},
-	plugins: [new webpack.HotModuleReplacementPlugin()],
+	plugins: [
+		new webpack.HotModuleReplacementPlugin(),
+		new HtmlWebpackPlugin({
+			template: 'assets/index.ejs',
+			templateParameters: {
+				sp: 'sp.assembly.js'
+			}
+		})
+	],
 	performance: {
 		hints: false
 	}
