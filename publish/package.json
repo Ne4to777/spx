@@ -1,6 +1,6 @@
 {
   "name": "spx-com",
-  "version": "1.0.27",
+  "version": "1.0.32",
   "description": "Sharepoint 2013 Client Object Model Library",
   "main": "index.js",
   "scripts": {
