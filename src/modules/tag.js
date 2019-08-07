@@ -89,7 +89,7 @@ class Tag {
 			return load(clientContext, spObject, opts)
 		})
 
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return prepareResponseJSOM(isExact && result.length === 1 ? result[0] : result, opts)
 	}
 
@@ -109,7 +109,7 @@ class Tag {
 			return load(clientContext, spObject, opts)
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('create', opts)
 		return prepareResponseJSOM(result, opts)
@@ -128,7 +128,7 @@ class Tag {
 			return load(clientContext, spObject, opts)
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', opts)
 		return prepareResponseJSOM(result, opts)
@@ -145,7 +145,7 @@ class Tag {
 			return elementLabel
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('delete', opts)
 		return prepareResponseJSOM(result, opts)

@@ -88,7 +88,7 @@ class List {
 			return load(clientContext, spObject, opts)
 		})
 
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 
 		return prepareResponseJSOM(result, opts)
 	}
@@ -165,7 +165,7 @@ class List {
 		})
 		if (this.count) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
-				await executorJSOM(clientContexts[i], opts)
+				await executorJSOM(clientContexts[i])
 			}
 		}
 		this.report('create', opts)
@@ -216,7 +216,7 @@ class List {
 			return load(clientContext, spObject, opts)
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', opts)
 		return prepareResponseJSOM(result, opts)
@@ -233,7 +233,7 @@ class List {
 			return title
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(result, opts)
@@ -407,7 +407,7 @@ class List {
 			const aggregationsQuery = list.renderListData(
 				`<View${scopeStr}>${caml}<Aggregations>${fieldRefs}</Aggregations></View>`
 			)
-			await executorJSOM(clientContext, opts)
+			await executorJSOM(clientContext)
 			const aggregationsData = JSON.parse(aggregationsQuery.get_value()).Row[0]
 			const aggregationKeys = Reflect.ownKeys(aggregationsData)
 			for (let i = 0; i < aggregationKeys.length; i += 1) {
@@ -427,7 +427,7 @@ class List {
 			const spObject = this.getSPObject(element[KEY_PROP], parentSPObject)
 			return load(clientContext, spObject, { view: 'EffectiveBasePermissions' })
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return isArray(result)
 			? result.map(el => el.get_effectiveBasePermissions().has(SP.PermissionKind[type]))
 			: result.get_effectiveBasePermissions().has(SP.PermissionKind[type])

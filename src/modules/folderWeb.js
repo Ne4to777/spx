@@ -79,7 +79,7 @@ class FolderWeb {
 				: this.getSPObject(elementUrl, parentSPObject)
 			return load(clientContext, spObject, opts)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return prepareResponseJSOM(result, opts)
 	}
 
@@ -101,7 +101,7 @@ class FolderWeb {
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext, { ...opts, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext).catch(async err => {
 					const msg = err.get_message()
 					if (/already exists/.test(msg)) return
 					isError = true
@@ -156,7 +156,7 @@ class FolderWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(result, opts)

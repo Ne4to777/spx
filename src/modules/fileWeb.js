@@ -108,7 +108,7 @@ class FileWeb {
 				: this.getSPObject(elementUrl, parentSPObject)
 			return load(clientContext, spObject, options)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
+		await Promise.all(clientContexts.map(executorJSOM))
 
 		return prepareResponseJSOM(result, options)
 	}
@@ -137,7 +137,7 @@ class FileWeb {
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext, { ...opts, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext).catch(async err => {
 					isError = true
 					if (err.get_message() === 'File Not Found.') {
 						const foldersToCreate = {}
@@ -193,7 +193,7 @@ class FileWeb {
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext, opts)
+				await executorJSOM(clientContext)
 			}
 		}
 		this.report('update', opts)
@@ -211,7 +211,7 @@ class FileWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(result, opts)
@@ -228,7 +228,7 @@ class FileWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('copy', opts)
 		return prepareResponseJSOM(result, opts)
@@ -245,7 +245,7 @@ class FileWeb {
 			return elementUrl
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('move', opts)
 		return prepareResponseJSOM(result, opts)

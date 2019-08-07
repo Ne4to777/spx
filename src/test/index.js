@@ -25,6 +25,6 @@ export default async () => {
 	// await folderList();
 	// await fileList();
 	// await item()
-	// await tag()
+	await tag()
 	testIsOk('whole test')()
 }

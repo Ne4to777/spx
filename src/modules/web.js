@@ -77,7 +77,10 @@ class Web {
 	}
 
 	async create(opts) {
-		const result = await this.box.chain(element => {
+		const values = this.box.getIterable()
+		const result = []
+		for (let i = 0; i < values.length; i += 1) {
+			const element = values[i]
 			const parentElementUrl = getParentUrl(element.Url)
 			const clientContext = getClientContext(parentElementUrl)
 			const spObject = pipe([
@@ -114,15 +117,22 @@ class Web {
 				overstep(methodEmpty('update'))
 			])(SP.WebCreationInformation)
 
-			return executeJSOM(clientContext, spObject, opts)
-		})
+			try {
+				result.push(await executeJSOM(clientContext, spObject, opts))
+			} catch (err) {
+				throw err
+			}
+		}
 
 		this.report('create', opts)
-		return prepareResponseJSOM(result, opts)
+		return prepareResponseJSOM(this.box.isArray ? result : result[0], opts)
 	}
 
 	async update(opts) {
-		const result = await this.box.chain(async element => {
+		const values = this.box.getIterable()
+		const result = []
+		for (let i = 0; i < values.length; i += 1) {
+			const element = values[i]
 			const elementUrl = element.Url
 			if (!isStrictUrl(elementUrl)) return undefined
 			const clientContext = getClientContext(elementUrl)
@@ -149,28 +159,33 @@ class Web {
 				}),
 				overstep(methodEmpty('update'))
 			])(this.getSPObject(clientContext))
-			return executeJSOM(clientContext, spObject, opts)
-		})
+			try {
+				result.push(await executeJSOM(clientContext, spObject, opts))
+			} catch (err) {
+				throw err
+			}
+		}
 		this.report('update', opts)
-		return prepareResponseJSOM(result, opts)
+		return prepareResponseJSOM(this.box.isArray ? result : result[0], opts)
 	}
 
 	async delete(opts) {
-		const result = await this.box.chain(async element => {
+		const values = this.box.getIterable()
+		for (let i = 0; i < values.length; i += 1) {
+			const element = values[i]
 			const elementUrl = element.Url
-			if (!isStrictUrl(elementUrl)) return undefined
+			if (!isStrictUrl(elementUrl)) throw new Error('Wrong context url')
 			const clientContext = getClientContext(elementUrl)
 			const spObject = this.getSPObject(clientContext)
 			try {
 				spObject.deleteObject()
+				await executorJSOM(clientContext)
 			} catch (err) {
-				return new Error('Context url is wrong')
+				throw err
 			}
-			await executorJSOM(clientContext, opts)
-			return elementUrl
-		})
+		}
 		this.report('delete', opts)
-		return prepareResponseJSOM(result, opts)
+		return undefined
 	}
 
 	async	doesUserHavePermissions(type = 'fullMask') {

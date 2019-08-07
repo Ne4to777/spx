@@ -78,11 +78,11 @@ const crudBundle = async () => {
 }
 
 export default () => Promise.all([
-	// assertObjectProps('root web file')(rootWeb.file('index.html').get()),
-	// assertCollectionProps('root web file')(rootWeb.file('/').get()),
-	// assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
-	// assertCollectionProps('web root file')(workingWeb.file('/').get()),
-	// assertCollectionProps('web index.aspx, default.aspx file')(workingWeb.file(['index.aspx', 'default.aspx']).get()),
+	assertObjectProps('root web file')(rootWeb.file('index.html').get()),
+	assertCollectionProps('root web file')(rootWeb.file('/').get()),
+	assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
+	assertCollectionProps('web root file')(workingWeb.file('/').get()),
+	assertCollectionProps('web index.aspx, default.aspx file')(workingWeb.file(['index.aspx', 'default.aspx']).get()),
 	// crud(),
 	// crudCollection(),
 	// crudBundle()

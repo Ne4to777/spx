@@ -131,12 +131,12 @@ const doesUserHavePermissions = async () => {
 }
 
 export default () => Promise.all([
-	// assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
-	// assertCollectionProps('root web list')(rootWeb.list('/').get()),
-	// assertObjectProps('web list')(workingWeb.list('Test').get()),
-	// assertCollectionProps('web root list')(workingWeb.list('/').get()),
-	// assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
-	// doesUserHavePermissions()
+	assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
+	assertCollectionProps('root web list')(rootWeb.list('/').get()),
+	assertObjectProps('web list')(workingWeb.list('Test').get()),
+	assertCollectionProps('web root list')(workingWeb.list('/').get()),
+	assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
+	doesUserHavePermissions()
 	// crud(),
 	// crudCollection(),
 ]).then(testIsOk('list'))

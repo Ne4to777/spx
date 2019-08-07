@@ -91,7 +91,7 @@ class Column {
 				: this.getSPObject(elementTitle, listSPObject)
 			return load(clientContext, spObject, opts)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return prepareResponseJSOM(result, opts)
 	}
 
@@ -195,7 +195,7 @@ class Column {
 			return load(clientContext, spObject, opts)
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('create', opts)
 		return prepareResponseJSOM(result, opts)
@@ -243,7 +243,7 @@ class Column {
 			return load(clientContext, spObject, opts)
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', opts)
 		return prepareResponseJSOM(result, opts)
@@ -261,7 +261,7 @@ class Column {
 			return elementTitle
 		})
 		if (this.box.getCount()) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('delete', opts)
 		return prepareResponseJSOM(result, opts)

@@ -360,7 +360,7 @@ class FileList {
 				: this.getSPObject(elementUrl, listSPObject)
 			return load(clientContext, spObject, options)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return prepareResponseJSOM(result, options)
 	}
 
@@ -427,7 +427,7 @@ class FileList {
 			return load(clientContext, spObject.get_file(), options)
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', options)
 		return prepareResponseJSOM(result, options)
@@ -445,7 +445,7 @@ class FileList {
 			return elementUrl
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(result, opts)
@@ -577,7 +577,7 @@ export default getInstance(FileList)
 // 	if (this.count) {
 // 		for (let i = 0; i < clientContexts.length; i += 1) {
 // 			const clientContext = clientContexts[i]
-// 			await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async () => {
+// 			await executorJSOM(clientContext).catch(async () => {
 // 				isError = true
 // 				needToRetry = await createUnexistedFolder.call(this)
 // 			})

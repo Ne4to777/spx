@@ -177,17 +177,17 @@ const crudBundle = async () => {
 }
 
 export default () => Promise.all([
-	// assertObjectProps('root web list folder')(rootWebList.folder().get()),
-	// assertCollectionProps('root web list folder')(rootWebList.folder('/').get()),
-	// assertObjectProps('web root list folder')(workingWebList.folder().get()),
-	// assertObjectProps('web a list folder')(workingWebList.folder('a').get()),
-	// assertCollectionProps('web a list folder')(workingWebList.folder('a/').get()),
-	// assertCollectionProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get()),
+	assertObjectProps('root web list folder')(rootWebList.folder().get()),
+	assertCollectionProps('root web list folder')(rootWebList.folder('/').get()),
+	assertObjectProps('web root list folder')(workingWebList.folder().get()),
+	assertObjectProps('web a list folder')(workingWebList.folder('a').get()),
+	assertCollectionProps('web a list folder')(workingWebList.folder('a/').get()),
+	assertCollectionProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get()),
 
-	// assertObjectItemProps('web a list folder')(workingWebList.folder('a').get({ asItem: true })),
-	// assertCollectionItemProps('web a list folder')(workingWebList.folder('a/').get({ asItem: true })
-	// 	.then(filter(isObjectFilled))),
-	// assertCollectionItemProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get({ asItem: true })),
+	assertObjectItemProps('web a list folder')(workingWebList.folder('a').get({ asItem: true })),
+	assertCollectionItemProps('web a list folder')(workingWebList.folder('a/').get({ asItem: true })
+		.then(filter(isObjectFilled))),
+	assertCollectionItemProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get({ asItem: true })),
 
 	// crud(),
 	// crudCollection(),

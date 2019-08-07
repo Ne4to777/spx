@@ -777,7 +777,7 @@ export class AbstractBox {
 			: lifter(value)
 	}
 
-	async chain(f) {
+	async	chain(f) {
 		return this.isArray ? Promise.all(map(f)(this.value)) : f(this.value)
 	}
 
@@ -797,6 +797,10 @@ export class AbstractBox {
 
 	getHeadPropValue() {
 		return this.isArray ? (this.value[0] ? this.value[0][this.prop] : undefined) : this.value[this.prop]
+	}
+
+	getIterable() {
+		return this.isArray ? this.value : [this.value]
 	}
 }
 
@@ -968,30 +972,26 @@ export const load = (clientContext, spObject, opts = {}) => ifThen(hasProp('getE
 //  =====        =  ====  =        ===     ===      =====  ======    ===  ====  =====
 //  =================================================================================
 
-export const executorJSOM = async (clientContext, opts = {}) => new Promise((resolve, reject) => {
+export const executorJSOM = async (clientContext) => new Promise((resolve, reject) => {
 	clientContext.executeQueryAsync(
-		() => resolve(),
+		resolve,
 		(sender, args) => {
-			const { silent, silentErrors } = opts
-			if (!silent && !silentErrors) {
-				const cid = args.get_errorTraceCorrelationId()
-				console.error(
-					`\nMessage: ${args
-						.get_message()
-						.replace(
-							/\n{1,}/g,
-							' '
-						)}\nValue: ${args.get_errorValue()}\nType: ${args.get_errorTypeName()}\nId: ${cid}`
-				)
-			}
-			reject(args)
+			const cid = args.get_errorTraceCorrelationId()
+			reject(new Error(
+				`\nMessage: ${args
+					.get_message()
+					.replace(
+						/\n{1,}/g,
+						' '
+					)}\nValue: ${args.get_errorValue()}\nType: ${args.get_errorTypeName()}\nId: ${cid}`
+			))
 		}
 	)
 })
 
 export const executeJSOM = async (clientContext, spObject, opts) => {
 	const spObjects = load(clientContext, spObject, opts)
-	await executorJSOM(clientContext, opts)
+	await executorJSOM(clientContext)
 	return spObjects
 }
 

@@ -91,7 +91,7 @@ class FolderList {
 				: this.getSPObject(elementUrl, listSPObject)
 			return load(clientContext, spObject, options)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, options)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return prepareResponseJSOM(result, options)
 	}
 
@@ -123,7 +123,7 @@ class FolderList {
 		if (this.count) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext, { ...options, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext).catch(async err => {
 					const msg = err.get_message()
 					if (/already exists/.test(msg)) return
 					isError = true
@@ -183,7 +183,7 @@ class FolderList {
 			return load(clientContext, spObject.get_folder(), options)
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', opts)
 		return prepareResponseJSOM(result, opts)
@@ -204,7 +204,7 @@ class FolderList {
 			return elementUrl
 		})
 		if (this.count) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
 		return prepareResponseJSOM(result, opts)

@@ -42,7 +42,7 @@ class Attachment {
 			return load(clientContext, spObject, opts)
 		})
 
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 
 		return prepareResponseJSOM(result, opts)
 	}

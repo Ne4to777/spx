@@ -184,7 +184,7 @@ class Item {
 			if (showCaml && spObject.camlQuery) camlLog(spObject.camlQuery.get_viewXml())
 			return load(clientContext, spObject, opts)
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		return prepareResponseJSOM(result, opts)
 	}
 
@@ -226,7 +226,7 @@ class Item {
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext, { ...opts, silentErrors: true }).catch(async err => {
+				await executorJSOM(clientContext).catch(async err => {
 					if (/There is no file with URL/.test(err.get_message())) {
 						const foldersToCreate = {}
 						await this.iterator(({ element }) => {
@@ -288,7 +288,7 @@ class Item {
 			return load(clientContext, spObject, opts)
 		})
 		if (isFilled(result)) {
-			await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', opts)
 		return prepareResponseJSOM(result, opts)
@@ -327,10 +327,10 @@ class Item {
 		if (this.box.getCount()) {
 			if (isSerial) {
 				for (let i = 0; i < clientContexts.length; i += 1) {
-					await executorJSOM(clientContexts[i])(opts)
+					await executorJSOM(clientContexts[i])
 				}
 			} else {
-				await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+				await Promise.all(clientContexts.map(executorJSOM))
 			}
 		}
 		this.report(noRecycle ? 'delete' : 'recycle', opts)
@@ -508,7 +508,7 @@ class Item {
 			spObject.update()
 			return spObject
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		this.report('create', opts)
 		return prepareResponseJSOM(opts, result)
 	}
@@ -528,7 +528,7 @@ class Item {
 			spObject.update()
 			return spObject
 		})
-		await Promise.all(clientContexts.map(clientContext => executorJSOM(clientContext, opts)))
+		await Promise.all(clientContexts.map(executorJSOM))
 		this.report('create', opts)
 		return prepareResponseJSOM(result, opts)
 	}

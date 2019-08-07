@@ -95,30 +95,33 @@ const assertObjectProps = assertObject(PROPS)
 const assertCollectionProps = assertCollection(PROPS)
 
 const crud = async () => {
-	await web('test/spx/createdWebSingle1')
+	const name = 'test/spx/createdWebSingle1'
+	await web(name)
 		.delete({ noRecycle: true, silentErrors: true })
 		.catch(identity)
 	const newWeb = await assertObjectProps('new web')(web({
-		Url: 'test/spx/createdWebSingle1',
+		Url: name,
 		Description: 'Default Aura Web Template'
 	}).create())
 	assert('Description is not a "Default Aura Web Template"')(newWeb.Description === 'Default Aura Web Template')
 	const updatedWeb = await assertObjectProps('updated web')(
-		web({ Url: 'test/spx/createdWebSingle1', Description: 'Test description' }).update()
+		web({ Url: name, Description: 'Test description' }).update()
 	)
 	assert('Description is not a "Test description"')(updatedWeb.Description === 'Test description')
-	await web('test/spx/createdWebSingle1').delete({ noRecycle: true })
+	await web(name).delete({ noRecycle: true })
 }
 const crudCollection = async () => {
-	await web(['test/spx/createdWebMulti', 'test/spx/createdWebMultiAnother'])
-		.delete({ noRecycle: true, silentErrors: true })
+	const name1 = 'test/spx/createdWebMulti3'
+	const name2 = 'test/spx/createdWebMultiAnother3'
+	await web([name1, name2])
+		.delete({ noRecycle: true })
 		.catch(identity)
 	const newWebs = await assertCollectionProps('new webs')(
 		web([{
-			Url: 'test/spx/createdWebMulti',
+			Url: name1,
 			Description: 'Default Aura Web Template'
 		}, {
-			Url: 'test/spx/createdWebMultiAnother',
+			Url: name2,
 			Description: 'Default Aura Web Template'
 		}]).create()
 	)
@@ -127,13 +130,13 @@ const crudCollection = async () => {
 	))(newWebs)
 	const updatedWebs = await assertCollectionProps('updated web')(
 		web([
-			{ Url: 'test/spx/createdWebMulti', Description: 'Test description' },
-			{ Url: 'test/spx/createdWebMultiAnother', Description: 'Test description another' }
+			{ Url: name1, Description: 'Test description' },
+			{ Url: name2, Description: 'Test description another' }
 		]).update()
 	)
 	assert('Description is not a "Test description"')(updatedWebs[0].Description === 'Test description')
 	assert('Description is not a "Test description another"')(updatedWebs[1].Description === 'Test description another')
-	await web(['test/spx/createdWebMulti', 'test/spx/createdWebMultiAnother']).delete({ noRecycle: true })
+	await web([name1, name2]).delete({ noRecycle: true })
 }
 
 const doesUserHavePermissions = async () => {
@@ -156,5 +159,5 @@ export default () => Promise.all([
 	// assertCollectionProps('web')(web([{ Url: 'test/spx/testWeb' }, { Url: 'test/spx/testWebAnother' }]).get()),
 	// doesUserHavePermissions(),
 	// crud(),
-	// crudCollection()
+	crudCollection()
 ]).then(testIsOk('web'))
