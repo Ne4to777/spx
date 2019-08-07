@@ -2,9 +2,7 @@
   "name": "cdn",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "start": "node proxy.js && npx serve -l 3000"
-  },
+  "scripts": {},
   "dependencies": {
     "spx-com": "file:../..",
     "sp-rest-proxy": "^2.8.10"
