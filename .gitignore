@@ -5,3 +5,4 @@ dev/private.json
 publish/*.js
 publish/*.map
 dist
+package-lock.json

@@ -62,5 +62,3 @@ window.run = async () => {
 		.create({ view: ['ID', 'Title', 'FileDirRef'] })
 	console.log('done')
 }
-
-
