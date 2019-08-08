@@ -7,21 +7,33 @@
   "private": false,
   "scripts": {
     "dev": "node dev/init.js && webpack-dev-server --open --config dev/webpack.dev.js",
-    "prod": "webpack --config dev/webpack.prod.js",
-    "publish": "npx rollup -c dev/rollup.publish.js",
-    "commit": "webpack --config dev/webpack.commit.js",
+    "publish": "rollup -c dev/rollup.publish.js",
     "copy": "node dev/copy.js",
     "patchPublish": "npm run publish && cd publish && npm version patch && npm publish",
     "prebuild": "rm -rf dist",
-    "build:webpack": "webpack --config dev/webpack.build.js",
-    "build": "npx rollup -c dev/rollup.config.js",
+    "build": "rollup -c dev/rollup.config.js",
     "test": "jest"
   },
   "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ne4to777/spx-com.git"
+  },
+  "keywords": [
+    "sharepoint",
+    "jsom",
+    "rest"
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ne4to777/spx-com/issues"
+  },
+  "homepage": "https://github.com/Ne4to777/spx-com#readme",
   "devDependencies": {
     "@babel/core": "^7.5.5",
     "@babel/plugin-transform-runtime": "^7.5.5",
     "@babel/preset-env": "^7.5.5",
+    "babel-core": "^6.26.3",
     "babel-jest": "^24.8.0",
     "babel-loader": "^7.1.5",
     "babel-plugin-syntax-async-functions": "^6.1.4",
@@ -34,8 +46,8 @@
     "eslint-plugin-import": "^2.17.2",
     "jest": "^24.8.0",
     "rollup": "^1.16.7",
-    "webpack-cli": "^3.3.5",
-    "webpack-dev-server": "^3.7.2"
+    "webpack-dev-server": "^3.7.2",
+    "webpack-cli": "latest"
   },
   "dependencies": {
     "rollup-plugin-babel": "^4.3.3",

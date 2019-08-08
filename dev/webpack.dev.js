@@ -12,7 +12,7 @@ module.exports = {
 		path: path.resolve(__dirname, 'dist'),
 	},
 	devServer: {
-		contentBase: './assets',
+		contentBase: './dev/assets',
 		port: 3000,
 		hot: true,
 		before: (app) => {
@@ -26,7 +26,7 @@ module.exports = {
 	plugins: [
 		new webpack.HotModuleReplacementPlugin(),
 		new HtmlWebpackPlugin({
-			template: 'assets/index.ejs',
+			template: 'dev/assets/index.ejs',
 			templateParameters: {
 				sp: 'sp.assembly.js'
 			}
