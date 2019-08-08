@@ -23,7 +23,7 @@ import {
 	removeDuplicatedUrls,
 	shiftSlash,
 	mergeSlashes,
-	getParentUrl,
+	hasProp,
 	isNumberFilled,
 	listReport,
 	getTitleFromUrl,
@@ -37,7 +37,8 @@ import {
 	isString,
 	urlSplit,
 	isArray,
-	isObjectFilled
+	isObjectFilled,
+	prop
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
@@ -110,6 +111,7 @@ class FolderList {
 		this.name = 'folder'
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
+		this.hasColumns = this.box.some(hasProp('Columns'))
 		this.contextUrl = parent.parent.box.getHeadPropValue()
 		this.listUrl = parent.box.getHeadPropValue()
 		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
@@ -142,75 +144,81 @@ class FolderList {
 	async	create(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const { asItem } = opts
+		const getRelativeUrl = getListRelativeUrl(contextUrl)(listUrl)
 		const options = asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
-		await this.cacheColumns()
+		if (this.hasColumns) {
+			await this.cacheColumns()
+		}
 		const cacheUrl = ['folderCreationRetries', this.parent.parent.id]
 		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+		const property = this.box.prop
 
+		const foldersMap = this.box.reduce(acc => el => {
+			acc[el[property]] = el
+			return acc
+		}, {})
+		const filteredResult = []
 
-		fix(fR => async b => {
+		await fix(fR => async b => {
 			const names = Reflect.ownKeys(b)
 			const promises = []
 
 			for (let i = 0; i < names.length; i += 1) {
-				const element = names[i]
+				const name = names[i]
+				const element = foldersMap[name]
+				let elementUrl
+				let newElement
+				if (element) {
+					elementUrl = getRelativeUrl(element)
+					newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
+					delete newElement.Url
+					delete newElement.ServerRelativeUrl
+				} else {
+					elementUrl = name
+					newElement = { Title: getTitleFromUrl(elementUrl) }
+				}
+
 				const clientContext = getClientContext(contextUrl)
-				console.log(element)
-				const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-				console.log(elementUrl)
 				if (!isStrictUrl(elementUrl)) return undefined
 				const contextSPObject = this.getContextSPObject(clientContext)
 				const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 				const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
 				itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder)
 				itemCreationInfo.set_leafName(elementUrl)
-				const newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
 				const spObject = setItem(
-					cache.get(['columns', contextUrl, listUrl])
+					cache.get(['columns', contextUrl, listUrl]) || {}
 				)(newElement)(listSPObject.addItem(itemCreationInfo))
 				promises.push(executeJSOM(clientContext, spObject.get_folder(), options).catch(identity))
 			}
 
-			await Promise.all(promises)
-			names.map(async name => {
+			const result = prepareResponseJSOM(
+				(await Promise.all(promises)).filter(el => typeOf(el) !== 'error'),
+				opts
+			)
+
+			result.reduce((acc, el) => {
+				if (foldersMap[getRelativeUrl({
+					Url: el.ServerRelativeUrl
+				})]) acc.push(el)
+				return acc
+			}, filteredResult)
+			await Promise.all(names.map(async name => {
 				const o = b[name]
-				if (isObjectFilled(o)) fR(o)
+				if (isObjectFilled(o)) await fR(o)
 				return undefined
-			})
+			}))
 			return undefined
-		})(buildFoldersTree(this.box.getIterable()))
-
-
-		const promises = []
-		const values = this.box.getIterable()
-		for (let i = 0; i < values.length; i += 1) {
-			const element = values[i]
-			const clientContext = getClientContext(contextUrl)
-			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-			if (!isStrictUrl(elementUrl)) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
-			const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
-			itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder)
-			itemCreationInfo.set_leafName(elementUrl)
-			const newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
-			const spObject = setItem(
-				cache.get(['columns', contextUrl, listUrl])
-			)(newElement)(listSPObject.addItem(itemCreationInfo))
-			promises.push(executeJSOM(clientContext, spObject.get_folder(), options).catch(identity))
-		}
-
-		const result = (await Promise.all(promises)).filter(el => typeOf(el) !== 'error')
+		})(buildFoldersTree(this.box.getIterable().map(prop(property))))
 
 		listReport('create', {
 			...opts,
 			name: this.name,
-			box: getInstance(Box)(result),
+			box: getInstance(Box)(filteredResult),
 			listUrl: this.listUrl,
 			contextUrl: this.contextUrl
 		})
 
-		return prepareResponseJSOM(result, opts)
+		return filteredResult
 	}
 
 	async	update(opts = {}) {

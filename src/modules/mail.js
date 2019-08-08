@@ -1,5 +1,3 @@
-import { executorREST, prepareResponseREST } from '../lib/utility'
-
 import {
 	ACTION_TYPES,
 	AbstractBox,
@@ -9,8 +7,11 @@ import {
 	switchCase,
 	typeOf,
 	identity,
-	report
+	report,
+	executorREST,
+	prepareResponseREST
 } from '../lib/utility'
+
 
 const EMAIL_RE = /\S+@\S+\.\S+/
 const KEY_PROP = 'To'

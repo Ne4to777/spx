@@ -778,8 +778,12 @@ export class AbstractBox {
 			: lifter(value)
 	}
 
-	reduce(f) {
-		return this.isArray ? reduce(f)([])(this.value) : f(this.value)
+	reduce(f, init) {
+		return this.isArray ? reduce(f)(isDefined(init) ? init : [])(this.value) : f(this.value)
+	}
+
+	some(f) {
+		return this.isArray ? this.value.some(f) : f(this.value)
 	}
 
 	async	chain(f) {
@@ -1117,8 +1121,8 @@ export const setItem = (fieldsInfo) => (fields) => (spObject) => {
 	for (let i = 0; i < props.length; i += 1) {
 		const property = props[i]
 		const fieldInfo = fieldsInfo[property]
+		const fieldValues = fields[property]
 		if (fieldInfo) {
-			const fieldValues = fields[property]
 			const set = setItemSP(fieldInfo.InternalName)(spObject)
 			const setLookupAndUser = (f) => (constructor) => pipe([f(constructor), set])
 			switch (fieldInfo.TypeAsString) {
@@ -1151,6 +1155,8 @@ export const setItem = (fieldsInfo) => (fields) => (spObject) => {
 				default:
 					set(fieldValues)
 			}
+		} else {
+			setItemSP(property)(spObject)(fieldValues)
 		}
 	}
 	spObject.update()
