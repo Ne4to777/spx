@@ -209,73 +209,74 @@ const COMBINATOR = {
 	 */
 	K: x => () => x,
 	/**
- * A :: (a → b) → a → b
- *
- * apply
- * @param {Function} f
- * @returns {Function} f
- */
+	* A :: (a → b) → a → b
+	*
+	* apply
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	A: (f) => (x) => f(x),
 	/**
- * U :: (a → b) → b
- *
- * fix-point
- * @param {Function} f
- * @returns {Function} f
- */
+	* U :: (a → a) → a
+	*
+	* universal
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	U: (f) => f(f),
 	/**
- * Y :: (a → b) → b
- *
- * fix-point
- * @param {Function} f
- * @returns {Function} f
- */
+	* Y :: (a → a) → a
+	*
+	* fixed-point
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	Y: (f) => COMBINATOR.U((g) => f((x) => g(g)(x))),
 	/**
- * C :: (a → b → c) → b → a → c
- *
- * flip
- * @param {Function} f
- * @returns {Function} f
- */
+	* C :: (a → b → c) → b → a → c
+	*
+	* flip
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	C: (f) => (x) => (y) => f(y)(x),
 	/**
- * S :: (a → b → c) → (a → b) → a → c
- *
- * substitution
- * @param {Function} f
- * @returns {Function} f
- */
+	* S :: (a → b → c) → (a → b) → a → c
+	*
+	* substitution
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	S: (f) => (g) => (x) => f(x)(g(x)),
 	/**
- * SI :: (a → b) → (a → b → c) → a → c
- *
- * inverted S
- * @param {Function} f
- * @returns {Function} f
- */
+	* SI :: (a → b) → (a → b → c) → a → c
+	*
+	* inverted S
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	SI: (f) => (g) => (x) => g(x)(f(x)),
 	/**
- * SA :: (a → b) → (a → b → c) → a → c
- *
- * async S
- * @param {Function} f
- * @returns {Function} f
- */
+	* SA :: (a → b) → (a → b → c) → a → c
+	*
+	* async S
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	SA: (f) => (g) => async (x) => f(x)(await g(x)),
 	/**
- * SIA :: (a → b) → (a → b → c) → a → c
- *
- * async SI
- * @param {Function} f
- * @returns {Function} f
- */
+	* SIA :: (a → b) → (a → b → c) → a → c
+	*
+	* async SI
+	* @param {Function} f
+	* @returns {Function} f
+	*/
 	SIA: (f) => (g) => async (x) => g(x)(await f(x))
 }
 
 export const identity = COMBINATOR.I
 export const constant = COMBINATOR.K
+export const universal = COMBINATOR.U
 export const fix = COMBINATOR.Y
 export const flip = COMBINATOR.C
 export const substitution = COMBINATOR.S
@@ -777,6 +778,10 @@ export class AbstractBox {
 			: lifter(value)
 	}
 
+	reduce(f) {
+		return this.isArray ? reduce(f)([])(this.value) : f(this.value)
+	}
+
 	async	chain(f) {
 		return this.isArray ? Promise.all(map(f)(this.value)) : f(this.value)
 	}
@@ -788,7 +793,7 @@ export class AbstractBox {
 	}
 
 	getCount() {
-		return this.isArray ? this.value.length : this.value[this.prop] ? 1 : 0
+		return this.isArray ? this.value.filter(el => el[this.prop]).length : this.value[this.prop] ? 1 : 0
 	}
 
 	getHead() {

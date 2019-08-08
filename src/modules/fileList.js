@@ -173,7 +173,7 @@ async function createUnexistedFolder() {
 			return false
 		})
 		.catch(err => {
-			if (/already exists/.test(err.get_message())) return true
+			if (/already exists/.test(err.message)) return true
 			return false
 		})
 }

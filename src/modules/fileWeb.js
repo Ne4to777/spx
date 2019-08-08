@@ -139,7 +139,7 @@ class FileWeb {
 				const clientContext = clientContexts[i]
 				await executorJSOM(clientContext).catch(async err => {
 					isError = true
-					if (err.get_message() === 'File Not Found.') {
+					if (err.message === 'File Not Found.') {
 						const foldersToCreate = {}
 						await this.iterator(({ element }) => {
 							const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
@@ -159,7 +159,7 @@ class FileWeb {
 								return false
 							})
 							.catch(error => {
-								if (/already exists/.test(error.get_message())) needToRetry = true
+								if (/already exists/.test(error.message)) needToRetry = true
 							})
 						if (res) needToRetry = true
 					} else {

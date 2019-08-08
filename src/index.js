@@ -15,6 +15,16 @@ import {
 	prepareResponseJSOM,
 	getClientContext,
 	executorJSOM,
+	typeOf,
+	shiftSlash,
+	isObject,
+	isArray,
+	popSlash,
+	urlSplit,
+	pipe,
+	isString,
+	fix,
+	isObjectFilled
 } from './lib/utility'
 import * as cache from './lib/cache'
 
@@ -41,3 +51,16 @@ spx().user().setDefaults({
 })
 
 // test()
+window.run = async () => {
+	const folders = ['a/b/c', 'a', 'b/c/d', 'b', 'a/b/d']
+	const list = spx('test/spx').list('Folders')
+	spx('test/spx').list('Folders').folder(folders).create()
+	return
+	const item = { Columns: { Title: 'new item' } }
+	await list
+		.item([{ ...item, Folder: 'a' }, { ...item, Folder: 'b' }])
+		.create({ view: ['ID', 'Title', 'FileDirRef'] })
+	console.log('done')
+}
+
+

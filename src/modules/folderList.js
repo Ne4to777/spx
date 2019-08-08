@@ -28,11 +28,55 @@ import {
 	listReport,
 	getTitleFromUrl,
 	isStrictUrl,
-	deep1Iterator
+	deep1Iterator,
+	getClientContext,
+	executeJSOM,
+	identity,
+	fix,
+	isObject,
+	isString,
+	urlSplit,
+	isArray,
+	isObjectFilled
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+
+const buildFolderTree = acc => element => {
+	let folder
+	if (isObject(element)) {
+		const { Folder, Columns = {} } = element
+		folder = Folder || Columns.Folder
+	} else if (isString(element)) {
+		folder = element
+	}
+	const folders = pipe([popSlash, shiftSlash, urlSplit])(folder)
+	mutateObjectTreeFromArray(acc)()(folders)
+	return acc
+}
+
+const mutateObjectTreeFromArray = fix(fR => b => parentName => ([h, ...t]) => {
+	const base = b
+	const currentName = parentName ? `${parentName}/${h}` : h
+	if (t.length) {
+		if (!base[currentName]) base[currentName] = {}
+		return fR(base[currentName])(currentName)(t)
+	}
+	if (!base[currentName]) base[currentName] = {}
+	return undefined
+})
+
+const buildFoldersTree = elements => {
+	const foldersTree = {}
+	if (isArray(elements)) {
+		elements.map(buildFolderTree(foldersTree))
+	} else {
+		buildFolderTree(foldersTree)(elements)
+	}
+	return foldersTree
+}
+
 
 const lifter = switchCase(typeOf)({
 	object: context => {
@@ -102,9 +146,46 @@ class FolderList {
 		await this.cacheColumns()
 		const cacheUrl = ['folderCreationRetries', this.parent.parent.id]
 		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
-		const { clientContexts, result } = await this.iterator(
-			REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE
-		)(({ clientContext, element }) => {
+
+
+		fix(fR => async b => {
+			const names = Reflect.ownKeys(b)
+			const promises = []
+
+			for (let i = 0; i < names.length; i += 1) {
+				const element = names[i]
+				const clientContext = getClientContext(contextUrl)
+				console.log(element)
+				const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
+				console.log(elementUrl)
+				if (!isStrictUrl(elementUrl)) return undefined
+				const contextSPObject = this.getContextSPObject(clientContext)
+				const listSPObject = this.getListSPObject(listUrl, contextSPObject)
+				const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
+				itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder)
+				itemCreationInfo.set_leafName(elementUrl)
+				const newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
+				const spObject = setItem(
+					cache.get(['columns', contextUrl, listUrl])
+				)(newElement)(listSPObject.addItem(itemCreationInfo))
+				promises.push(executeJSOM(clientContext, spObject.get_folder(), options).catch(identity))
+			}
+
+			await Promise.all(promises)
+			names.map(async name => {
+				const o = b[name]
+				if (isObjectFilled(o)) fR(o)
+				return undefined
+			})
+			return undefined
+		})(buildFoldersTree(this.box.getIterable()))
+
+
+		const promises = []
+		const values = this.box.getIterable()
+		for (let i = 0; i < values.length; i += 1) {
+			const element = values[i]
+			const clientContext = getClientContext(contextUrl)
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			if (!isStrictUrl(elementUrl)) return undefined
 			const contextSPObject = this.getContextSPObject(clientContext)
@@ -116,54 +197,20 @@ class FolderList {
 			const spObject = setItem(
 				cache.get(['columns', contextUrl, listUrl])
 			)(newElement)(listSPObject.addItem(itemCreationInfo))
-			return load(clientContext, spObject.get_folder(), options)
+			promises.push(executeJSOM(clientContext, spObject.get_folder(), options).catch(identity))
+		}
+
+		const result = (await Promise.all(promises)).filter(el => typeOf(el) !== 'error')
+
+		listReport('create', {
+			...opts,
+			name: this.name,
+			box: getInstance(Box)(result),
+			listUrl: this.listUrl,
+			contextUrl: this.contextUrl
 		})
-		let needToRetry
-		let isError
-		if (this.count) {
-			for (let i = 0; i < clientContexts.length; i += 1) {
-				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext).catch(async err => {
-					const msg = err.get_message()
-					if (/already exists/.test(msg)) return
-					isError = true
-					if (/This operation can only be performed on a file;/.test(msg)) {
-						const foldersToCreate = {}
-						await this.iterator(REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE)(({ element }) => {
-							const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-							foldersToCreate[getParentUrl(elementUrl)] = true
-						})
-						const res = await this
-							.of(Object.keys(foldersToCreate))
-							.create({ silentInfo: true, expanded: true, view: ['Name'] })
-							.then(() => {
-								const retries = cache.get(cacheUrl)
-								if (retries) {
-									cache.set(retries - 1)(cacheUrl)
-									return true
-								}
-								return false
-							})
-							.catch(error => {
-								if (/already exists/.test(error.get_message())) return true
-								return false
-							})
-						if (res) needToRetry = true
-					} else {
-						throw err
-					}
-				})
-				if (needToRetry) break
-			}
-		}
-		if (needToRetry) {
-			return this.create(options)
-		}
-		if (!isError) {
-			this.report('create', options)
-			return prepareResponseJSOM(result, opts)
-		}
-		return undefined
+
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	update(opts = {}) {

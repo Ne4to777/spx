@@ -102,7 +102,7 @@ class FolderWeb {
 			for (let i = 0; i < clientContexts.length; i += 1) {
 				const clientContext = clientContexts[i]
 				await executorJSOM(clientContext).catch(async err => {
-					const msg = err.get_message()
+					const msg = err.message
 					if (/already exists/.test(msg)) return
 					isError = true
 					if (msg === 'File Not Found.') {
@@ -123,7 +123,7 @@ class FolderWeb {
 								return false
 							})
 							.catch(error => {
-								if (/already exists/.test(error.get_message())) return true
+								if (/already exists/.test(error.message)) return true
 								return false
 							})
 						if (res) needToRetry = true
