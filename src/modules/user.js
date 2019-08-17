@@ -44,20 +44,18 @@ class User {
 						? this.getByName(opts)
 						: isPropExists(customEmailColumn)(el)
 							? this.getByEMail(opts)
-							: el === '/'
-								? this.getAll(opts)
-								: isPropExists(customLoginColumn)(el)
-									? this.getByLogin(opts)
-									: undefined
+							: isPropExists(customLoginColumn)(el)
+								? this.getByLogin(opts)
+								: undefined
 			}
-			return isNumberFilled(el)
-				? this.getByUid(opts)
-				: /[а-яА-ЯЁё\s]/.test(el)
-					? this.getByName(opts)
-					: /\S+@\S+\.\S+/.test(el)
-						? this.getByEMail(opts)
-						: el === '/'
-							? this.getAll(opts)
+			return el === '/'
+				? this.getAll(opts)
+				: isNumberFilled(el)
+					? this.getByUid(opts)
+					: /[а-яА-ЯЁё\s]/.test(el)
+						? this.getByName(opts)
+						: /\S+@\S+\.\S+/.test(el)
+							? this.getByEMail(opts)
 							: this.getByLogin(opts)
 		}
 		return this.getCurrent(opts)

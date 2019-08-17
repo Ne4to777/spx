@@ -2,7 +2,6 @@
 import { MD5 } from 'crypto-js'
 import {
 	MAX_ITEMS_LIMIT,
-	CACHE_RETRIES_LIMIT,
 	AbstractBox,
 	prepareResponseJSOM,
 	load,
@@ -20,7 +19,6 @@ import {
 	switchCase,
 	typeOf,
 	hasUrlTailSlash,
-	isNumberFilled,
 	isObjectFilled,
 	getArray,
 	popSlash,
@@ -194,9 +192,19 @@ class Item {
 		}
 		const { contextUrl, listUrl } = this
 		await this.cacheColumns()
-		const cacheUrl = ['itemCreationRetries', this.parent.parent.id]
-		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
-		const foldersToCreate = {}
+
+		const foldersToCreate = this.box.reduce(acc => el => {
+			const { Folder } = el
+			if (Folder) acc.push(Folder)
+			return acc
+		})
+
+		if (foldersToCreate.length) {
+			await this.parent.folder(foldersToCreate).get({ view: 'ServerRelativeUrl' }).catch(async () => {
+				await this.parent.folder(foldersToCreate).create({ silent: true })
+			})
+		}
+
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
 			const contextSPObject = this.getContextSPObject(clientContext)
@@ -214,7 +222,6 @@ class Item {
 			}
 			if (!isObjectFilled(newElement)) return undefined
 			if (folder) {
-				foldersToCreate[folder] = true
 				const folderUrl = getListRelativeUrl(contextUrl)(listUrl)({ Folder: folder })
 				itemCreationInfo.set_folderUrl(`/${contextUrl}/Lists/${listUrl}/${folderUrl}`)
 			}
@@ -223,68 +230,15 @@ class Item {
 			)
 			return load(clientContext, spObject, opts)
 		})
-		let needToRetry
-		let isError
-		console.log(Reflect.ownKeys(foldersToCreate))
-		if (isObjectFilled(foldersToCreate)) {
-			await this
-				.parent
-				.folder(Reflect.ownKeys(foldersToCreate))
-				.create({ expanded: true, view: ['Name'], detailed: true })
-		}
-		console.log(2)
+
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
-				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext).catch(async err => {
-					const { message } = err
-					// if (/There is no file with URL/.test(message)) {
-					// 	await this.iterator(({ element }) => {
-					// 		const { Folder, Columns = {} } = element
-					// 		const elementUrl = getListRelativeUrl(this.contextUrl)(this.listUrl)({
-					// 			Folder: Folder || Columns.Folder
-					// 		})
-					// 		if (new RegExp(`${this.listUrl}/${elementUrl}'`).test(message)) {
-					// 			foldersToCreate[elementUrl] = true
-					// 		}
-					// 	})
-					// 	const res = await this
-					// 		.parent
-					// 		.folder(Object.keys(foldersToCreate))
-					// 		.create({ expanded: true, view: ['Name'] })
-					// 		.then(() => {
-					// 			const retries = cache.get(cacheUrl)
-					// 			if (retries) {
-					// 				cache.set(retries - 1)(cacheUrl)
-					// 				return true
-					// 			}
-					// 			return false
-					// 		})
-					// 	if (res) needToRetry = true
-					// } else {
-					throw err
-					// }
-					isError = true
-				})
-				if (needToRetry) {
-					console.log(foldersToCreate)
-					const itemsToCreate = this.box.reduce(acc => element => {
-						const { Folder, Columns = {} } = element
-						if (foldersToCreate[Folder] || foldersToCreate[Columns.Folder]) {
-							acc.push(element)
-						}
-						return acc
-					})
-					await this.of(itemsToCreate).create(opts)
-				}
+				await executorJSOM(clientContexts[i])
 			}
 		}
 
-		if (!isError) {
-			this.report('create', opts)
-			return prepareResponseJSOM(result, opts)
-		}
-		return undefined
+		this.report('create', opts)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	update(opts) {

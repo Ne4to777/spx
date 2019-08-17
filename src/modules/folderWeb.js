@@ -127,9 +127,6 @@ class FolderWeb {
 	async	create(opts = {}) {
 		const { contextUrl } = this
 		const getRelativeUrl = getWebRelativeUrl(contextUrl)
-		if (this.hasColumns) {
-			await this.cacheColumns()
-		}
 
 		const property = this.box.prop
 

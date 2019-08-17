@@ -1,7 +1,6 @@
 /* eslint class-methods-use-this:0 */
 import {
 	AbstractBox,
-	CACHE_RETRIES_LIMIT,
 	getInstance,
 	methodEmpty,
 	prepareResponseJSOM,
@@ -28,12 +27,10 @@ import {
 	webReport,
 	removeEmptyFilenames,
 	hasUrlFilename,
-	isNumberFilled,
 	deep1Iterator,
 	deep1IteratorREST
 } from '../lib/utility'
 
-import * as cache from '../lib/cache'
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
@@ -114,10 +111,18 @@ class FileWeb {
 	}
 
 	async	create(opts = {}) {
-		let needToRetry
-		let isError
-		const cacheUrl = ['fileCreationRetries', this.parent.id]
-		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+		const foldersToCreate = this.box.reduce(acc => el => {
+			const { Folder } = el
+			const folder = getParentUrl(getWebRelativeUrl(this.contextUrl)(el)) || Folder
+			if (folder) acc.push(folder)
+			return acc
+		})
+
+		if (foldersToCreate.length) {
+			await this.parent.folder(foldersToCreate).get({ view: 'ServerRelativeUrl' }).catch(async () => {
+				await this.parent.folder(foldersToCreate).create({ silent: true })
+			})
+		}
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
 			if (!hasUrlFilename(elementUrl)) return undefined
@@ -136,47 +141,12 @@ class FileWeb {
 		})
 		if (this.box.getCount()) {
 			for (let i = 0; i < clientContexts.length; i += 1) {
-				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext).catch(async err => {
-					isError = true
-					if (err.message === 'File Not Found.') {
-						const foldersToCreate = {}
-						await this.iterator(({ element }) => {
-							const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
-							foldersToCreate[getFolderFromUrl(elementUrl)] = true
-						})
-						const res = await this
-							.parent
-							.folder(Object.keys(foldersToCreate))
-							.create({ silentInfo: true, expanded: true, view: ['Name'] })
-							.then(() => {
-								const cacheRetriesUrl = ['fileCreationRetries', this.parent.id]
-								const retries = cache.get(cacheRetriesUrl)
-								if (retries) {
-									cache.set(retries - 1)(cacheRetriesUrl)
-									return true
-								}
-								return false
-							})
-							.catch(error => {
-								if (/already exists/.test(error.message)) needToRetry = true
-							})
-						if (res) needToRetry = true
-					} else {
-						throw err
-					}
-				})
-				if (needToRetry) break
+				await executorJSOM(clientContexts[i])
 			}
 		}
-		if (needToRetry) {
-			return this.create(opts)
-		}
-		if (!isError) {
-			this.report('create', opts)
-			return prepareResponseJSOM(result, opts)
-		}
-		return undefined
+
+		this.report('create', opts)
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async	update(opts) {

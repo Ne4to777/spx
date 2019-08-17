@@ -41,24 +41,45 @@ window.spx = spx
 window.cache = cache
 
 spx().user().setDefaults({
-	customWebTitle: 'AM',
-	customListTitle: 'UsersAD',
-	customIdColumn: 'uid',
-	customLoginColumn: 'Login',
-	customNameColumn: 'Title',
-	customEmailColumn: 'Email',
-	customQuery: 'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
+	// customWebTitle: 'AM',
+	// customListTitle: 'UsersAD',
+	// customIdColumn: 'uid',
+	// customLoginColumn: 'Login',
+	// customNameColumn: 'Title',
+	// customEmailColumn: 'Email',
+	// customQuery: 'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
 })
 
 // test()
 window.run = async () => {
+	const blob1 = new Blob(['hi'], { type: 'text/plain' })
+	const blob2 = new Blob(['hi1'], { type: 'text/plain' })
 	const folders = ['a/b/c', 'a', 'b/c/d', 'b', 'a/b/d']
-	const list = spx('test/spx').list('Folders')
-	spx('test/spx').folder(folders).create().then(console.log)
-	return
-	const item = { Columns: { Title: 'new item' } }
-	await list
-		.item([{ ...item, Folder: 'a' }, { ...item, Folder: 'b' }])
-		.create({ view: ['ID', 'Title', 'FileDirRef'] })
+	const web = spx('test/spx')
+	const list = web.list('Folders')
+	const library = web.library('Documents')
+	// list
+	// 	.item([{ Title: 'hi', Folder: 'a/b/c' }])
+	// 	.create()
+	// 	.then(console.log)
+	// return
+	// const item = { Columns: { Title: 'new item' } }
+	const file = { Columns: { Title: 'new item' } }
+	await library
+		// .item([{ ...item, Folder: 'a' }, { ...item, Folder: 'b' }])
+		.file([{
+			// ...file,
+			Folder: 'a',
+			Url: 'test.txt',
+			Content: blob1,
+		}
+			// , {
+			// 	...file,
+			// 	Folder: 'b',
+			// 	Url: 'test1.txt',
+			// 	Content: blob2
+			// }
+		])
+		.create()
 	console.log('done')
 }

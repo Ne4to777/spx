@@ -735,7 +735,7 @@ export const getListRelativeUrl = (webUrl) => (listUrl) => (element = {}) => {
 	const { Url, Folder } = element
 	if (Folder) {
 		const folder = shiftSlash(Folder)
-		return Url ? `${folder} /${getTitleFromUrl(Url)}` : folder
+		return Url ? `${folder}/${getTitleFromUrl(Url)}` : folder
 	}
 	return Url && stringTest(/\//)(Url)
 		? Url === '/'

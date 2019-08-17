@@ -2,7 +2,6 @@
 import axios from 'axios'
 import {
 	ACTION_TYPES,
-	CACHE_RETRIES_LIMIT,
 	LIBRARY_STANDART_COLUMN_NAMES,
 	AbstractBox,
 	getInstance,
@@ -38,16 +37,16 @@ import {
 	pipe,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
-	stringTest,
 	isUndefined,
 	isBlob,
 	hasUrlFilename,
 	removeEmptyFilenames,
 	isObjectFilled,
-	isNumberFilled,
 	deep1Iterator,
 	deep1IteratorREST,
-	getRequestDigest
+	getRequestDigest,
+	getParentUrl,
+	getWebRelativeUrl
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
@@ -153,34 +152,7 @@ const lifter = switchCase(typeOf)({
 	})
 })
 
-async function createUnexistedFolder() {
-	const foldersToCreate = {}
-	await this.iteratorREST(({ element }) => {
-		foldersToCreate[element.Folder || getFolderFromUrl(element.Url)] = true
-	})
-
-	return this
-		.parent
-		.folder(Object.keys(foldersToCreate))
-		.create({ silentInfo: true, expanded: true, view: ['Name'] })
-		.then(() => {
-			const cacheUrl = ['fileCreationRetries', this.parent.parent.id]
-			const retries = cache.get(cacheUrl)
-			if (retries) {
-				cache.set(retries - 1)(cacheUrl)
-				return true
-			}
-			return false
-		})
-		.catch(err => {
-			if (/already exists/.test(err.message)) return true
-			return false
-		})
-}
-
 async function createWithRESTFromString(element, opts = {}) {
-	let needToRetry
-	let isError
 	const { needResponse } = opts
 	const { Content = '', Overwrite = true, Columns } = element
 	const { contextUrl, listUrl } = this
@@ -196,87 +168,63 @@ async function createWithRESTFromString(element, opts = {}) {
 		},
 		method: 'POST',
 		data: Content
-	}).catch(async err => {
-		isError = true
-		if (err.response.statusText === 'Not Found') {
-			needToRetry = await createUnexistedFolder.call(this)
-		}
 	})
-	if (needToRetry) {
-		return createWithRESTFromString.call(this, element, opts)
+
+	let response
+
+	if (Columns) {
+		response = this
+			.of({ Url: elementUrl, Columns })
+			.update({ ...opts, silentInfo: true })
+	} else if (needResponse) {
+		response = this
+			.of(elementUrl)
+			.get(opts)
 	}
-	if (isError) {
-		throw new Error(`can't create file "${element.Url}" at ${contextUrl}/${listUrl}`)
-	} else {
-		let response
-		if (Columns) {
-			response = this
-				.of({ Url: elementUrl, Columns })
-				.update({ ...opts, silentInfo: true })
-		} else if (needResponse) {
-			response = this
-				.of(elementUrl)
-				.get(opts)
-		}
-		return response
-	}
+	return response
 }
 
 async function createWithRESTFromBlob(element, opts = {}) {
-	let isError
-	let needToRetry
-	const inputs = []
 	const { needResponse, silent, silentErrors } = opts
 	const {
 		Content = '',
-		Overwrite,
+		Overwrite = true,
 		OnProgress = identity,
 		Folder = '',
 		Columns
 	} = element
 	const { contextUrl, listUrl } = this
+
 	const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 	const folder = Folder || getFolderFromUrl(elementUrl)
 	const filename = elementUrl ? getFilenameFromUrl(elementUrl) : Content.name
 	const requiredInputs = {
 		__REQUESTDIGEST: true,
 		__VIEWSTATE: true,
-		__EVENTTARGET: true,
-		__EVENTVALIDATION: true,
-		ctl00_PlaceHolderMain_ctl04_ctl01_uploadLocation: true,
-		ctl00_PlaceHolderMain_UploadDocumentSection_ctl05_OverwriteSingle: true
+		__EVENTVALIDATION: true
 	}
 
+	const inputs = []
 	const listGUID = cache.get(['listGUIDs', contextUrl, listUrl])
 	const listFormMatches = cache.get(['listFormMatches', contextUrl, listUrl])
 	const inputRE = /<input[^<]*\/>/g
 	let founds = inputRE.exec(listFormMatches)
+
 	while (founds) {
 		const item = founds[0]
 		const id = item.match(/id="([^"]+)"/)[1]
 		if (requiredInputs[id]) {
-			switch (id) {
-				case '__EVENTTARGET':
-					inputs.push(item.replace(/value="[^"]*"/, 'value="ctl00$PlaceHolderMain$ctl03$RptControls$btnOK"'))
-					break
-				case 'ctl00_PlaceHolderMain_ctl04_ctl01_uploadLocation':
-					inputs.push(item.replace(/value="[^"]*"/, `value="/${folder.replace(/^\//, '')}"`))
-					break
-				case 'ctl00_PlaceHolderMain_UploadDocumentSection_ctl05_OverwriteSingle':
-					inputs.push(Overwrite
-						? item
-						: item.replace(/checked="[^"]*"/, ''))
-					break
-				default:
-					inputs.push(item)
-					break
-			}
+			inputs.push(item)
 		}
 		founds = inputRE.exec(listFormMatches)
 	}
+
 	const form = window.document.createElement('form')
 	form.innerHTML = join('')(inputs)
 	const formData = new FormData(form)
+	formData.append('__EVENTTARGET', 'ctl00$PlaceHolderMain$ctl03$RptControls$btnOK')
+	formData.append('ctl00$PlaceHolderMain$ctl04$ctl01$uploadLocation', `/${folder.replace(/^\//, '')}`)
+	if (Overwrite) formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$OverwriteSingle', true)
 	formData.append('ctl00$PlaceHolderMain$UploadDocumentSection$ctl05$InputFile', Content, filename)
 
 	const response = await axios({
@@ -287,25 +235,15 @@ async function createWithRESTFromBlob(element, opts = {}) {
 	})
 
 	const errorMsgMatches = response.data.match(/id="ctl00_PlaceHolderMain_LabelMessage">([^<]*)<\/span>/)
-	if (isArray(errorMsgMatches) && !silent && !silentErrors) console.error(errorMsgMatches[1])
-	if (stringTest(/The selected location does not exist in this document library\./i)(response.data)) {
-		isError = true
-		needToRetry = await createUnexistedFolder.call(this)
+	let res = { Url: elementUrl }
+	if (isArray(errorMsgMatches)) {
+		if (!silent && !silentErrors) console.error(errorMsgMatches[1])
+	} else if (isObjectFilled(Columns)) {
+		res = await this.of({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
+	} else if (needResponse) {
+		res = await this.of({ Url: elementUrl }).get(opts)
 	}
-	if (needToRetry) {
-		return createWithRESTFromBlob.call(this, element, opts)
-	}
-	if (isError) {
-		throw new Error(`can't create file "${elementUrl}" at ${contextUrl}/${listUrl}`)
-	} else {
-		let res
-		if (isObjectFilled(Columns)) {
-			res = await this.of({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
-		} else if (needResponse) {
-			res = await this.of({ Url: elementUrl }).get(opts)
-		}
-		return res
-	}
+	return res
 }
 
 class Box extends AbstractBox {
@@ -379,8 +317,20 @@ class FileList {
 			)
 			cache.set(listForms.data.match(/<form(\w|\W)*<\/form>/))(['listFormMatches', contextUrl, listUrl])
 		}
-		const cacheUrl = ['fileCreationRetries', this.parent.parent.id]
-		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+
+		const foldersToCreate = this.box.reduce(acc => el => {
+			const { Folder } = el
+			const folder = getParentUrl(getWebRelativeUrl(contextUrl)(el)) || Folder
+			if (folder) acc.push(folder)
+			return acc
+		})
+
+		if (foldersToCreate.length) {
+			await this.parent.folder(foldersToCreate).get({ view: 'ServerRelativeUrl' }).catch(async () => {
+				await this.parent.folder(foldersToCreate).create({ silent: true })
+			})
+		}
+
 		const res = await this.iteratorREST(({ element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			if (!hasUrlFilename(elementUrl) && (element.Content && !element.Content.name)) return undefined
@@ -388,7 +338,14 @@ class FileList {
 				? createWithRESTFromBlob.call(this, element, opts)
 				: createWithRESTFromString.call(this, element, opts)
 		})
-		this.report('create', opts)
+
+		listReport('create', {
+			...opts,
+			name: this.name,
+			box: getInstance(Box)(res),
+			listUrl: this.listUrl,
+			contextUrl: this.contextUrl
+		})
 		return res
 	}
 
