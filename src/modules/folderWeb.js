@@ -1,7 +1,6 @@
 /* eslint class-methods-use-this:0 */
 import {
 	AbstractBox,
-	CACHE_RETRIES_LIMIT,
 	getInstance,
 	methodEmpty,
 	prepareResponseJSOM,
@@ -10,7 +9,6 @@ import {
 	switchCase,
 	getTitleFromUrl,
 	popSlash,
-	getParentUrl,
 	pipe,
 	hasUrlTailSlash,
 	getWebRelativeUrl,
@@ -21,10 +19,53 @@ import {
 	removeDuplicatedUrls,
 	webReport,
 	isStrictUrl,
-	isNumberFilled,
-	deep1Iterator
+	deep1Iterator,
+	fix,
+	getClientContext,
+	getParentUrl,
+	executeJSOM,
+	identity,
+	isObjectFilled,
+	prop,
+	isObject,
+	isString,
+	urlSplit,
+	isArray
 } from '../lib/utility'
-import * as cache from '../lib/cache'
+
+const buildFolderTree = acc => element => {
+	let folder
+	if (isObject(element)) {
+		const { Folder, Columns = {} } = element
+		folder = Folder || Columns.Folder
+	} else if (isString(element)) {
+		folder = element
+	}
+	const folders = pipe([popSlash, shiftSlash, urlSplit])(folder)
+	mutateObjectTreeFromArray(acc)()(folders)
+	return acc
+}
+
+const mutateObjectTreeFromArray = fix(fR => b => parentName => ([h, ...t]) => {
+	const base = b
+	const currentName = parentName ? `${parentName}/${h}` : h
+	if (t.length) {
+		if (!base[currentName]) base[currentName] = {}
+		return fR(base[currentName])(currentName)(t)
+	}
+	if (!base[currentName]) base[currentName] = {}
+	return undefined
+})
+
+const buildFoldersTree = elements => {
+	const foldersTree = {}
+	if (isArray(elements)) {
+		elements.map(buildFolderTree(foldersTree))
+	} else {
+		buildFolderTree(foldersTree)(elements)
+	}
+	return foldersTree
+}
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 const lifter = switchCase(typeOf)({
@@ -84,64 +125,75 @@ class FolderWeb {
 	}
 
 	async	create(opts = {}) {
-		let needToRetry
-		let isError
 		const { contextUrl } = this
-		const cacheUrl = ['folderCreationRetries', this.parent.id]
-		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
-		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const elementUrl = getWebRelativeUrl(contextUrl)(element)
-			if (!isStrictUrl(elementUrl)) return undefined
-			const parentFolderUrl = getParentUrl(elementUrl)
-			const spObject = this.getSPObjectCollection(`${parentFolderUrl}/`, this.getContextSPObject(clientContext))
-				.add(getTitleFromUrl(elementUrl))
-			return load(clientContext, spObject, opts)
+		const getRelativeUrl = getWebRelativeUrl(contextUrl)
+		if (this.hasColumns) {
+			await this.cacheColumns()
+		}
+
+		const property = this.box.prop
+
+		const foldersMap = this.box.reduce(acc => el => {
+			acc[el[property]] = el
+			return acc
+		}, {})
+		const filteredResult = []
+
+		await fix(fR => async b => {
+			const names = Reflect.ownKeys(b)
+			const promises = []
+
+			for (let i = 0; i < names.length; i += 1) {
+				const name = names[i]
+				const element = foldersMap[name]
+				const clientContext = getClientContext(contextUrl)
+				let elementUrl
+				if (element) {
+					elementUrl = getRelativeUrl(element)
+				} else {
+					elementUrl = name
+				}
+
+				const parentFolderUrl = getParentUrl(elementUrl)
+				const spObject = this
+					.getSPObjectCollection(
+						`${parentFolderUrl}/`,
+						this.getContextSPObject(clientContext)
+					)
+					.add(getTitleFromUrl(elementUrl))
+
+				load(clientContext, spObject, opts)
+
+				promises.push(executeJSOM(clientContext, spObject, opts).catch(identity))
+			}
+
+			const result = prepareResponseJSOM(
+				(await Promise.all(promises)).filter(el => typeOf(el) !== 'error'),
+				opts
+			)
+
+			result.reduce((acc, el) => {
+				if (foldersMap[getRelativeUrl({
+					Url: el.ServerRelativeUrl
+				})]) acc.push(el)
+				return acc
+			}, filteredResult)
+			await Promise.all(names.map(async name => {
+				const o = b[name]
+				if (isObjectFilled(o)) await fR(o)
+				return undefined
+			}))
+			return undefined
+		})(buildFoldersTree(this.box.getIterable().map(prop(property))))
+
+		webReport('create', {
+			...opts,
+			name: this.name,
+			box: getInstance(Box)(filteredResult),
+			contextUrl: this.contextUrl
 		})
 
-		if (this.box.getCount()) {
-			for (let i = 0; i < clientContexts.length; i += 1) {
-				const clientContext = clientContexts[i]
-				await executorJSOM(clientContext).catch(async err => {
-					const msg = err.message
-					if (/already exists/.test(msg)) return
-					isError = true
-					if (msg === 'File Not Found.') {
-						const foldersToCreate = {}
-						await this.iterator(({ element }) => {
-							const elementUrl = getWebRelativeUrl(contextUrl)(element)
-							foldersToCreate[getParentUrl(elementUrl)] = true
-						})
-						const res = await this
-							.of(Object.keys(foldersToCreate))
-							.create({ silentInfo: true, expanded: true, view: ['Name'] })
-							.then(() => {
-								const retries = cache.get(cacheUrl)
-								if (retries) {
-									cache.set(retries - 1)(cacheUrl)
-									return true
-								}
-								return false
-							})
-							.catch(error => {
-								if (/already exists/.test(error.message)) return true
-								return false
-							})
-						if (res) needToRetry = true
-					} else {
-						throw err
-					}
-				})
-				if (needToRetry) break
-			}
-		}
-		if (needToRetry) {
-			return this.create(opts)
-		}
-		if (!isError) {
-			this.report('create', opts)
-			return prepareResponseJSOM(result, opts)
-		}
-		return undefined
+		return filteredResult
 	}
 
 	async	delete(opts = {}) {

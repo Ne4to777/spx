@@ -54,7 +54,7 @@ spx().user().setDefaults({
 window.run = async () => {
 	const folders = ['a/b/c', 'a', 'b/c/d', 'b', 'a/b/d']
 	const list = spx('test/spx').list('Folders')
-	spx('test/spx').list('Folders').folder(folders).create()
+	spx('test/spx').folder(folders).create().then(console.log)
 	return
 	const item = { Columns: { Title: 'new item' } }
 	await list

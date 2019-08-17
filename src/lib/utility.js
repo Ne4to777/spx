@@ -620,7 +620,8 @@ export const webReport = (actionType, opts = {}) => {
 	const count = box.getCount(actionType)
 	report(
 		`${ACTION_TYPES[actionType]
-		} ${count} ${name}${count > 1 ? 's' : ''} at ${contextUrl || '/'
+		} ${count
+		} ${name}${count > 1 ? 's' : ''} at ${contextUrl || '/'
 		}${detailed
 			? `: ${box.join()}`
 			: ''}`,

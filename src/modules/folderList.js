@@ -3,7 +3,6 @@ import {
 	// REQUEST_LIST_FOLDER_CREATE_BUNDLE_MAX_SIZE,
 	REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE,
 	REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE,
-	CACHE_RETRIES_LIMIT,
 	AbstractBox,
 	getInstance,
 	prepareResponseJSOM,
@@ -24,7 +23,6 @@ import {
 	shiftSlash,
 	mergeSlashes,
 	hasProp,
-	isNumberFilled,
 	listReport,
 	getTitleFromUrl,
 	isStrictUrl,
@@ -149,8 +147,7 @@ class FolderList {
 		if (this.hasColumns) {
 			await this.cacheColumns()
 		}
-		const cacheUrl = ['folderCreationRetries', this.parent.parent.id]
-		if (!isNumberFilled(cache.get(cacheUrl))) cache.set(CACHE_RETRIES_LIMIT)(cacheUrl)
+
 		const property = this.box.prop
 
 		const foldersMap = this.box.reduce(acc => el => {
