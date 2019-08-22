@@ -862,10 +862,19 @@ export const deep1IteratorREST = ({ elementBox }) => (f) => elementBox.chain(asy
 
 const newClientContext = getInstance(SP.ClientContext)
 
-export const getClientContext = pipe([
-	pipe([mergeSlashes, popSlash, prependSlash, newClientContext]),
-	overstep(method('set_requestTimeout')(REQUEST_TIMEOUT))
-])
+export const getClientContext = url => {
+	let normalizedUrl = url
+	if (!/^https?:/.test(url) && !/^\//.test(url)) {
+		normalizedUrl = prependSlash(url)
+	}
+	if (/\.\/$/.test(normalizedUrl)) {
+		normalizedUrl = popSlash(normalizedUrl)
+	}
+	const clientContext = newClientContext(normalizedUrl)
+	clientContext.set_requestTimeout(REQUEST_TIMEOUT)
+	return clientContext
+}
+
 
 //  ====================================================================================
 //  =====       ==        ==      ==       ====    ===  =======  ==      ==        =====

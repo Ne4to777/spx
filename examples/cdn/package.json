@@ -4,10 +4,6 @@
   "main": "index.js",
   "scripts": {},
   "dependencies": {
-    "spx-com": "file:../..",
-    "sp-rest-proxy": "^2.8.10"
-  },
-  "devDependencies": {
-    "serve": "^11.1.0"
+    "spx-com-dev": "file:../.."
   }
 }

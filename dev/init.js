@@ -18,18 +18,17 @@ fs.stat('./dev/private.json', async (err) => {
 		await fs.writeFileSync(
 			'./dev/private.json',
 			JSON.stringify({
-				siteUrl: (await question('Host (http://aura.dme.aero.corp): ')) || 'http://aura.dme.aero.corp',
+				siteUrl: (await question('Host: ')),
 				strategy: 'OnpremiseUserCredentials',
-				domain: (await question('Domain (dme): ')) || 'dme',
+				domain: (await question('Domain: ')),
 				username: await question('Username: '),
 				password: new Cpass().encode(await question('Password: ')),
 				path:
-					(await question('Project absolute path (Z:/common/Modules/native/spx): ')).replace(/\//g, '\\')
-					|| 'Z:\\common\\Modules\\native\\spx',
+					(await question('Project absolute path: ')).replace(/\//g, '\\'),
 				filename: (await question('Output filename (index.js): ')) || 'index.js',
-				library: (await question('Library name (spx): ')) || 'spx',
-				customUsersWeb: (await question('Custom users web (AM): ')) || 'AM',
-				customUsersList: (await question('Custom users list (UsersAD): ')) || 'UsersAD',
+				library: (await question('Library name: ')),
+				customUsersWeb: (await question('Custom users web: ')),
+				customUsersList: (await question('Custom users list: ')),
 				defaultUsersList: (await question(
 					'Default users list (User Information List): '
 				)) || 'User Information List'

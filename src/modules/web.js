@@ -22,8 +22,7 @@ import {
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	shiftSlash,
-	getTitleFromUrl,
-	mergeSlashes
+	getTitleFromUrl
 } from '../lib/utility'
 
 
@@ -48,7 +47,7 @@ const lifter = switchCase(typeOf)({
 		return newContext
 	},
 	string: (contextUrl = '') => ({
-		Url: contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl)),
+		Url: contextUrl === '/' ? '/' : shiftSlash(contextUrl),
 		Title: getTitleFromUrl(contextUrl)
 	}),
 	default: () => ({
