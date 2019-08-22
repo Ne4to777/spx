@@ -1,6 +1,5 @@
 node_modules
 .git
-gitProxySettings.txt
 dev/private.json
 publish/*.js
 publish/*.map
