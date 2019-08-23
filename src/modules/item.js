@@ -102,13 +102,11 @@ const getTypedSPObject = (typeStr, listUrl) => (element, parentElement) => {
 				camlQuery.set_viewXml(getCamlView(element))
 				if (Page) {
 					const { IsPrevious, ID, Columns } = Page
-					if (ID) {
-						const position = getInstanceEmpty(SP.ListItemCollectionPosition)
-						position.set_pagingInfo(
-							`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${ID}${getPagingColumnsStr(Columns)}`
-						)
-						camlQuery.set_listItemCollectionPosition(position)
-					}
+					const position = getInstanceEmpty(SP.ListItemCollectionPosition)
+					position.set_pagingInfo(
+						`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${ID}${getPagingColumnsStr(Columns)}`
+					)
+					camlQuery.set_listItemCollectionPosition(position)
 				}
 			}
 	}

@@ -343,6 +343,14 @@ export const getCamlQuery = str => {
 	}
 }
 
+export const getCamlScope = scope => /allItems/i.test(scope)
+	? ' Scope="Recursive"'
+	: /^items$/i.test(scope)
+		? ' Scope="FilesOnly"'
+		: /^all$/i.test(scope)
+			? ' Scope="RecursiveAll"'
+			: ''
+
 export const getCamlView = (params = {}) => {
 	let orderBys
 	let orderByStr = ''
@@ -363,13 +371,7 @@ export const getCamlView = (params = {}) => {
 		orderByStr = `<OrderBy>${orderByStr}</OrderBy>`
 	}
 	if (Scope) {
-		scopeStr = /allItems/i.test(Scope)
-			? ' Scope="Recursive"'
-			: /^items$/i.test(Scope)
-				? ' Scope="FilesOnly"'
-				: /^all$/i.test(Scope)
-					? ' Scope="RecursiveAll"'
-					: ''
+		scopeStr = getCamlScope(Scope)
 	}
 	const whereStr = Query ? `<Where>${getCamlQuery(Query)}</Where>` : ''
 	const queryStr = whereStr || orderByStr ? `<Query>${whereStr}${orderByStr}</Query>` : ''

@@ -37,7 +37,8 @@ import column from './column'
 import folder from './folderList'
 import file from './fileList'
 import item from './item'
-import { getCamlQuery } from '../lib/query-parser'
+import pager from './pager'
+import { getCamlQuery, getCamlScope } from '../lib/query-parser'
 
 const KEY_PROP = 'Title'
 
@@ -373,7 +374,7 @@ class List {
 		console.log('clearing is complete!')
 	}
 
-	async	getAggregations(opts) {
+	async	getAggregations() {
 		return this.iterator(async ({ contextElement, element }) => {
 			const contextUrl = contextElement.Url
 			let scopeStr = ''
@@ -395,13 +396,7 @@ class List {
 				aggregations[columnName] = 0
 			}
 			if (Scope) {
-				scopeStr = /allItems/i.test(Scope)
-					? ' Scope="Recursive"'
-					: /^items$/i.test(Scope)
-						? ' Scope="FilesOnly"'
-						: /^all$/i.test(Scope)
-							? ' Scope="RecursiveAll"'
-							: ''
+				scopeStr = getCamlScope()
 			}
 			if (Query) caml = `<Query><Where>${getCamlQuery(Query)}</Where></Query>`
 			const aggregationsQuery = list.renderListData(
@@ -443,6 +438,10 @@ class List {
 
 	item(elements) {
 		return item(this, elements)
+	}
+
+	pager(params) {
+		return pager(this, params)
 	}
 
 	getSPObject(elementTitle, parentSPObject) {
