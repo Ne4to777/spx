@@ -1,7 +1,20 @@
-const clientContext = new SP.ClientContext('http://localhost:3000')
-const site = clientContext.get_site()
+const getTermStore = clientContext => SP
+	.Taxonomy
+	.TaxonomySession
+	.getTaxonomySession(clientContext)
+	.getDefaultKeywordsTermStore()
 
-clientContext.load(site)
+const getTermSet = clientContext => getTermStore(clientContext).get_keywordsTermSet()
+
+
+const getAllTerms = clientContext => getTermSet(clientContext).getAllTerms()
+
+const getSPObject = (clientContext, elementUrl) => getAllTerms(clientContext).getByName(elementUrl)
+
+const clientContext = new SP.ClientContext('http://localhost:3000')
+const element = getTermStore(clientContext)
+
+clientContext.load(element)
 clientContext.executeQueryAsync(() => {
-	console.log(site);
+	console.log(element);
 })

@@ -25,7 +25,7 @@ class Pager {
 		const { OrderBy } = params
 		this.mainParams = {
 			OrderBy,
-			Limit: params.Size,
+			Limit: params.Limit,
 			Scope: params.Scope,
 			Query: params.Query,
 			Folder: params.Folder,

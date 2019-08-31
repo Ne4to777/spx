@@ -83,3 +83,62 @@ window.run = async () => {
 		.create()
 	console.log('done')
 }
+
+
+const getTermStore = clientContext => SP
+	.Taxonomy
+	.TaxonomySession
+	.getTaxonomySession(clientContext)
+	.getDefaultKeywordsTermStore()
+
+const getTermSet = clientContext => getTermStore(clientContext).get_keywordsTermSet()
+
+
+const getAllTerms = clientContext => getTermSet(clientContext).getAllTerms()
+
+const getSPObject = (clientContext, elementUrl) => getAllTerms(clientContext).getByName(elementUrl)
+
+const clientContext = new SP.ClientContext('http://localhost:3000')
+
+const taxonomySession = SP.Taxonomy
+	.TaxonomySession
+	.getTaxonomySession(clientContext)
+
+clientContext.load(taxonomySession)
+
+const termStore = taxonomySession.getDefaultSiteCollectionTermStore()
+clientContext.load(termStore)
+
+const hashTags = termStore.get_hashTagsTermSet()
+clientContext.load(hashTags)
+
+const keywords = termStore.get_keywordsTermSet()
+clientContext.load(keywords)
+
+const groups = termStore.get_groups()
+clientContext.load(groups)
+
+const group = groups.getByName('Site Collection - sharepoint.local')
+clientContext.load(group)
+
+const termSets = group.get_termSets()
+clientContext.load(termSets)
+
+const termSet = termSets.getByName('AnotherTermSet')
+clientContext.load(termSet)
+
+const terms = termSet.get_terms()
+clientContext.load(terms)
+
+clientContext.load(taxonomySession)
+clientContext.executeQueryAsync(() => {
+	console.log(taxonomySession)
+	console.log(termStore)
+	console.log(hashTags)
+	console.log(keywords)
+	console.log(groups)
+	console.log(group)
+	console.log(termSets)
+	console.log(termSet)
+	console.log(terms)
+})

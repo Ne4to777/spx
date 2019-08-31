@@ -1148,6 +1148,9 @@ export const setItem = (fieldsInfo) => (fields) => (spObject) => {
 				case 'UserMulti':
 					setLookupAndUser(setLookupMulti)(SP.FieldUserValue)(getArray(fieldValues))
 					break
+				case 'TaxonomyFieldType':
+					set(`-1;#${fieldValues.get_label()}|${fieldValues.get_termGuid()}`)
+					break
 				case 'TaxonomyFieldTypeMulti':
 					switchType({
 						object: pipe([
