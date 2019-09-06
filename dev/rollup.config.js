@@ -3,7 +3,7 @@ import resolve from 'rollup-plugin-node-resolve'
 import commonjs from 'rollup-plugin-commonjs'
 import { terser } from 'rollup-plugin-terser'
 
-const getBundle = (file, plugins = []) => ({
+const getBundle = (file, format, plugins = []) => ({
 	input: './src/modules/web.js',
 	output: [{
 		globals: {
@@ -13,22 +13,25 @@ const getBundle = (file, plugins = []) => ({
 		sourcemap: true,
 		sourcemapExcludeSources: true,
 		name: 'spx',
-		file: `dist/${file}`,
-		format: 'iife'
+		file,
+		format
 	}],
 	external: ['axios', 'crypto-js'],
 	plugins: [
 		...plugins,
 		resolve(),
-		commonjs(),
-		babel({
-			exclude: 'node_modules/**',
-			extensions: ['.js']
-		})
+		commonjs()
 	]
 })
 
+const babelPlugin = babel({
+	exclude: 'node_modules/**',
+	extensions: ['.js']
+})
+const terserPlugin = terser()
 export default [
-	// getBundle('index.js'),
-	getBundle('index.min.js', [terser()])
+	getBundle('publish/iife/index.js', 'iife', [babelPlugin]),
+	getBundle('publish/iife/index.min.js', 'iife', [babelPlugin, terserPlugin]),
+	getBundle('publish/umd/index.js', 'umd'),
+	getBundle('publish/umd/index.min.js', 'umd', [terserPlugin])
 ]

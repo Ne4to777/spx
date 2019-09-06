@@ -5,13 +5,7 @@ const rl = require('readline').createInterface({
 	output: process.stdout
 })
 
-const promisify = f => {
-	const argsDeclared = []
-	for (let i = 0, fLength = f.length - 1; i < fLength; i += 1) argsDeclared.push(undefined)
-	return (...args) => new Promise((resolve) => f(...argsDeclared.map((u, i) => args[i]), x => resolve(x)))
-}
-
-const question = promisify(rl.question.bind(rl))
+const question = msg => new Promise(resolve => rl.question(msg, resolve))
 
 fs.stat('./dev/private.json', async (err) => {
 	if (err) {
@@ -25,8 +19,6 @@ fs.stat('./dev/private.json', async (err) => {
 				password: new Cpass().encode(await question('Password: ')),
 				path:
 					(await question('Project absolute path: ')).replace(/\//g, '\\'),
-				filename: (await question('Output filename (index.js): ')) || 'index.js',
-				library: (await question('Library name: ')),
 				customUsersWeb: (await question('Custom users web: ')),
 				customUsersList: (await question('Custom users list: ')),
 				defaultUsersList: (await question(

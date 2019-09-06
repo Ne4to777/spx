@@ -2,7 +2,7 @@
   "name": "spx-com",
   "version": "1.0.36",
   "description": "Sharepoint 2013 Client Object Model Library",
-  "main": "index.min.js",
+  "main": "umd/index.min.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

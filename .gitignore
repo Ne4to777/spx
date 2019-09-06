@@ -1,7 +1,7 @@
 node_modules
 .git
 dev/private.json
-publish/*.js
-publish/*.map
+publish/**/*.js
+publish/**/*.map
 dist
 package-lock.json
