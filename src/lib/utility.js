@@ -787,7 +787,7 @@ export class AbstractBox {
 		return this.isArray ? this.value.some(f) : f(this.value)
 	}
 
-	async	chain(f) {
+	chain(f) {
 		return this.isArray ? Promise.all(map(f)(this.value)) : f(this.value)
 	}
 

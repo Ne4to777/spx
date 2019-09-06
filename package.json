@@ -10,7 +10,7 @@
     "dev": "node dev/init.js && webpack-dev-server --open --config dev/webpack.dev.js",
     "copy": "node dev/copy.js",
     "patchPublish": "cd publish && npm version patch && npm publish",
-    "publish-prepare": "rollup -c dev/rollup.config.js && node dev/copyForPublish.js",
+    "publish-prepare": "rollup -c dev/rollup.config.js",
     "test": "jest"
   },
   "sideEffects": false,

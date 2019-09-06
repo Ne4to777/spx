@@ -29,6 +29,7 @@ class User {
 		this.parent = parent
 		this.isUsersArray = isArray(users)
 		this.users = users ? (this.isUsersArray ? flatten(users) : [users]) : []
+
 		if (!defaultList) {
 			defaultList = parent.of().list('User Information List')
 		}
