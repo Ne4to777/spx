@@ -40,14 +40,15 @@ const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
 const lifter = switchCase(typeOf)({
 	object: context => {
-		const newContext = Object.assign({}, context)
+		const newContext = Object.assign({ Url: '', Title: '' }, context)
 		if (!context.Url && context.Title) newContext.Url = context.Title
 		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
 		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url)
+		newContext.Url = newContext.Url.replace('file:///', '')
 		return newContext
 	},
 	string: (contextUrl = '') => ({
-		Url: contextUrl === '/' ? '/' : shiftSlash(contextUrl),
+		Url: contextUrl === '/' ? '/' : shiftSlash(contextUrl.replace('file:///', '')),
 		Title: getTitleFromUrl(contextUrl)
 	}),
 	default: () => ({
