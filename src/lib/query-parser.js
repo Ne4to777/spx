@@ -13,7 +13,8 @@ import {
 	stringTrim,
 	stringSplit,
 	typeOf,
-	stringTest
+	stringTest,
+	isStringFilled
 } from './utility'
 
 const LIMIT = 160000
@@ -253,7 +254,7 @@ const convertExpression = str => {
 	return `<${operatorNorm}><FieldRef Name="${name}"${fieldOption}/>${valueOrNull}</${operatorNorm}>`
 }
 
-const stripQuotes = (str) => /^"[^"]*"$/.test(str) ? str.slice(1, -1) : str
+const stripQuotes = str => /^"[^"]*"$/.test(str) ? str.slice(1, -1) : str
 
 const convertGroupR = str => {
 	let firstExpr; let secondExpr; let
@@ -318,19 +319,19 @@ const convertGroupR = str => {
 	return `<${operatorNorm}>${convertGroupR(firstExpr)}${convertGroupR(secondExpr)}</${operatorNorm}>`
 }
 
-export const getCamlQuery = str => {
-	switch (typeOf(str)) {
+export const getCamlQuery = data => {
+	switch (typeOf(data)) {
 		case 'number':
-			return getCamlQuery(`ID eq ${str}`)
+			return getCamlQuery(`ID eq ${data}`)
 		case 'object':
-			return getCamlView(str)
+			return getCamlView(data)
 		case 'string':
-			if (str) {
-				if (str === (+str).toString()) return getCamlQuery(`ID eq ${str}`)
-				if (stringTest(/\s/)(str) && stringSplit(/\s/)(str).length > 1) {
-					const sanitaizedStr = trimBraces(str.replace(/\s{2,}/g, ' ').replace(/^\s|\s$/g, ''))
+			if (data) {
+				if (data === (+data).toString()) return getCamlQuery(`ID eq ${data}`)
+				if (stringTest(/\s/)(data) && stringSplit(/\s/)(data).length > 1) {
+					const sanitaizedStr = trimBraces(data.replace(/\s{2,}/g, ' ').replace(/^\s|\s$/g, ''))
 					if (stringSplit(/\s/)(sanitaizedStr).length > 1) {
-						if (/^<|>$/.test(sanitaizedStr)) return str
+						if (/^<|>$/.test(sanitaizedStr)) return data
 						return GROUP_REGEXP.test(sanitaizedStr)
 							? convertGroupR(sanitaizedStr)
 							: convertExpression(sanitaizedStr)
@@ -361,7 +362,10 @@ export const getCamlView = (params = {}) => {
 	let {
 		Query = ''
 	} = params
-	if (!isObject(params)) Query = params
+	if (!isObject(params)) {
+		if (isStringFilled(params) && /<view/i.test(params)) return params
+		Query = params
+	}
 	if (OrderBy) {
 		orderBys = getArray(OrderBy)
 		for (let i = 0; i < orderBys.length; i += 1) {
