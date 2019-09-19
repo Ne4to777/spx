@@ -14,6 +14,7 @@ import {
 	isObject
 } from '../lib/utility'
 
+import { concatQueries } from '../lib/query-parser'
 
 let defaultList
 let customList
@@ -103,10 +104,10 @@ class User {
 			}
 			return acc
 		})([])(this.users)
-
+		const query = `Number ${customIdColumn} In ${userIds}`
 		const users = isNative
 			? defaultList.item(userIds)
-			: customList.item(`Number ${customIdColumn} In ${userIds}`)
+			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
 		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
 	}
@@ -135,9 +136,10 @@ class User {
 			}
 			return acc
 		})([])(this.users)
+		const query = `${customLoginColumn} In ${userLogins}`
 		const users = isNative
 			? defaultList.item(`UserName In ${userLogins}`)
-			: customList.item(`${customLoginColumn} In ${userLogins}`)
+			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
 		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
 	}
@@ -166,9 +168,10 @@ class User {
 			}
 			return acc
 		})([])(this.users)
+		const query = `${customNameColumn} Contains ${userNames}`
 		return isNative
 			? defaultList.item(`Title Contains ${userNames}`).get(opts)
-			: customList.item(`${customNameColumn} Contains ${userNames}`).get(opts)
+			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query).get(opts)
 	}
 
 	async getByEMail(opts = {}) {
@@ -195,9 +198,10 @@ class User {
 			}
 			return acc
 		})([])(this.users)
+		const query = `${customEmailColumn} In ${userEMails}`
 		const users = isNative
 			? defaultList.item(`EMail In ${userEMails}`)
-			: customList.item(`${customEmailColumn} In ${userEMails}`)
+			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
 		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
 	}
@@ -208,7 +212,7 @@ class User {
 			: customList.item(customQuery).get(opts)
 	}
 
-	async	create(opts) {
+	async create(opts) {
 		if (!customList) throw new Error('Custom user list is missed')
 		const usersToCreate = this.users.filter(el => el[customIdColumn] && el[customNameColumn])
 		if (usersToCreate.length) {
@@ -217,7 +221,7 @@ class User {
 		throw new Error('missing user id or Title')
 	}
 
-	async	update(opts = {}) {
+	async update(opts = {}) {
 		const { isSP } = opts
 		if (isSP) {
 			const usersToUpdate = this.users.reduce((acc, el) => {
