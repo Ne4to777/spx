@@ -79,23 +79,28 @@ class FileWeb {
 		})
 
 		this.iteratorREST = deep1IteratorREST({
-			elementBox: this.parent.box
+			elementBox: this.box
 		})
 	}
 
-	async	get(opts = {}) {
-		if (opts.asBlob) {
+	async get(opts = {}) {
+		const {
+			asBlob,
+			asString,
+			asItem
+		} = opts
+		if (asBlob || asString) {
 			const { contextUrl } = this
 			const result = await this.iteratorREST(({ element }) => {
 				const elementUrl = getWebRelativeUrl(contextUrl)(element)
 				return executorREST(contextUrl, {
 					url: `${this.getRESTObject(elementUrl, contextUrl)}/$value`,
-					binaryStringResponseBody: true
+					binaryStringResponseBody: !asString
 				})
 			})
-			return prepareResponseREST(result, opts)
+			return asString ? result.body : prepareResponseREST(result, opts)
 		}
-		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
+		const options = asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
 			const parentSPObject = this.getContextSPObject(clientContext)
@@ -110,7 +115,7 @@ class FileWeb {
 		return prepareResponseJSOM(result, options)
 	}
 
-	async	create(opts = {}) {
+	async create(opts = {}) {
 		const foldersToCreate = this.box.reduce(acc => el => {
 			const { Folder } = el
 			const folder = getParentUrl(getWebRelativeUrl(this.contextUrl)(el)) || Folder
@@ -149,7 +154,7 @@ class FileWeb {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	update(opts) {
+	async update(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const { Content } = element
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
@@ -170,7 +175,7 @@ class FileWeb {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	delete(opts = {}) {
+	async delete(opts = {}) {
 		const { noRecycle } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
@@ -187,7 +192,7 @@ class FileWeb {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	copy(opts) {
+	async copy(opts) {
 		const { contextUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)
@@ -204,7 +209,7 @@ class FileWeb {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	move(opts) {
+	async move(opts) {
 		const { contextUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)

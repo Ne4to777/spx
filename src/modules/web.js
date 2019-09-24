@@ -26,7 +26,7 @@ import {
 } from '../lib/utility'
 
 
-// import search from './../modules/search'
+import search from "../modules/search"
 import list from './list'
 import folder from './folderWeb'
 import file from './fileWeb'
@@ -243,9 +243,9 @@ class Web {
 		return file(this, elements)
 	}
 
-	// search(elements) {
-	// 	return search(this, elements)
-	// }
+	search(elements) {
+		return search(this, elements)
+	}
 
 	tag(elements) {
 		return tag(this, elements)

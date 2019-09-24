@@ -51,6 +51,7 @@ spx().user().setDefaults({
 })
 
 // test()
+
 window.run = async () => {
 	const blob1 = new Blob(['hi'], { type: 'text/plain' })
 	const blob2 = new Blob(['hi1'], { type: 'text/plain' })
