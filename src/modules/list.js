@@ -20,7 +20,6 @@ import {
 	isString,
 	isArray,
 	webReport,
-	isStrictUrl,
 	switchCase,
 	typeOf,
 	getInstance,
@@ -30,8 +29,9 @@ import {
 	removeDuplicatedUrls,
 	getListRelativeUrl,
 	deep1Iterator,
+	stringTest,
 	shiftSlash,
-	mergeSlashes
+	popSlash
 } from '../lib/utility'
 import column from './column'
 import folder from './folderList'
@@ -47,28 +47,53 @@ const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 const lifter = switchCase(typeOf)({
 	object: list => {
 		const newList = Object.assign({}, list)
-		if (!list.Url) newList.Url = list.EntityTypeName || list[KEY_PROP]
-		const titleFromUrl = shiftSlash(list.Url)
-		if (!list.EntityTypeName) newList.EntityTypeName = titleFromUrl
-		if (!list[KEY_PROP]) newList[KEY_PROP] = list.EntityTypeName || titleFromUrl
+		const { Url, EntityTypeName, Title } = list
+		if (EntityTypeName) {
+			newList[KEY_PROP] = EntityTypeName
+		} else {
+			newList[KEY_PROP] = popSlash(Title)
+		}
+		if (stringTest(/\//)(Url)) {
+			if (Url !== '/') {
+				newList[KEY_PROP] = popSlash(getTitleFromUrl(Url))
+			}
+			newList.Url = hasUrlTailSlash(Url) ? '/' : shiftSlash(Url) || '/'
+		}
 		return newList
 	},
-	string: (listUrl = '/') => ({
-		Url: listUrl,
-		Title: listUrl === '/' ? '/' : shiftSlash(mergeSlashes(listUrl)),
-	}),
+	string: (listUrl) => {
+		const newList = {
+			Url: undefined,
+			Title: listUrl
+		}
+		if (stringTest(/\//)(listUrl)) {
+			newList.Title = getTitleFromUrl(listUrl)
+			newList.Url = hasUrlTailSlash(listUrl) ? '/' : shiftSlash(listUrl) || '/'
+		}
+		return newList
+	},
 	default: () => ({
 		Url: '/',
-		Title: '/'
+		Title: undefined
 	})
 })
+
+class Box extends AbstractBox {
+	constructor(value) {
+		super(value, lifter, arrayValidator)
+		this.prop = KEY_PROP
+		this.joinProp = KEY_PROP
+	}
+}
 
 class List {
 	constructor(parent, lists) {
 		this.name = 'list'
+		this.prop = KEY_PROP
+		this.joinProp = KEY_PROP
 		this.parent = parent
 		this.contextUrl = parent.box.getHeadPropValue()
-		this.box = getInstance(AbstractBox)(lists, lifter, arrayValidator)
+		this.box = getInstance(Box)(lists)
 		this.count = parent.box.getCount()
 		this.web = parent.constructor
 		this.getContextSPObject = parent.getSPObject
@@ -78,14 +103,13 @@ class List {
 		})
 	}
 
-	async	get(opts) {
+	async get(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const parentSPObject = this.parent.getSPObject(clientContext)
-			const elementTitle = element.Title
-			const isCollection = hasUrlTailSlash(elementTitle)
+			const isCollection = hasUrlTailSlash(element.Url)
 			const spObject = isCollection
 				? this.getSPObjectCollection(parentSPObject)
-				: this.getSPObject(elementTitle, parentSPObject)
+				: this.getSPObject(element.Title, parentSPObject)
 			return load(clientContext, spObject, opts)
 		})
 
@@ -94,10 +118,10 @@ class List {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	create(opts) {
+	async create(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
-			if (!isStrictUrl(title)) return undefined
+			if (!title) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = pipe([
 				getInstanceEmpty,
@@ -106,7 +130,7 @@ class List {
 					set_templateType: element.BaseTemplate
 						|| SP.ListTemplateType[element.TemplateType
 						|| 'genericList'],
-					set_url: element.Url,
+					set_url: element.Url === '/' ? title : element.Url,
 					set_templateFeatureId: element.TemplateFeatureId,
 					set_customSchemaXml: element.CustomSchemaXml,
 					set_dataSourceProperties: element.DataSourceProperties,
@@ -173,10 +197,10 @@ class List {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	update(opts) {
+	async update(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
-			if (!isStrictUrl(title)) return undefined
+			if (!title) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = pipe([
 				setFields({
@@ -223,11 +247,11 @@ class List {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	delete(opts = {}) {
+	async delete(opts = {}) {
 		const { noRecycle } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
-			if (!isStrictUrl(title)) return undefined
+			if (!title) return undefined
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = this.getSPObject(title, parentSPObject)
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
@@ -240,7 +264,7 @@ class List {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	cloneLayout() {
+	async cloneLayout() {
 		console.log('cloning layout in progress...')
 		await this.iterator(async ({ contextElement, element }) => {
 			let targetListUrl
@@ -282,7 +306,7 @@ class List {
 		console.log('cloning layout done!')
 	}
 
-	async	clone(opts) {
+	async clone(opts) {
 		const columnsToExclude = {
 			Attachments: true,
 			MetaInfo: true,
@@ -366,7 +390,7 @@ class List {
 		console.log('cloning is complete!')
 	}
 
-	async	clear(opts) {
+	async clear(opts) {
 		console.log('clearing in progress...')
 		await this
 			.item({ Query: '' })
@@ -374,7 +398,7 @@ class List {
 		console.log('clearing is complete!')
 	}
 
-	async	getAggregations() {
+	async getAggregations() {
 		return this.iterator(async ({ contextElement, element }) => {
 			const contextUrl = contextElement.Url
 			let scopeStr = ''
@@ -416,7 +440,7 @@ class List {
 		})
 	}
 
-	async	doesUserHavePermissions(type = 'manageWeb') {
+	async doesUserHavePermissions(type = 'manageWeb') {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = this.getSPObject(element[KEY_PROP], parentSPObject)

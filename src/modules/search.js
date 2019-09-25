@@ -10,39 +10,11 @@ import {
 
 const QUERY_TEMPLATES = [
 	'{searchboxquery}',
-	'-IsDocument:true',
-	'-Site:http://mysites.aura.dme.aero.corp',
-	'-Site:http://wiki.aura.dme.aero.corp',
 	'-contentclass:STS_Site',
 	'-contentclass:STS_Web',
 	'-contentclass:STS_Document',
-	'-contentclass:STS_ListItem_DocumentLibrary',
-	'-contentclass:STS_ListItem_PublishingPages',
-	'-contentclass:STS_ListItem_DiscussionBoard',
-	'-contentclass:STS_ListItem_PictureLibrary',
-	'-contentclass:STS_ListItem_Events',
-	// '-contentclass:STS_ListItem_GenericList',
-	'-contentclass:STS_List_*',
-	// '-contentclass:STS_ListItem_*',
+	'-STS_List_*',
 	'-contentclass:urn:content-class:SPSPeople*',
-	'-Site:http://aura.dme.aero.corp/wikilibrary',
-	'-Site:http://aura.dme.aero.corp/app',
-	'-Site:http://aura.dme.aero.corp/Tikhonchuk*',
-	'-Site:http://aura.dme.aero.corp/SitePages*',
-	'-Site:http://aura.dme.aero.corp/Pages',
-	'-Site:http://aura.dme.aero.corp/PublishingImages*',
-	'-Site:http://aura.dme.aero.corp/Survey',
-	'-Site:http://aura.dme.aero.corp/News',
-	'-Site:http://aura.dme.aero.corp/social',
-	'-Site:http://aura.dme.aero.corp/Intellect',
-	'-Site:http://aura.dme.aero.corp/board',
-	'-Site:http://aura.dme.aero.corp/buro',
-	'-Site:http://aura.dme.aero.corp/marketingpresentations',
-	'-Site:http://aura.dme.aero.corp/crowd',
-	'-Site:http://aura.dme.aero.corp/System',
-	'-Site:http://aura.dme.aero.corp/Forum',
-	'-Site:http://aura.dme.aero.corp/Lenta',
-	'-Site: http://aura.dme.aero.corp/lib',
 ]
 
 
@@ -71,10 +43,9 @@ class Search {
 		const keywordQuery = new Microsoft.SharePoint.Client.Search.Query.KeywordQuery(clientContext)
 
 		setFields({
-			set_queryText: element.Query.toLowerCase(),
+			set_queryText: element.Query,
 			set_clientType: element.ClientType || 'AllResultsQuery',
-			// set_queryTemplate: QUERY_TEMPLATES.join(' '),
-			set_queryTemplate: element.QueryTemplate,
+			set_queryTemplate: QUERY_TEMPLATES.concat(element.QueryTemplate).join(' '),
 			set_refiners: element.Refiners,
 			set_rowsPerPage: element.RowsPerPage || 10,
 			set_totalRowsExactMinimum: element.TotalRowsExactMinimum || 11,
