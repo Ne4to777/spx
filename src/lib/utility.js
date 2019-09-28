@@ -154,29 +154,6 @@ export const ROOT_WEB_DUMMY = '@ROOT_WEB@'
 
 export const typeOf = (variable) => Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
 
-//  ======================================================
-//  =======     ==  ====  =       ==       ==  ====  =====
-//  ======  ===  =  ====  =  ====  =  ====  =   ==   =====
-//  =====  =======  ====  =  ====  =  ====  ==  ==  ======
-//  =====  =======  ====  =  ===   =  ===   ==  ==  ======
-//  =====  =======  ====  =      ===      =====    =======
-//  =====  =======  ====  =  ====  =  ====  ====  ========
-//  =====  =======  ====  =  ====  =  ====  ====  ========
-//  ======  ===  =   ==   =  ====  =  ====  ====  ========
-//  =======     ===      ==  ====  =  ====  ====  ========
-//  ======================================================
-
-/**
- * curry :: ((a,b) → c) → (a → b → c)
- *
- * 2-args currying
- *
- * @param {*} b
- * @param {*} c
- * @returns {Function}
- */
-export const curry = (f) => (x, y) => f(x)(y)
-
 //  ===================================================================================================
 //  =======     ====    ===  =====  =      ===    =  =======  ====  ====        ===    ===       ======
 //  ======  ===  ==  ==  ==   ===   =  ===  ===  ==   ======  ===    ======  =====  ==  ==  ====  =====
@@ -290,6 +267,55 @@ export const overstep = (f) => (x) => {
 }
 export const functionSum = (f) => (x) => (y) => x + f(y)
 
+//  ======================================================
+//  =======     ==  ====  =       ==       ==  ====  =====
+//  ======  ===  =  ====  =  ====  =  ====  =   ==   =====
+//  =====  =======  ====  =  ====  =  ====  ==  ==  ======
+//  =====  =======  ====  =  ===   =  ===   ==  ==  ======
+//  =====  =======  ====  =      ===      =====    =======
+//  =====  =======  ====  =  ====  =  ====  ====  ========
+//  =====  =======  ====  =  ====  =  ====  ====  ========
+//  ======  ===  =   ==   =  ====  =  ====  ====  ========
+//  =======     ===      ==  ====  =  ====  ====  ========
+//  ======================================================
+
+/**
+ * curry2 :: f → g
+ *
+ * 2-args currying
+ *
+ * @param {Function} f
+ * @returns {Function}
+ */
+export const curry2 = (f) => (x, y) => f(x)(y)
+
+/**
+ * partial :: f → g
+ *
+ * partial application
+ *
+ * @param {Function} f
+ * @returns {Function}
+ */
+export const partial = f => fix(fR => (...xs) => f.length > xs.length ? (...ys) => fR(...xs, ...ys) : f(...xs))
+
+/**
+ * partialPH :: (f, ph?) → g
+ *
+ * partial application with placeholder
+ *
+ * @param {Function} f
+ * @param {String} ph
+ * @returns {Function}
+ */
+export const partialPH = (f, ph = '_') => fix(fPartial => (...xs) => f.length > xs.filter(x => x !== ph).length
+	? (...ys) => fPartial(...fix(fMerge => acc => ([x, ...xsTail]) => ([y, ...ysTail]) => x === undefined
+		? Array.prototype.concat.apply(acc, y === undefined ? ysTail : [y, ...ysTail])
+		: x === ph
+			? fMerge(acc.concat(y))(xsTail)(ysTail)
+			: fMerge(acc.concat(x))(xsTail)(y === ph ? ysTail : [y, ...ysTail]))([])(xs)(ys))
+	: f(...xs))
+
 //  ========================================================================================
 //  =======     ====    ===  =======  =       ==    =        =    ===    ===  =======  =====
 //  ======  ===  ==  ==  ==   ======  =  ====  ==  =====  =====  ===  ==  ==   ======  =====
@@ -371,14 +397,14 @@ export const removeEmpties = filter((x) => !!x)
 export const removeUndefineds = filter((x) => x !== undefined)
 export const concat = (array) => (x) => array.concat(x)
 export const reduce = (f) => (init) => (xs) => xs.reduce(
-	curry(f),
+	curry2(f),
 	switchType({
 		object: constant({}),
 		array: constant([]),
 		default: identity
 	})(init)
 )
-export const reduceDirty = (f) => (init) => (xs) => getArray(xs).reduce(curry(flip(f)), getArray(init))
+export const reduceDirty = (f) => (init) => (xs) => getArray(xs).reduce(curry2(flip(f)), getArray(init))
 export const flatten = reduce((acc) => pipe([ifThen(isArray)([flatten, identity]), concat(acc)]))([])
 export const arrayHead = (xs) => xs[0]
 export const arrayTail = ([, ...t]) => t
@@ -446,7 +472,7 @@ export const switchProp = (o) => (x) => {
 	return undefined
 }
 export const NULL = () => null
-export const climb = (f) => fix((fr) => ([h, ...t]) => (o) => (t.length ? fr(t)(f(h)(o)) : f(h)(o)))
+export const climb = f => fix(fr => ([h, ...t]) => o => t.length ? fr(t)(f(h)(o)) : f(h)(o))
 
 //  =========================================================================
 //  =======     ====    ===  =====  =       ====    ====      ==        =====

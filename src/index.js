@@ -3,6 +3,7 @@
 /* eslint no-restricted-syntax:0 */
 /* eslint import/no-extraneous-dependencies:0 */
 import axios from 'axios'
+import lazy from 'lazy.js'
 import test from './test/index'
 
 import spx from './modules/web'
@@ -132,14 +133,100 @@ const terms = termSet.get_terms()
 clientContext.load(terms)
 
 clientContext.load(taxonomySession)
-clientContext.executeQueryAsync(() => {
-	console.log(taxonomySession)
-	console.log(termStore)
-	console.log(hashTags)
-	console.log(keywords)
-	console.log(groups)
-	console.log(group)
-	console.log(termSets)
-	console.log(termSet)
-	console.log(terms)
-})
+// clientContext.executeQueryAsync(() => {
+// 	console.log(taxonomySession)
+// 	console.log(termStore)
+// 	console.log(hashTags)
+// 	console.log(keywords)
+// 	console.log(groups)
+// 	console.log(group)
+// 	console.log(termSets)
+// 	console.log(termSet)
+// 	console.log(terms)
+// })
+
+// const enrollment = [
+// 	{ enrolled: 2, grade: 100 },
+// 	{ enrolled: 2, grade: 80 },
+// 	{ enrolled: 1, grade: 89 }
+// ]
+
+const enrollment = lazy.generate(el => ({ enrolled: Math.round(Math.random()) + 1, grade: 100 }))
+	.take(100000)
+	.toArray()
+
+console.time('imprative')
+let totalGrades = 0
+let totalStudentsFound = 0
+for (let i = 0; i < enrollment.length; i += 1) {
+	const student = enrollment[i]
+	if (student && student.enrolled > 1) {
+		totalGrades += student.grade
+		totalStudentsFound += 1
+	}
+}
+console.timeEnd('imprative')
+const average1 = totalGrades / totalStudentsFound
+// console.log(average1)
+
+
+console.time('functional1')
+const average2 = lazy(enrollment)
+	.filter(el => el && el.enrolled > 1)
+	.pluck('grade')
+	.reduce((acc, el) => ([acc[0] + el, acc[1] += 1]), [0, 0])
+	.reduce((acc, el) => acc ? acc / el : el, 0)
+console.timeEnd('functional1')
+console.log(average2)
+
+
+console.time('functional2')
+const totals2 = enrollment
+	.filter(el => el && el.enrolled > 1)
+	.map(el => el.grade)
+	.reduce((acc, el) => ([acc[0] + el, acc[1] += 1]), [0, 0])
+	.reduce((acc, el) => acc ? acc / el : el, 0)
+console.timeEnd('functional2')
+// const average3 = totals2[0] / totals2[1]
+// console.log(totals2)
+
+const U = f => f(f)
+const Y = f => U(g => f((...xs) => g(g)(...xs)))
+
+
+const partial = f => Y(fR => (...xs) => f.length > xs.length ? (...ys) => fR(...xs, ...ys) : f(...xs))
+
+
+const partialPH = (f, ph = '_') => Y(fPartial => (...xs) => f.length > xs.filter(x => x !== ph).length
+	? (...ys) => fPartial(...Y(fMerge => acc => ([x, ...xsTail]) => ([y, ...ysTail]) => x === undefined
+		? Array.prototype.concat.apply(acc, y === undefined ? ysTail : [y, ...ysTail])
+		: x === ph
+			? fMerge(acc.concat(y))(xsTail)(ysTail)
+			: fMerge(acc.concat(x))(xsTail)(y === ph ? ysTail : [y, ...ysTail]))([])(xs)(ys))
+	: f(...xs))
+
+
+const sum3 = (a, b, c) => a + b + c
+
+const g = partialPH(sum3)
+
+const assert = input => output => input === output ? undefined : console.error(input, output)
+
+assert(g('a', 'b', 'c'))('abc')
+assert(g('a')('b')('c'))('abc')
+assert(g('a', 'b')('c'))('abc')
+assert(g('a')('b', 'c'))('abc')
+assert(g('_', '_', 'a')('_', 'b')('c'))('cba')
+assert(g('_', 'a')('_', '_', 'b')('c'))('cab')
+assert(g('a')('_', 'b', '_')('_', '_', 'c'))('abc')
+assert(g('_', '_', 'a')('_', 'b', '_')('c', '_', '_'))('cba')
+assert(g('_', '_', 'c')('_', 'b')('a'))('abc')
+assert(g('_', 'b')('_', '_', 'c')('a'))('abc')
+
+console.log(g()()(undefined, undefined)()('_', '_')('a')('b', 'c'))
+
+// const a = ['_', 2, 3, '_', '_']
+// const b = [1, 4, '_', 6]
+const a = ['_', '_', 'a']
+const b = ['_', 'b']
+// console.log(mergeArrays([])(a)(b))
