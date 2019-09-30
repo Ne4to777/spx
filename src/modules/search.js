@@ -10,11 +10,13 @@ import {
 
 const QUERY_TEMPLATES = [
 	'{searchboxquery}',
+	'-http://mysites.aura.dme.aero.corp*',
+	'-SiteName:http://wiki.aura.dme.aero.corp',
 	'-contentclass:STS_Site',
 	'-contentclass:STS_Web',
 	'-contentclass:STS_Document',
 	'-STS_List_*',
-	'-contentclass:urn:content-class:SPSPeople*',
+	'-contentclass:urn:content-class:SPSPeople',
 ]
 
 
@@ -76,8 +78,8 @@ class Search {
 			set_resultsUrl: element.ResultsUrl,
 			set_rowLimit: element.RowLimit || 10,
 			set_startRow: element.StartRow,
-			set_showPeopleNameSuggestions: element.ShowPeopleNameSuggestions,
-			set_summaryLength: element.SummaryLength,
+			set_showPeopleNameSuggestions: element.ShowPeopleNameSuggestions || false,
+			set_summaryLength: element.SummaryLength || 10000,
 			set_timeZoneId: element.TimeZoneId || 51,
 			set_timeout: element.Timeout,
 			set_trimDuplicates: element.TrimDuplicates,
@@ -88,8 +90,9 @@ class Search {
 		load(clientContext, keywordQuery, opts)
 		const result = searchExecutor.executeQuery(keywordQuery)
 		await executorJSOM(clientContext)
+		console.log(result.get_value().ResultTables)
 
-		return result.get_value().ResultTables[0].ResultRows
+		return result.get_value().ResultTables.map(el => el.ResultRows)
 	}
 }
 

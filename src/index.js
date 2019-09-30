@@ -40,6 +40,8 @@ window.spx = spx
 
 window.cache = cache
 
+console.log(1)
+
 spx().user().setDefaults({
 	// customWebTitle: 'AM',
 	// customListTitle: 'UsersAD',
@@ -105,41 +107,119 @@ const taxonomySession = SP.Taxonomy
 	.TaxonomySession
 	.getTaxonomySession(clientContext)
 
-clientContext.load(taxonomySession)
+// clientContext.load(taxonomySession)
 
 const termStore = taxonomySession.getDefaultSiteCollectionTermStore()
-clientContext.load(termStore)
+// clientContext.load(termStore)
 
 const hashTags = termStore.get_hashTagsTermSet()
 clientContext.load(hashTags)
 
-const keywords = termStore.get_keywordsTermSet()
-clientContext.load(keywords)
+// const keywords = termStore.get_keywordsTermSet()
+// clientContext.load(keywords)
 
-const groups = termStore.get_groups()
-clientContext.load(groups)
+// const groups = termStore.get_groups()
+// clientContext.load(groups)
 
-const group = groups.getByName('Site Collection - sharepoint.local')
-clientContext.load(group)
+// const group = groups.getByName('Site Collection - sharepoint.local')
+// clientContext.load(group)
 
-const termSets = group.get_termSets()
-clientContext.load(termSets)
+// const termSets = group.get_termSets()
+// clientContext.load(termSets)
 
-const termSet = termSets.getByName('AnotherTermSet')
-clientContext.load(termSet)
+// const termSet = termSets.getByName('AnotherTermSet')
+// clientContext.load(termSet)
 
-const terms = termSet.get_terms()
-clientContext.load(terms)
+// const terms = termSet.get_terms()
+// clientContext.load(terms)
 
-clientContext.load(taxonomySession)
 clientContext.executeQueryAsync(() => {
 	console.log(taxonomySession)
 	console.log(termStore)
 	console.log(hashTags)
-	console.log(keywords)
-	console.log(groups)
-	console.log(group)
-	console.log(termSets)
-	console.log(termSet)
-	console.log(terms)
-})
+	// console.log(keywords)
+	// console.log(groups)
+	// console.log(group)
+	// console.log(termSets)
+	// console.log(termSet)
+	// console.log(terms)
+}, console.log)
+
+
+// spx('app-library')
+// 	.list('Library')
+// 	.item()
+// 	.get({ view: ['url'] })
+// 	.then(xs => xs
+// 		.reduce((acc, x) => JSON
+// 			.parse(x.url)
+// 			.reduce((ys, url) => {
+// 				url
+// 					.split('/')
+// 					.slice(1, -1)
+// 					.reduce((zx, urlSplit) => {
+// 						if (!zx[urlSplit]) zx[urlSplit] = {}
+// 						return zx[urlSplit]
+// 					}, ys)
+// 				return ys
+// 			}, acc), {}))
+// 	.then(console.log)
+
+
+// console.log([
+// 	'/AM/UsersAD',
+// 	'/app-list/social/surveys/Surveys',
+// 	'/Intellect/SurveyItems',
+// 	'/Intellect/Отчеты о командировках',
+// 	'/Intellect/TripStories',
+// 	'/app-library/Library',
+// 	'/Intellect/DME',
+// 	'/Intellect/DocLib1',
+// 	'/Intellect/DocLib4',
+// 	'/app-library/LibraryStorage',
+// 	'/lib/StorageLib',
+// 	'/app/Blogs',
+// 	'/app-list/articles/feed/Posts',
+// 	'/app-list/articles/feed/Stories',
+// 	'/wikilibrary/wiki/Pages',
+// 	'/app-library/ArchiveImages',
+// 	'/lib/ArchGov',
+// 	'/wikilibrary/wiki/Pages',
+// 	'/app-list/EmployeesVeterans',
+// 	'/board/BoardList',
+// 	'/app-list/social/labs/Projects',
+// 	'/app-list/social/labs/Meetings',
+// 	'/app-list/social/labs/Lectures',
+// 	'/app-list/social/labs/Labs',
+// 	'/app-list/social/labs/Materials',
+// 	'/app-library/EditorFiles'
+// ].reduce((acc, el) => {
+// 	el
+// 		.split('/')
+// 		.slice(1)
+// 		.reduce((zx, urlSplit) => {
+// 			if (!zx[urlSplit]) zx[urlSplit] = {}
+// 			return zx[urlSplit]
+// 		}, acc)
+// 	return acc
+// }, {}))
+
+
+window.setListsNowCrawlByWeb = webUrl => {
+	spx(webUrl)
+		.list()
+		.get({
+			// view: ['NoCrawl', 'Title']
+		})
+		.then(log)
+		.then(lists => lists
+			.filter(el => !el.NoCrawl)
+			.map(list => ({
+				Title: list.Title,
+				NoCrawl: true
+			})))
+		.then(log)
+		.then(listsToUpdate => listsToUpdate.map(listToUpdate => spx(webUrl)
+			.list(listToUpdate)
+			.update().catch(console.error)))
+}

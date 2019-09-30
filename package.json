@@ -11,7 +11,7 @@
     "copy": "node dev/copy.js",
     "patch-publish": "cd publish && npm version patch && npm publish",
     "publish-prepare": "rollup -c dev/rollup.config.js && node dev/copy-assets.js",
-    "commit": "npm run publish-prepare && node dev/commit.js",
+    "deploy": "npm run publish-prepare && node dev/deploy.js",
     "test": "jest"
   },
   "sideEffects": false,

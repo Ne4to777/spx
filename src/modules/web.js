@@ -26,7 +26,7 @@ import {
 } from '../lib/utility'
 
 
-import search from "../modules/search"
+import search from './search'
 import list from './list'
 import folder from './folderWeb'
 import file from './fileWeb'
@@ -86,11 +86,11 @@ class Web {
 			const spObject = pipe([
 				getInstanceEmpty,
 				setFields({
-					set_title: element.Title || undefined,
+					set_title: element.Title,
 					set_description: element.Description,
-					set_language: 1033,
-					set_url: element.Title || undefined,
-					set_useSamePermissionsAsParentSite: true,
+					set_language: element.Language || 1033,
+					set_url: element.Title,
+					set_useSamePermissionsAsParentSite: element.UseSamePermissionsAsParentSite || true,
 					set_webTemplate: element.WebTemplate
 				}),
 				methodI('add')(this.getSPObjectCollection(clientContext)),

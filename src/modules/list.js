@@ -25,8 +25,8 @@ import {
 	getInstance,
 	isGUID,
 	method,
-	removeEmptyUrls,
-	removeDuplicatedUrls,
+	removeEmptiesByProp,
+	removeDuplicatedProp,
 	getListRelativeUrl,
 	deep1Iterator,
 	stringTest,
@@ -42,7 +42,7 @@ import { getCamlQuery, getCamlScope } from '../lib/query-parser'
 
 const KEY_PROP = 'Title'
 
-const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
+const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
 const lifter = switchCase(typeOf)({
 	object: list => {
@@ -237,7 +237,7 @@ class List {
 					set_validationMessage: element.ValidationMessage
 				}),
 				overstep(methodEmpty('update'))
-			])(this.getSPObject(element.Url, parentSPObject))
+			])(this.getSPObject(title, parentSPObject))
 			return load(clientContext, spObject, opts)
 		})
 		if (this.count) {
