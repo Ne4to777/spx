@@ -126,7 +126,7 @@ class List {
 			const spObject = pipe([
 				getInstanceEmpty,
 				setFields({
-					set_title: title,
+					set_title: title || undefined,
 					set_templateType: element.BaseTemplate
 						|| SP.ListTemplateType[element.TemplateType
 						|| 'genericList'],
