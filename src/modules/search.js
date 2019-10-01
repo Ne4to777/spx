@@ -36,6 +36,8 @@ class Search {
 		this.parent = parent
 		this.element = lifter(query)
 		this.contextUrl = parent.box.getHeadPropValue()
+		this.rowsPerPage = this.element.RowsPerPage || 10
+		if (this.element.StartRow === undefined) this.element.StartRow = 1
 	}
 
 	async get(opts) {
@@ -49,7 +51,7 @@ class Search {
 			set_clientType: element.ClientType || 'AllResultsQuery',
 			set_queryTemplate: QUERY_TEMPLATES.concat(element.QueryTemplate).join(' '),
 			set_refiners: element.Refiners,
-			set_rowsPerPage: element.RowsPerPage || 10,
+			set_rowsPerPage: element.RowsPerPage || this.rowsPerPage,
 			set_totalRowsExactMinimum: element.TotalRowsExactMinimum || 11,
 			set_blockDedupeMode: element.BlockDedupeMode,
 			set_bypassResultTypes: element.BypassResultTypes,
@@ -90,9 +92,24 @@ class Search {
 		load(clientContext, keywordQuery, opts)
 		const result = searchExecutor.executeQuery(keywordQuery)
 		await executorJSOM(clientContext)
-		console.log(result.get_value().ResultTables)
+		return result.get_value()
+	}
 
-		return result.get_value().ResultTables.map(el => el.ResultRows)
+	async next(opts) {
+		const res = await this.get(opts)
+		this.element.StartRow += this.rowsPerPage
+		return res
+	}
+
+	async previous(opts) {
+		const res = await this.get(opts)
+		this.element.StartRow -= this.rowsPerPage
+		return res
+	}
+
+	async move(n = 1, opts) {
+		this.element.StartRow = n * this.rowsPerPage
+		return this.get(opts)
 	}
 }
 

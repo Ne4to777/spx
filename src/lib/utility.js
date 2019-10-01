@@ -192,7 +192,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	A: (f) => (x) => f(x),
+	A: f => x => f(x),
 	/**
 	* U :: (a → a) → a
 	*
@@ -200,7 +200,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	U: (f) => f(f),
+	U: f => f(f),
 	/**
 	* Y :: (a → a) → a
 	*
@@ -208,7 +208,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	Y: (f) => COMBINATOR.U((g) => f((x) => g(g)(x))),
+	Y: f => COMBINATOR.U(g => f((x) => g(g)(x))),
 	/**
 	* C :: (a → b → c) → b → a → c
 	*
@@ -216,7 +216,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	C: (f) => (x) => (y) => f(y)(x),
+	C: f => x => y => f(y)(x),
 	/**
 	* S :: (a → b → c) → (a → b) → a → c
 	*
@@ -224,7 +224,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	S: (f) => (g) => (x) => f(x)(g(x)),
+	S: f => g => x => f(x)(g(x)),
 	/**
 	* SI :: (a → b) → (a → b → c) → a → c
 	*
@@ -232,7 +232,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	SI: (f) => (g) => (x) => g(x)(f(x)),
+	SI: f => g => x => g(x)(f(x)),
 	/**
 	* SA :: (a → b) → (a → b → c) → a → c
 	*
@@ -240,7 +240,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	SA: (f) => (g) => async (x) => f(x)(await g(x)),
+	SA: f => g => async x => f(x)(await g(x)),
 	/**
 	* SIA :: (a → b) → (a → b → c) → a → c
 	*
@@ -248,7 +248,7 @@ const COMBINATOR = {
 	* @param {Function} f
 	* @returns {Function} f
 	*/
-	SIA: (f) => (g) => async (x) => g(x)(await f(x))
+	SIA: f => g => async x => g(x)(await f(x))
 }
 
 export const identity = COMBINATOR.I
@@ -261,11 +261,11 @@ export const substitutionI = COMBINATOR.SI
 export const substitutionAsync = COMBINATOR.SA
 export const substitutionIAsync = COMBINATOR.SIA
 
-export const overstep = (f) => (x) => {
+export const overstep = f => x => {
 	f(x)
 	return x
 }
-export const functionSum = (f) => (x) => (y) => x + f(y)
+export const functionSum = f => x => y => x + f(y)
 
 //  ======================================================
 //  =======     ==  ====  =       ==       ==  ====  =====
@@ -805,8 +805,8 @@ export class AbstractBox {
 			: lifter(value)
 	}
 
-	reduce(f, init) {
-		return this.isArray ? reduce(f)(isDefined(init) ? init : [])(this.value) : f(this.value)
+	reduce(f, init = []) {
+		return this.isArray ? reduce(f)(init)(this.value) : f(init)(this.value)
 	}
 
 	some(f) {

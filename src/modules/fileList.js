@@ -170,17 +170,18 @@ async function createWithRESTFromString(element, opts = {}) {
 		data: Content
 	})
 
-	let response
+	let response = element
 
 	if (Columns) {
-		response = this
+		response = await this
 			.of({ Url: elementUrl, Columns })
 			.update({ ...opts, silentInfo: true })
 	} else if (needResponse) {
-		response = this
+		response = await this
 			.of(elementUrl)
 			.get(opts)
 	}
+
 	return response
 }
 
@@ -277,7 +278,7 @@ class FileList {
 		})
 	}
 
-	async	get(opts = {}) {
+	async get(opts = {}) {
 		const { contextUrl, listUrl } = this
 		if (opts.asBlob) {
 			const result = await this.iteratorREST(({ element }) => {
@@ -302,7 +303,7 @@ class FileList {
 		return prepareResponseJSOM(result, options)
 	}
 
-	async	create(opts = {}) {
+	async create(opts = {}) {
 		const { contextUrl, listUrl } = this
 		if (!cache.get(['listGUIDs', contextUrl, listUrl])) {
 			const listProps = await this
@@ -349,7 +350,7 @@ class FileList {
 		return res
 	}
 
-	async	update(opts = {}) {
+	async update(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		await this.cacheColumns()
@@ -390,7 +391,7 @@ class FileList {
 		return prepareResponseJSOM(result, options)
 	}
 
-	async	delete(opts = {}) {
+	async delete(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const { noRecycle } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
@@ -408,11 +409,11 @@ class FileList {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	copy(opts) {
+	async copy(opts) {
 		return copyOrMove.call(this, false, opts)
 	}
 
-	async	move(opts) {
+	async move(opts) {
 		return copyOrMove.call(this, true, opts)
 	}
 
@@ -471,7 +472,7 @@ class FileList {
 		})
 	}
 
-	async	cacheColumns() {
+	async cacheColumns() {
 		const { contextUrl, listUrl } = this
 		if (!cache.get(['columns', contextUrl, listUrl])) {
 			const columns = await this

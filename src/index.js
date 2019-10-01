@@ -206,24 +206,23 @@ clientContext.executeQueryAsync(() => {
 // }, {}))
 
 
-window.setListsNowCrawlByWeb = webUrl => {
-	spx(webUrl)
-		.list()
-		.get({
-			// view: ['NoCrawl', 'Title']
-		})
-		.then(log)
-		.then(lists => lists
-			.filter(el => !el.NoCrawl)
-			.map(list => ({
-				Title: list.Title,
-				NoCrawl: true
-			})))
-		.then(log)
-		.then(listsToUpdate => listsToUpdate.map(listToUpdate => spx(webUrl)
-			.list(listToUpdate)
-			.update().catch(console.error)))
-}
+window.setListsNowCrawlByWeb = webUrl => spx(webUrl)
+	.list()
+	.get({
+		// view: ['NoCrawl', 'Title']
+	})
+	.then(log)
+	.then(lists => lists
+		.filter(el => !el.NoCrawl)
+		.map(list => ({
+			Title: list.Title,
+			NoCrawl: true
+		})))
+	.then(log)
+	.then(listsToUpdate => listsToUpdate.map(listToUpdate => spx(webUrl)
+		.list(listToUpdate)
+		.update().catch(console.error)))
+
 clientContext.load(taxonomySession)
 // clientContext.executeQueryAsync(() => {
 // 	console.log(taxonomySession)
