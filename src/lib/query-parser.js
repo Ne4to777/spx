@@ -83,7 +83,7 @@ const COLUMN_TYPES = {
 	_UIVersionString: 'text'
 }
 
-const COLUMN_TYPES_REGEXP = /(Text|Note|Number|Integer|Counter|Boolean|Lookup|User|DateTime|Date|Time|Computed|Currency|ModStat|Guid|File|Attachments|LookupMulti|UserMulti)\s/i
+const COLUMN_TYPES_REGEXP = /(Text|Note|Number|Integer|Counter|Boolean|DateTime|Date|Time|Computed|Currency|ModStat|Guid|File|Attachments|Lookup|LookupMulti|User|UserMulti|TaxonomyFieldType|TaxonomyFieldTypeMulti)\s/i
 const OPERATORS_REGEXP = /\s(eq|neq|geq|leq|gt|lt|isnull|isnotnull|contains|beginsWith|includes|notincludes|search|in|membership)(\s|$)/i
 
 const COLUMN_TYPES_MAPPED = {
@@ -105,7 +105,9 @@ const COLUMN_TYPES_MAPPED = {
 	modstat: 'ModStat',
 	guid: 'Guid',
 	file: 'File',
-	attachments: 'Attachments'
+	attachments: 'Attachments',
+	taxonomyfieldtype: 'TaxonomyFieldType',
+	taxonomyfieldtypemulti: 'TaxonomyFieldTypeMulti'
 }
 const OPERATORS_MAPPED = {
 	eq: 'Eq',
@@ -197,14 +199,19 @@ const convertExpression = str => {
 		case 'boolean':
 			value = /^(true|yes|1)$/.test(value) ? '1' : '0'
 			break
+		case 'user':
+		case 'usermulti':
 		case 'lookup':
 		case 'lookupmulti':
+		case 'taxonomyfieldtype':
+		case 'taxonomyfieldtypemulti':
 			fieldOption = ' LookupId="True"'
 			break
 		default: {
 			// default
 		}
 	}
+
 	const typeNorm = COLUMN_TYPES_MAPPED[type]
 	if (type !== 'text') value = value.trim()
 

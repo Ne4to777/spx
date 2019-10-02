@@ -32,7 +32,7 @@ import folder from './folderWeb'
 import file from './fileWeb'
 import recycleBin from './recycleBin'
 import user from './user'
-import tag from './tag'
+import keyword from './keyword'
 import mail from './mail'
 import time from './time'
 
@@ -247,8 +247,8 @@ class Web {
 		return search(this, elements)
 	}
 
-	tag(elements) {
-		return tag(this, elements)
+	keyword(elements) {
+		return keyword(this, elements)
 	}
 
 	user(elements) {

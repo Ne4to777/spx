@@ -90,14 +90,14 @@ class Tag {
 		})
 
 		await Promise.all(clientContexts.map(executorJSOM))
-		return prepareResponseJSOM(isExact && result.length === 1 ? result[0] : result, opts)
+		return prepareResponseJSOM(isExact && this.box.isArray === 1 ? result[0] : result, opts)
 	}
 
 	async search(opts) {
 		return this.get({ ...opts, isExact: false })
 	}
 
-	async	create(opts) {
+	async create(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementLabel = element[KEY_PROP]
 			if (!elementLabel) return undefined
@@ -115,7 +115,7 @@ class Tag {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	update(opts) {
+	async update(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementLabel = element[KEY_PROP]
 			if (!elementLabel) return undefined
