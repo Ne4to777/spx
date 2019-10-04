@@ -42,13 +42,13 @@ window.spx = spx
 window.cache = cache
 
 spx().user().setDefaults({
-	// customWebTitle: 'AM',
-	// customListTitle: 'UsersAD',
-	// customIdColumn: 'uid',
-	// customLoginColumn: 'Login',
-	// customNameColumn: 'Title',
-	// customEmailColumn: 'Email',
-	// customQuery: 'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
+	customWebTitle: 'AM',
+	customListTitle: 'UsersAD',
+	customIdColumn: 'uid',
+	customLoginColumn: 'Login',
+	customNameColumn: 'Title',
+	customEmailColumn: 'Email',
+	customQuery: 'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
 })
 
 // test()
