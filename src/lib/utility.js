@@ -791,10 +791,9 @@ export const getWebRelativeUrl = (webUrl) => (element = {}) => {
 
 export class AbstractBox {
 	constructor(value, lifter, arrayValidator = identity) {
-		this.isArray = isArray(value)
 		this.prop = 'Url'
 		this.joinProp = 'Url'
-		this.value = this.isArray
+		this.value = isArray(value)
 			? ifThen(isArrayFilled)([
 				pipe([
 					map(lifter),
@@ -806,37 +805,37 @@ export class AbstractBox {
 	}
 
 	reduce(f, init = []) {
-		return this.isArray ? reduce(f)(init)(this.value) : f(init)(this.value)
+		return isArray(this.value) ? reduce(f)(init)(this.value) : f(init)(this.value)
 	}
 
 	some(f) {
-		return this.isArray ? this.value.some(f) : f(this.value)
+		return isArray(this.value) ? this.value.some(f) : f(this.value)
 	}
 
 	chain(f) {
-		return this.isArray ? Promise.all(map(f)(this.value)) : f(this.value)
+		return isArray(this.value) ? Promise.all(map(f)(this.value)) : f(this.value)
 	}
 
 	join() {
-		return this.isArray
+		return isArray(this.value)
 			? join(', ')(map(prop(this.joinProp))(this.value))
 			: this.value[this.joinProp]
 	}
 
 	getCount() {
-		return this.isArray ? this.value.filter(el => el[this.prop]).length : this.value[this.prop] ? 1 : 0
+		return isArray(this.value) ? this.value.filter(el => el[this.prop]).length : this.value[this.prop] ? 1 : 0
 	}
 
 	getHead() {
-		return this.isArray ? this.value[0] : this.value
+		return isArray(this.value) ? this.value[0] : this.value
 	}
 
 	getHeadPropValue() {
-		return this.isArray ? (this.value[0] ? this.value[0][this.prop] : undefined) : this.value[this.prop]
+		return isArray(this.value) ? (this.value[0] ? this.value[0][this.prop] : undefined) : this.value[this.prop]
 	}
 
 	getIterable() {
-		return this.isArray ? this.value : [this.value]
+		return isArray(this.value) ? this.value : [this.value]
 	}
 }
 

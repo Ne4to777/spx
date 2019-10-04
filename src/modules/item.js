@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax */
 /* eslint no-shadow:0 */
 import { MD5 } from 'crypto-js'
 import {
@@ -22,9 +23,10 @@ import {
 	isObjectFilled,
 	getArray,
 	popSlash,
-	isDefined,
+	isExists,
 	arrayInit,
-	deep1Iterator
+	deep1Iterator,
+	isArray
 } from '../lib/utility'
 
 import * as cache from '../lib/cache'
@@ -148,7 +150,7 @@ class Box extends AbstractBox {
 	}
 
 	getCount(actionType) {
-		if (this.isArray) {
+		if (isArray(this.value)) {
 			return actionType === 'create' ? this.value.filter(hasObjectProperties).length : this.value.length
 		}
 		return actionType === 'create' ? (hasObjectProperties(this.value) ? 1 : 0) : 1
@@ -171,7 +173,7 @@ class Item {
 		})
 	}
 
-	async	get(opts = {}) {
+	async get(opts = {}) {
 		const { showCaml } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const contextSPObject = this.getContextSPObject(clientContext)
@@ -239,7 +241,7 @@ class Item {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	update(opts) {
+	async update(opts) {
 		const { contextUrl, listUrl } = this
 		await this.cacheColumns()
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
@@ -260,7 +262,7 @@ class Item {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	updateByQuery(opts) {
+	async updateByQuery(opts) {
 		const { result } = await this.iterator(async ({ element }) => {
 			const { Folder, Query, Columns = {} } = element
 			if (Query === undefined) throw new Error('Query is missed')
@@ -278,7 +280,7 @@ class Item {
 		return result
 	}
 
-	async	delete(opts = {}) {
+	async delete(opts = {}) {
 		const { noRecycle, isSerial } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementID = element[KEY_PROP]
@@ -303,7 +305,7 @@ class Item {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	deleteByQuery(opts) {
+	async deleteByQuery(opts) {
 		const { result } = await this.iterator(async ({ element }) => {
 			if (element === undefined) throw new Error('Query is missed')
 			const items = await this.of(element).get(opts)
@@ -316,46 +318,43 @@ class Item {
 		return result
 	}
 
-	async	getDuplicates() {
+	async getDuplicates() {
 		const items = await this
 			.of({
 				Scope: 'allItems',
 				Limit: MAX_ITEMS_LIMIT
 			})
 			.get({
-				view: ['ID', 'FSObjType', 'Modified', ...this.box.join()]
+				view: ['ID', 'FSObjType', 'Modified', ...this.box.getIterable().map(el => el[KEY_PROP])]
 			})
-		const itemsMap = new Map()
+
 		const getHashedColumnName = itemData => {
 			const values = []
 			this.box.chain(column => {
 				const value = itemData[column[KEY_PROP]]
-				if (isDefined(value)) values.push(value.get_lookupId ? value.get_lookupId() : value)
+				if (isExists(value)) values.push(value.get_lookupId ? value.get_lookupId() : value)
 			})
 			return MD5(values.join('.')).toString()
 		}
-		for (let i = 0; i < items.length; i += 1) {
-			const item = items[i]
-			const hashedColumnName = getHashedColumnName(item)
-			if (hashedColumnName !== undefined) {
-				if (!itemsMap.has(hashedColumnName)) itemsMap.set(hashedColumnName, [])
-				itemsMap.get(hashedColumnName).push(item)
-			}
-		}
 
-		let duplicatedsSorted = []
-		for (let i = 0; i < itemsMap.length; i += 1) {
-			const [, duplicateds] = itemsMap[i]
+		const itemsMap = items.reduce((map, item) => {
+			const hashedColumnName = getHashedColumnName(item)
+			if (!map.has(hashedColumnName)) map.set(hashedColumnName, [])
+			map.get(hashedColumnName).push(item)
+			return map
+		}, new Map())
+
+		const duplicatedsSorted = []
+		for (const itemMap of itemsMap) {
+			const [, duplicateds] = itemMap
 			if (duplicateds.length > 1) {
-				duplicatedsSorted = duplicatedsSorted.concat([
-					duplicateds.sort((a, b) => a.Modified.getTime() - b.Modified.getTime())
-				])
+				duplicatedsSorted.push(duplicateds.sort((a, b) => a.Modified.getTime() - b.Modified.getTime()))
 			}
 		}
 		return duplicatedsSorted.map(arrayInit)
 	}
 
-	async	deleteDuplicates(opts = {}) {
+	async deleteDuplicates(opts = {}) {
 		const duplicatedsFiltered = await this.getDuplicates()
 		await this
 			.of([...duplicatedsFiltered.reduce((acc, el) => acc.concat(el.map(prop('ID'))), [])])
@@ -375,7 +374,7 @@ class Item {
 		return result
 	}
 
-	async	deleteEmpties(opts) {
+	async deleteEmpties(opts) {
 		const columns = this.box.value.map(prop('ID'))
 		const { result } = await this
 			.of(await this.of(columns).getEmpties(opts)).map(prop('ID'))
@@ -438,7 +437,7 @@ class Item {
 		})
 	}
 
-	async	erase(opts) {
+	async erase(opts) {
 		const { result } = await this.iterator(({ element }) => {
 			const { Query = '', Folder, Columns } = element
 			if (!Columns) return undefined
@@ -457,7 +456,7 @@ class Item {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	createDiscussion(opts = {}) {
+	async createDiscussion(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const contextSPObject = this.getContextSPObject(clientContext)
 			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
@@ -479,7 +478,7 @@ class Item {
 		return prepareResponseJSOM(opts, result)
 	}
 
-	async	createReply(opts = {}) {
+	async createReply(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const { Columns } = element
 			const contextSPObject = this.getContextSPObject(clientContext)
@@ -513,7 +512,7 @@ class Item {
 		})
 	}
 
-	async	cacheColumns() {
+	async cacheColumns() {
 		const { contextUrl, listUrl } = this
 		if (!cache.get(['columns', contextUrl, listUrl])) {
 			const columns = await this

@@ -72,20 +72,18 @@ class Tag {
 	async get(opts = {}) {
 		const { isExact = true } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const lmi = setFields({
-				set_defaultLabelOnly: element.DefaultLabelOnly || false,
-				// set_excludeKeyword: element.ExcludeKeyword || false,
-				set_resultCollectionSize: element.ResultCollectionSize || element.Limit || 100000,
-				set_stringMatchOption: SP.Taxonomy.StringMatchOption[isExact ? 'exactMatch' : 'startsWith'],
-				set_termLabel: element[KEY_PROP],
-				set_trimDepricated: element.TrimDepricated || true,
-				set_trimUnavailable: element.TrimUnavailable || true
-			})(SP.Taxonomy.LabelMatchInformation.newObject(clientContext))
-
 			const spObject = SP.Taxonomy.TaxonomySession.getTaxonomySession(clientContext)
 				.getDefaultKeywordsTermStore()
 				.get_keywordsTermSet()
-				.getTerms(lmi)
+				.getTerms(setFields({
+					set_defaultLabelOnly: element.DefaultLabelOnly || false,
+					// set_excludeKeyword: element.ExcludeKeyword || false,
+					set_resultCollectionSize: element.ResultCollectionSize || element.Limit || 100000,
+					set_stringMatchOption: SP.Taxonomy.StringMatchOption[isExact ? 'exactMatch' : 'startsWith'],
+					set_termLabel: element[KEY_PROP],
+					set_trimDepricated: element.TrimDepricated || true,
+					set_trimUnavailable: element.TrimUnavailable || true
+				})(SP.Taxonomy.LabelMatchInformation.newObject(clientContext)))
 			return load(clientContext, spObject, opts)
 		})
 

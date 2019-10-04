@@ -8,18 +8,6 @@ import {
 	typeOf
 } from '../lib/utility'
 
-const QUERY_TEMPLATES = [
-	'{searchboxquery}',
-	'-http://mysites.aura.dme.aero.corp*',
-	'-SiteName:http://wiki.aura.dme.aero.corp',
-	'-contentclass:STS_Site',
-	'-contentclass:STS_Web',
-	'-contentclass:STS_Document',
-	'-STS_List_*',
-	'-contentclass:urn:content-class:SPSPeople',
-]
-
-
 const lifter = switchCase(typeOf)({
 	object: query => Object.assign({}, query),
 	string: (query = '') => ({
@@ -37,7 +25,7 @@ class Search {
 		this.element = lifter(query)
 		this.contextUrl = parent.box.getHeadPropValue()
 		this.rowsPerPage = this.element.RowsPerPage || 10
-		if (this.element.StartRow === undefined) this.element.StartRow = 1
+		if (this.element.StartRow === undefined) this.element.StartRow = 0
 	}
 
 	async get(opts) {
@@ -49,7 +37,7 @@ class Search {
 		setFields({
 			set_queryText: element.Query,
 			set_clientType: element.ClientType || 'AllResultsQuery',
-			set_queryTemplate: QUERY_TEMPLATES.concat(element.QueryTemplate).join(' '),
+			set_queryTemplate: element.QueryTemplate ? element.QueryTemplate.join(' ') : undefined,
 			set_refiners: element.Refiners,
 			set_rowsPerPage: element.RowsPerPage || this.rowsPerPage,
 			set_totalRowsExactMinimum: element.TotalRowsExactMinimum || 11,
@@ -81,8 +69,8 @@ class Search {
 			set_rowLimit: element.RowLimit || 10,
 			set_startRow: element.StartRow,
 			set_showPeopleNameSuggestions: element.ShowPeopleNameSuggestions || false,
-			set_summaryLength: element.SummaryLength || 10000,
-			set_timeZoneId: element.TimeZoneId || 51,
+			set_summaryLength: element.SummaryLength,
+			set_timeZoneId: element.TimeZoneId,
 			set_timeout: element.Timeout,
 			set_trimDuplicates: element.TrimDuplicates,
 			set_trimDuplicatesIncludeId: element.TrimDuplicatesIncludeId,

@@ -264,8 +264,9 @@ const convertExpression = str => {
 const stripQuotes = str => /^"[^"]*"$/.test(str) ? str.slice(1, -1) : str
 
 const convertGroupR = str => {
-	let firstExpr; let secondExpr; let
-		operator
+	let firstExpr
+	let secondExpr
+	let operator
 	let chars = ''
 	let isBracesBefore = false
 	let isBracesAfter = false
