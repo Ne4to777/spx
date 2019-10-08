@@ -31,7 +31,8 @@ import {
 	deep1Iterator,
 	stringTest,
 	shiftSlash,
-	popSlash
+	popSlash,
+	getPermissionMasks
 } from '../lib/utility'
 import column from './column'
 import folder from './folderList'
@@ -446,10 +447,12 @@ class List {
 			const spObject = this.getSPObject(element[KEY_PROP], parentSPObject)
 			return load(clientContext, spObject, { view: 'EffectiveBasePermissions' })
 		})
+		const permissionId = getPermissionMasks()[type]
+		if (permissionId === undefined) throw new Error('Permission mask has invalid value')
 		await Promise.all(clientContexts.map(executorJSOM))
 		return isArray(result)
-			? result.map(el => el.get_effectiveBasePermissions().has(SP.PermissionKind[type]))
-			: result.get_effectiveBasePermissions().has(SP.PermissionKind[type])
+			? result.map(el => el.get_effectiveBasePermissions().has(permissionId))
+			: result.get_effectiveBasePermissions().has(permissionId)
 	}
 
 	column(elements) {

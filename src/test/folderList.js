@@ -44,7 +44,6 @@ const ITEM_PROPS = [
 	'SyncClientId',
 	'TaxCatchAll',
 	'Title',
-	'Title1',
 	'TranslationStateTermInformation',
 	'UniqueId',
 	'WorkflowInstanceID',

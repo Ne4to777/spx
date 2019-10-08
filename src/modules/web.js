@@ -22,7 +22,8 @@ import {
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	shiftSlash,
-	getTitleFromUrl
+	getTitleFromUrl,
+	getPermissionMasks
 } from '../lib/utility'
 
 
@@ -64,7 +65,7 @@ class Web {
 		this.id = MD5(new Date().getTime()).toString()
 	}
 
-	async	get(opts) {
+	async get(opts) {
 		const result = await this.box.chain(async element => {
 			const elementUrl = element.Url
 			const clientContext = getClientContext(elementUrl)
@@ -188,11 +189,13 @@ class Web {
 		return undefined
 	}
 
-	async	doesUserHavePermissions(type = 'fullMask') {
+	async doesUserHavePermissions(type = 'fullMask') {
 		const result = await this.box.chain(async element => {
 			const clientContext = getClientContext(element.Url)
 			const ob = getInstanceEmpty(SP.BasePermissions)
-			ob.set(SP.PermissionKind[type])
+			const permissionId = getPermissionMasks()[type]
+			if (permissionId === undefined) throw new Error('Permission mask has invalid value')
+			ob.set(permissionId)
 			const spObject = this.getSPObject(clientContext).doesUserHavePermissions(ob)
 			await executorJSOM(clientContext)
 			return spObject.get_value()
@@ -200,14 +203,14 @@ class Web {
 		return result
 	}
 
-	async	getSite(opts) {
+	async getSite(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
 		const currentSPObjects = await executeJSOM(clientContext, spObject, opts)
 		return prepareResponseJSOM(currentSPObjects, opts)
 	}
 
-	async	getCustomListTemplates(opts) {
+	async getCustomListTemplates(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
 		const templates = spObject.getCustomListTemplates(clientContext.get_web())
@@ -215,7 +218,7 @@ class Web {
 		return prepareResponseJSOM(currentSPObjects, opts)
 	}
 
-	async	getWebTemplates(opts) {
+	async getWebTemplates(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
 		const templates = spObject.getWebTemplates(1033, 0)

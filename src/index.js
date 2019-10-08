@@ -140,3 +140,59 @@ window.setListsNowCrawlByWeb = webUrl => spx(webUrl)
 	.then(listsToUpdate => listsToUpdate.map(listToUpdate => spx(webUrl)
 		.list(listToUpdate)
 		.update().catch(console.error)))
+
+window.setModStat = () => {
+	const c = new SP.ClientContext('/test')
+	const list = c.get_web().get_lists().getByTitle('Terms')
+	const listItem = list.getItemById(1)
+	listItem.set_item('_ModerationStatus', 1)
+	listItem.update()
+	c.load(listItem)
+	c.executeQueryAsync(() => {
+		console.log('done')
+	}, (s, err) => {
+		console.log(err)
+	})
+}
+
+window.checkPermissions = async () => {
+	const inputs = []
+	const requiredInputs = {
+		__VIEWSTATE: true,
+		__EVENTVALIDATION: true,
+		__REQUESTDIGEST: true
+	}
+
+	const listForms = await axios.get('/test/_layouts/15/chkperm.aspx')
+	const listFormMatches = listForms.data.match(/<form[(\w|\W)]*<\/form>/)
+	const inputRE = /<input[^<]*\/>/g
+	let founds = inputRE.exec(listFormMatches)
+
+	while (founds) {
+		const item = founds[0]
+		const id = item.match(/id="([^"]+)"/)[1]
+		if (requiredInputs[id]) {
+			inputs.push(item)
+		}
+		founds = inputRE.exec(listFormMatches)
+	}
+
+	const form = window.document.createElement('form')
+	form.innerHTML = inputs.join('')
+	const formData = new FormData(form)
+
+	formData.append('__EVENTTARGET', 'ctl00$PlaceHolderMain$buttonSectionMain$RptControls$btnCheckPerm')
+	formData.append('ctl00$PlaceHolderMain$ctl00$ctl02$peoplePicker', JSON.stringify([{
+		Key: 'i:0#.w|dme\\asalekseev'
+	}]))
+
+	const response = await axios({
+		url: '/test/_layouts/15/chkperm.aspx?obj=%7B00A96C5E%2D6A1E%2D4511%2D81EE%2DA468BEF85833%7D%2CLIST',
+		method: 'POST',
+		data: formData
+	})
+
+	console.log(response.data)
+
+	return response
+}

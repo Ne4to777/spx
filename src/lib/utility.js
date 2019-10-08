@@ -1299,3 +1299,13 @@ export const getRequestDigest = async (contextUrl) => axios({
 	},
 	method: 'POST'
 }).then(res => res.data.d.GetContextWebInformation.FormDigestValue)
+
+export const getPermissionMasks = () => getPermissionMasks.cache || (() => {
+	const permissionKind = SP.PermissionKind
+	getPermissionMasks.cache = Object.keys(permissionKind).reduce((acc, el) => {
+		const kind = permissionKind[el]
+		if (isNumber(kind)) acc[el] = kind
+		return acc
+	}, {})
+	return getPermissionMasks.cache
+})()
