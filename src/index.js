@@ -196,3 +196,34 @@ window.checkPermissions = async () => {
 
 	return response
 }
+
+window.getAllCrawledLists = async () => {
+	const host = 'http://aura.dme.aero.corp'
+	const hostRE = new RegExp(host)
+	const getCrawledLists = async (webUrls, lists) => {
+		// console.log(Object.assign({}, webUrls))
+		if (webUrls && webUrls.length) {
+			const webs = await spx(webUrls).get({ view: ['Url'] }).then(webs => webs.filter(web => hostRE.test(web.Url)).map(web => web.Url.split(host)[1]))
+			// console.log(webs)
+
+			for (let i = 0; i < webs.length; i += 1) {
+				const webUrl = webs[i]
+				// console.log(webUrl)
+
+				lists = lists.concat(await getCrawledListsFromWeb(webUrl))
+				const res = await getCrawledLists(await getSubwebs(webUrl), lists).catch(_ => 'error')
+				if (res === 'error') break
+			}
+		}
+		return lists
+	}
+	const getCrawledListsFromWeb = async webUrl => {
+		const lists = await spx(webUrl).list('/').get({ view: ['Title', 'NoCrawl', 'ParentWebUrl'] })
+		// console.log(lists)
+
+		return lists.filter(list => !list.NoCrawl)
+	}
+
+	const getSubwebs = webUrl => spx(`${webUrl}/`).get({ view: ['Url'] }).then(webs => webs.filter(web => hostRE.test(web.Url)).map(web => web.Url.split(host)[1]))
+	return getCrawledLists('/', [])
+}

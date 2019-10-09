@@ -49,11 +49,7 @@ const lifter = switchCase(typeOf)({
 	object: list => {
 		const newList = Object.assign({}, list)
 		const { Url, EntityTypeName, Title } = list
-		if (EntityTypeName) {
-			newList[KEY_PROP] = EntityTypeName
-		} else {
-			newList[KEY_PROP] = popSlash(Title)
-		}
+		newList[KEY_PROP] = EntityTypeName || Url || Title
 		if (stringTest(/\//)(Url)) {
 			if (Url !== '/') {
 				newList[KEY_PROP] = popSlash(getTitleFromUrl(Url))
@@ -96,7 +92,6 @@ class List {
 		this.contextUrl = parent.box.getHeadPropValue()
 		this.box = getInstance(Box)(lists)
 		this.count = parent.box.getCount()
-		this.web = parent.constructor
 		this.getContextSPObject = parent.getSPObject
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
@@ -267,42 +262,42 @@ class List {
 
 	async cloneLayout() {
 		console.log('cloning layout in progress...')
-		await this.iterator(async ({ contextElement, element }) => {
+		await this.iterator(async ({ element }) => {
 			let targetListUrl
-			const contextUrl = contextElement.Url
-			let targetWebUrl = contextUrl
+			let targetWebUrl
 			const { Title, Url, To } = element
 			if (isString(To)) {
-				targetWebUrl = contextUrl
+				targetWebUrl = this.contextUrl
 				targetListUrl = To
 			} else {
-				targetWebUrl = To.WebUrl || contextUrl
+				targetWebUrl = To.WebUrl || this.contextUrl
 				targetListUrl = To.ListUrl
 			}
 			const sourceListUrl = Url || Title
 			if (!targetListUrl) throw new Error('Target listUrl is missed')
 			if (!sourceListUrl) throw new Error('Source list Title is missed')
 			const targetTitle = getTitleFromUrl(targetListUrl)
-			const targetSPX = this.web(targetWebUrl)
-			const sourceSPX = this.web(contextUrl)
-			const targetSPXList = targetSPX.list(targetListUrl)
-			const sourceSPXList = sourceSPX.list(sourceListUrl)
-			await targetSPXList.get({ silent: true }).catch(async () => {
-				const newListData = Object.assign({}, await sourceSPXList.get())
+			const targetWeb = this.parent.of(targetWebUrl)
+			const sourceWeb = this.parent.of(this.contextUrl)
+			const targetList = targetWeb.list(targetListUrl)
+			const sourceList = sourceWeb.list(sourceListUrl)
+			await targetList.get({ silent: true }).catch(async () => {
+				const newListData = Object.assign({}, await sourceList.get())
 				newListData.Title = targetTitle
 				newListData.Url = targetTitle
-				await targetSPX.list(newListData).create()
+				newListData.EntityTypeName = targetTitle
+				await targetWeb.list(newListData).create()
 			})
 			const [sourceColumns, targetColumns] = await Promise.all([
-				sourceSPXList.column().get(),
-				targetSPXList.column().get({ groupBy: 'InternalName' })
+				sourceList.column().get(),
+				targetList.column().get({ groupBy: 'InternalName' })
 			])
 			const columnsToCreate = sourceColumns.reduce((acc, sourceColumn) => {
 				const targetColumn = targetColumns[sourceColumn.InternalName]
 				if (!targetColumn && !sourceColumn.FromBaseType) acc.push(Object.assign({}, sourceColumn))
 				return acc
 			}, [])
-			return columnsToCreate.length ? targetSPXList.column(columnsToCreate).create() : undefined
+			return columnsToCreate.length ? targetList.column(columnsToCreate).create() : undefined
 		})
 		console.log('cloning layout done!')
 	}

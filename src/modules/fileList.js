@@ -56,10 +56,11 @@ async function copyOrMove(isMove, opts = {}) {
 		const { To, OnlyContent } = element
 		const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 		if (!hasUrlFilename(elementUrl)) return
-		let targetWebUrl; let targetListUrl; let
-			targetFileUrl
+		let targetWebUrl
+		let targetListUrl
+		let targetFileUrl
 		if (isObject(To)) {
-			targetWebUrl = To.WebUrl
+			targetWebUrl = To.WebUrl || contextUrl
 			targetListUrl = To.ListUrl
 			targetFileUrl = getListRelativeUrl(To.WebUrl)(To.ListUrl)(To) || ''
 		} else {
@@ -67,6 +68,7 @@ async function copyOrMove(isMove, opts = {}) {
 			targetListUrl = listUrl
 			targetFileUrl = To
 		}
+
 		if (!targetWebUrl) throw new Error('Target WebUrl is missed')
 		if (!targetListUrl) throw new Error('Target ListUrl is missed')
 		if (!elementUrl) throw new Error('Source file Url is missed')
