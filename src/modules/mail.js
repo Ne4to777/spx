@@ -70,12 +70,7 @@ class Mail {
 			let senderEmail = From
 
 			if (!From) {
-				const sender = await this
-					.user()
-					.get({
-						isSP: true,
-						view: 'Email'
-					})
+				const sender = await this.user().get({ isSP: true, view: 'Email' })
 				senderEmail = sender.Email
 			}
 			if (isFake) return undefined

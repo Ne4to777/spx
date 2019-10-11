@@ -40,6 +40,8 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
+const KEY_PROP = 'Url'
+
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
 const buildFolderTree = acc => element => {
@@ -80,19 +82,19 @@ const buildFoldersTree = elements => {
 const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
-		if (!context.Url) newContext.Url = context.ServerRelativeUrl || context.FileRef
-		if (!context.ServerRelativeUrl) newContext.ServerRelativeUrl = context.Url || context.FileRef
+		if (!context[KEY_PROP]) newContext[KEY_PROP] = context.ServerRelativeUrl || context.FileRef
+		if (!context.ServerRelativeUrl) newContext.ServerRelativeUrl = context[KEY_PROP] || context.FileRef
 		return newContext
 	},
 	string: (contextUrl = '') => {
 		const url = contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl))
 		return {
-			Url: url,
+			[KEY_PROP]: url,
 			ServerRelativeUrl: url
 		}
 	},
 	default: () => ({
-		Url: '',
+		[KEY_PROP]: '',
 		ServerRelativeUrl: ''
 	})
 })
@@ -112,8 +114,6 @@ class FolderList {
 		this.hasColumns = this.box.some(hasProp('Columns'))
 		this.contextUrl = parent.parent.box.getHeadPropValue()
 		this.listUrl = parent.box.getHeadPropValue()
-		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
-		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.count = this.box.getCount()
 		this.iterator = bundleSize => deep1Iterator({
 			contextUrl: this.contextUrl,
@@ -126,13 +126,11 @@ class FolderList {
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { contextUrl, listUrl } = this
 		const { clientContexts, result } = await this.iterator()(({ clientContext, element }) => {
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			const isCollection = hasUrlTailSlash(elementUrl)
 			const spObject = isCollection
-				? this.getSPObjectCollection(elementUrl, listSPObject)
-				: this.getSPObject(elementUrl, listSPObject)
+				? this.getSPObjectCollection(elementUrl, clientContext)
+				: this.getSPObject(elementUrl, clientContext)
 			return load(clientContext, spObject, options)
 		})
 		await Promise.all(clientContexts.map(executorJSOM))
@@ -168,7 +166,7 @@ class FolderList {
 				if (element) {
 					elementUrl = getRelativeUrl(element)
 					newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
-					delete newElement.Url
+					delete newElement[KEY_PROP]
 					delete newElement.ServerRelativeUrl
 				} else {
 					elementUrl = name
@@ -195,7 +193,7 @@ class FolderList {
 
 			result.reduce((acc, el) => {
 				if (foldersMap[getRelativeUrl({
-					Url: el.ServerRelativeUrl
+					[KEY_PROP]: el.ServerRelativeUrl
 				})]) acc.push(el)
 				return acc
 			}, filteredResult)
@@ -227,10 +225,8 @@ class FolderList {
 		)(({ clientContext, element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			if (!isStrictUrl(elementUrl)) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, element))(
-				this.getSPObject(elementUrl, listSPObject).get_listItemAllFields()
+				this.getSPObject(elementUrl, clientContext).get_listItemAllFields()
 			)
 			return load(clientContext, spObject.get_folder(), options)
 		})
@@ -247,11 +243,9 @@ class FolderList {
 		const { clientContexts, result } = await this.iterator(
 			REQUEST_LIST_FOLDER_DELETE_BUNDLE_MAX_SIZE
 		)(({ clientContext, element }) => {
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			if (!isStrictUrl(elementUrl)) return undefined
-			const spObject = this.getSPObject(elementUrl, listSPObject)
+			const spObject = this.getSPObject(elementUrl, clientContext)
 			if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementUrl
 		})
@@ -262,8 +256,9 @@ class FolderList {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	getSPObject(elementUrl, parentSPObject) {
+	getSPObject(elementUrl, clientContext) {
 		let folder
+		const parentSPObject = this.parent.getSPObject(this.listUrl, clientContext)
 		if (elementUrl) {
 			folder = getSPFolderByUrl(elementUrl)(parentSPObject.get_rootFolder())
 		} else {
@@ -274,8 +269,8 @@ class FolderList {
 		return folder
 	}
 
-	getSPObjectCollection(elementUrl, parentSPObject) {
-		return this.getSPObject(popSlash(elementUrl), parentSPObject).get_folders()
+	getSPObjectCollection(elementUrl, clientContext) {
+		return this.getSPObject(popSlash(elementUrl), clientContext).get_folders()
 	}
 
 	report(actionType, opts = {}) {

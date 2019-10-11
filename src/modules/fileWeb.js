@@ -31,26 +31,27 @@ import {
 	deep1IteratorREST
 } from '../lib/utility'
 
+const KEY_PROP = 'Url'
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
 const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
-		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
-		if (!context.Url && context.ServerRelativeUrl) newContext.Url = context.ServerRelativeUrl
-		if (!context.ServerRelativeUrl && context.Url) newContext.ServerRelativeUrl = context.Url
+		if (context[KEY_PROP] !== '/') newContext[KEY_PROP] = shiftSlash(newContext[KEY_PROP])
+		if (!context[KEY_PROP] && context.ServerRelativeUrl) newContext[KEY_PROP] = context.ServerRelativeUrl
+		if (!context.ServerRelativeUrl && context[KEY_PROP]) newContext.ServerRelativeUrl = context[KEY_PROP]
 		return newContext
 	},
 	string: (contextUrl = '') => {
 		const url = contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl))
 		return {
-			Url: url,
+			[KEY_PROP]: url,
 			ServerRelativeUrl: url
 		}
 	},
 	default: () => ({
-		Url: '',
+		[KEY_PROP]: '',
 		ServerRelativeUrl: ''
 	})
 })
@@ -72,7 +73,6 @@ class FileWeb {
 		this.parent = parent
 		this.box = getInstance(Box)(files)
 		this.contextUrl = parent.box.getHeadPropValue()
-		this.getContextSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
@@ -103,11 +103,10 @@ class FileWeb {
 		const options = asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
-			const parentSPObject = this.getContextSPObject(clientContext)
 			const isCollection = isStringEmpty(elementUrl) || hasUrlTailSlash(elementUrl)
 			const spObject = isCollection
-				? this.getSPObjectCollection(elementUrl, parentSPObject)
-				: this.getSPObject(elementUrl, parentSPObject)
+				? this.getSPObjectCollection(elementUrl, clientContext)
+				: this.getSPObject(elementUrl, clientContext)
 			return load(clientContext, spObject, options)
 		})
 		await Promise.all(clientContexts.map(executorJSOM))
@@ -134,7 +133,7 @@ class FileWeb {
 			const { Content = '', Overwrite = true } = element
 			const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 			const parentSPObject = this
-				.getSPObjectCollection(getParentUrl(elementUrl), this.getContextSPObject(clientContext))
+				.getSPObjectCollection(getParentUrl(elementUrl), clientContext)
 			const fileCreationInfo = new SP.FileCreationInformation()
 			setFields({
 				set_url: getFilenameFromUrl(elementUrl),
@@ -161,7 +160,7 @@ class FileWeb {
 			if (!hasUrlFilename(elementUrl)) return undefined
 			const binaryInfo = new SP.FileSaveBinaryInformation()
 			if (Content !== undefined) binaryInfo.set_content(convertFileContent(Content))
-			const spObject = this.getSPObject(elementUrl, this.getContextSPObject(clientContext))
+			const spObject = this.getSPObject(elementUrl, clientContext)
 			spObject.saveBinary(binaryInfo)
 			return spObject
 		})
@@ -180,8 +179,7 @@ class FileWeb {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(this.contextUrl)(element)
 			if (!hasUrlFilename(elementUrl)) return undefined
-			const parentSPObject = this.getContextSPObject(clientContext)
-			const spObject = this.getSPObject(elementUrl, parentSPObject)
+			const spObject = this.getSPObject(elementUrl, clientContext)
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementUrl
 		})
@@ -197,9 +195,8 @@ class FileWeb {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)
 			if (!hasUrlFilename(elementUrl)) return undefined
-			const parentSPObject = this.getContextSPObject(clientContext)
-			const spObject = this.getSPObject(elementUrl, parentSPObject)
-			spObject.copyTo(getWebRelativeUrl(contextUrl)({ Url: element.To, Folder: element.Folder }))
+			const spObject = this.getSPObject(elementUrl, clientContext)
+			spObject.copyTo(getWebRelativeUrl(contextUrl)({ [KEY_PROP]: element.To, Folder: element.Folder }))
 			return elementUrl
 		})
 		if (this.box.getCount()) {
@@ -214,9 +211,8 @@ class FileWeb {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)
 			if (!hasUrlFilename(elementUrl)) return undefined
-			const parentSPObject = this.getContextSPObject(clientContext)
-			const spObject = this.getSPObject(elementUrl, parentSPObject)
-			spObject.moveTo(getWebRelativeUrl(contextUrl)({ Url: element.To, Folder: element.Folder }))
+			const spObject = this.getSPObject(elementUrl, clientContext)
+			spObject.moveTo(getWebRelativeUrl(contextUrl)({ [KEY_PROP]: element.To, Folder: element.Folder }))
 			return elementUrl
 		})
 		if (this.box.getCount()) {
@@ -226,21 +222,22 @@ class FileWeb {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	getSPObject(elementUrl, spObject) {
+	getSPObject(elementUrl, clientContext) {
 		const { contextUrl } = this
 		const folder = getFolderFromUrl(elementUrl)
 		const filename = getFilenameFromUrl(elementUrl)
-		return spObject.getFileByServerRelativeUrl(
+		return this.parent.getSPObject(clientContext).getFileByServerRelativeUrl(
 			mergeSlashes(`/${folder ? `${contextUrl}/${folder}` : contextUrl}/${filename}`)
 		)
 	}
 
-	getSPObjectCollection(elementUrl, spObject) {
+	getSPObjectCollection(elementUrl, clientContext) {
 		const { contextUrl } = this
 		const folder = getFolderFromUrl(elementUrl)
+		const parentSPObject = this.parent.getSPObject(clientContext)
 		return folder
-			? spObject.getFolderByServerRelativeUrl(`/${contextUrl}/${folder}`).get_files()
-			: spObject.get_rootFolder().get_files()
+			? parentSPObject.getFolderByServerRelativeUrl(`/${contextUrl}/${folder}`).get_files()
+			: parentSPObject.get_rootFolder().get_files()
 	}
 
 	getRESTObject(elementUrl, contextUrl) {

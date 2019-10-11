@@ -41,7 +41,11 @@ const lifter = switchCase(typeOf)({
 	object: column => {
 		const newColumn = Object.assign({}, column)
 		if (column[KEY_PROP] !== '/') newColumn[KEY_PROP] = shiftSlash(newColumn[KEY_PROP])
-		if (!column[KEY_PROP]) newColumn[KEY_PROP] = column.EntityPropertyName || column.InternalName || column.StaticName
+		if (!column[KEY_PROP]) {
+			newColumn[KEY_PROP] = column.EntityPropertyName
+				|| column.InternalName
+				|| column.StaticName
+		}
 		if (!column.Type) newColumn.Type = 'Text'
 		return newColumn
 	},
@@ -71,8 +75,6 @@ class Column {
 		this.box = getInstance(Box)(columns)
 		this.contextUrl = parent.parent.box.getHeadPropValue()
 		this.listUrl = parent.box.getHeadPropValue()
-		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
-		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box,
@@ -80,15 +82,12 @@ class Column {
 	}
 
 	async	get(opts) {
-		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const elementTitle = element[KEY_PROP]
 			const isCollection = isStringEmpty(elementTitle) || hasUrlTailSlash(elementTitle)
 			const spObject = isCollection
-				? this.getSPObjectCollection(listSPObject)
-				: this.getSPObject(elementTitle, listSPObject)
+				? this.getSPObjectCollection(clientContext)
+				: this.getSPObject(elementTitle, clientContext)
 			return load(clientContext, spObject, opts)
 		})
 		await Promise.all(clientContexts.map(executorJSOM))
@@ -96,12 +95,9 @@ class Column {
 	}
 
 	async	create(opts) {
-		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
 			if (!isStrictUrl(title)) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const {
 				Title = title,
 				Type = element.TypeAsString || 'Text',
@@ -122,7 +118,7 @@ class Column {
 						constant(`<Field Type="${Type}" DisplayName="${Title}"/>`)
 					])
 				]),
-				addFieldAsXml(this.getSPObjectCollection(listSPObject)),
+				addFieldAsXml(this.getSPObjectCollection(clientContext)),
 				overstep(
 					setFields({
 						set_defaultValue: element.DefaultValue,
@@ -202,11 +198,8 @@ class Column {
 	}
 
 	async	update(opts) {
-		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			if (!isStrictUrl(element[KEY_PROP])) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const { MaxLength, Title } = element
 			const spObject = pipe([
 				setFields({
@@ -239,7 +232,7 @@ class Column {
 						methodEmpty('update')
 					])
 				)
-			])(this.getSPObject(element[KEY_PROP], listSPObject))
+			])(this.getSPObject(element[KEY_PROP], clientContext))
 			return load(clientContext, spObject, opts)
 		})
 		if (this.box.getCount()) {
@@ -250,13 +243,10 @@ class Column {
 	}
 
 	async	delete(opts) {
-		const { listUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementTitle = element[KEY_PROP]
 			if (!isStrictUrl(elementTitle)) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
-			const spObject = this.getSPObject(elementTitle, listSPObject)
+			const spObject = this.getSPObject(elementTitle, clientContext)
 			spObject.deleteObject()
 			return elementTitle
 		})
@@ -267,15 +257,16 @@ class Column {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	getSPObject(elementTitle, parentSPObject) {
-		const fields = parentSPObject.get_fields()
-		return isGUID(elementTitle)
-			? fields.getById(elementTitle)
-			: fields.getByInternalNameOrTitle(elementTitle)
+	getSPObject(elementTitle, clientContext) {
+		return this.getSPObjectCollection(clientContext)[
+			isGUID(elementTitle)
+				? 'getById'
+				: 'getByInternalNameOrTitle'
+		](elementTitle)
 	}
 
-	getSPObjectCollection(parentSPObject) {
-		return parentSPObject.get_fields()
+	getSPObjectCollection(clientContext) {
+		return this.parent.getSPObject(this.listUrl, clientContext).get_fields()
 	}
 
 	report(actionType, opts = {}) {

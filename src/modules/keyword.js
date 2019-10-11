@@ -1,3 +1,4 @@
+/* eslint-disable class-methods-use-this */
 import {
 	AbstractBox,
 	load,
@@ -30,7 +31,6 @@ const getTermSet = clientContext => getTermStore(clientContext).get_keywordsTerm
 
 const getAllTerms = clientContext => getTermSet(clientContext).getAllTerms()
 
-const getSPObject = (clientContext, elementUrl) => getAllTerms(clientContext).getByName(elementUrl)
 
 const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
@@ -117,7 +117,7 @@ class Tag {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementLabel = element[KEY_PROP]
 			if (!elementLabel) return undefined
-			const spObject = getSPObject(clientContext, elementLabel)
+			const spObject = this.getSPObject(elementLabel, clientContext)
 			setFields({
 				set_isAvailableForTagging: element.IsAvailableForTagging,
 				set_name: element.Name,
@@ -137,7 +137,7 @@ class Tag {
 			const elementLabel = element[KEY_PROP]
 			if (!elementLabel) return undefined
 			const termStore = getTermStore(clientContext)
-			const spObject = getSPObject(clientContext, elementLabel)
+			const spObject = this.getSPObject(elementLabel, clientContext)
 			methodEmpty('deleteObject')(spObject)
 			methodEmpty('commitAll')(termStore)
 			return elementLabel
@@ -156,6 +156,10 @@ class Tag {
 				name: this.name,
 				box: this.box
 			})
+	}
+
+	getSPObject(elementUrl, clientContext) {
+		return getAllTerms(clientContext).getByName(elementUrl)
 	}
 }
 

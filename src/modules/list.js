@@ -91,7 +91,6 @@ class List {
 		this.contextUrl = parent.box.getHeadPropValue()
 		this.box = getInstance(Box)(lists)
 		this.count = parent.box.getCount()
-		this.getContextSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
@@ -493,14 +492,15 @@ class List {
 	}
 
 	getSPObject(elementTitle, clientContext) {
-		const spObjectCollection = this.getSPObjectCollection(clientContext)
-		return isGUID(elementTitle)
-			? spObjectCollection.getById(elementTitle)
-			: spObjectCollection.getByTitle(elementTitle)
+		return this.getSPObjectCollection(clientContext)[
+			isGUID(elementTitle)
+				? 'getById'
+				: 'getByTitle'
+		](elementTitle)
 	}
 
 	getSPObjectCollection(clientContext) {
-		return this.getContextSPObject(clientContext).get_lists()
+		return this.parent.getSPObject(clientContext).get_lists()
 	}
 
 	report(actionType, opts = {}) {

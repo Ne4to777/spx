@@ -50,6 +50,8 @@ import {
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
+const KEY_PROP = 'Url'
+
 async function copyOrMove(isMove, opts = {}) {
 	const { contextUrl, listUrl } = this
 	await this.iteratorREST(async ({ element }) => {
@@ -99,8 +101,7 @@ async function copyOrMove(isMove, opts = {}) {
 		}
 		if (!opts.forced && contextUrl === targetWebUrl) {
 			const clientContext = getClientContext(contextUrl)
-			const listSPObject = this.getListSPObject(listUrl, this.getContextSPObject(clientContext))
-			const spObject = this.getSPObject(elementUrl, listSPObject)
+			const spObject = this.getSPObject(elementUrl, clientContext)
 			const folder = getFolderFromUrl(targetFileUrl)
 			if (folder) {
 				await this
@@ -112,12 +113,12 @@ async function copyOrMove(isMove, opts = {}) {
 			spObject[isMove ? 'moveTo' : 'copyTo'](mergeSlashes(`${targetListUrl}/${fullTargetFileUrl}`))
 			await executeJSOM(clientContext, spObject, opts)
 			await spxTargetList
-				.file({ Url: targetFileUrl, Columns: existedColumnsToUpdate })
+				.file({ [KEY_PROP]: targetFileUrl, Columns: existedColumnsToUpdate })
 				.update({ silentInfo: true })
 		} else {
 			await spxTargetList
 				.file({
-					Url: fullTargetFileUrl,
+					[KEY_PROP]: fullTargetFileUrl,
 					Content: await spxSourceList.file(elementUrl).get({ asBlob: true }),
 					OnProgress: element.OnProgress,
 					Overwrite: element.Overwrite,
@@ -137,19 +138,19 @@ const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		const name = context.Content ? context.Content.name : undefined
-		if (!context.Url) newContext.Url = context.ServerRelativeUrl || context.FileRef || name
-		if (!context.ServerRelativeUrl) newContext.ServerRelativeUrl = context.Url || context.FileRef
+		if (!context[KEY_PROP]) newContext[KEY_PROP] = context.ServerRelativeUrl || context.FileRef || name
+		if (!context.ServerRelativeUrl) newContext.ServerRelativeUrl = context[KEY_PROP] || context.FileRef
 		return newContext
 	},
 	string: (contextUrl = '') => {
 		const url = contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl))
 		return {
-			Url: url,
+			[KEY_PROP]: url,
 			ServerRelativeUrl: url
 		}
 	},
 	default: () => ({
-		Url: '',
+		[KEY_PROP]: '',
 		ServerRelativeUrl: ''
 	})
 })
@@ -176,7 +177,7 @@ async function createWithRESTFromString(element, opts = {}) {
 
 	if (Columns) {
 		response = await this
-			.of({ Url: elementUrl, Columns })
+			.of({ [KEY_PROP]: elementUrl, Columns })
 			.update({ ...opts, silentInfo: true })
 	} else if (needResponse) {
 		response = await this
@@ -238,13 +239,13 @@ async function createWithRESTFromBlob(element, opts = {}) {
 	})
 
 	const errorMsgMatches = response.data.match(/id="ctl00_PlaceHolderMain_LabelMessage">([^<]*)<\/span>/)
-	let res = { Url: elementUrl }
+	let res = { [KEY_PROP]: elementUrl }
 	if (isArray(errorMsgMatches)) {
 		if (!silent && !silentErrors) console.error(errorMsgMatches[1])
 	} else if (isObjectFilled(Columns)) {
-		res = await this.of({ Url: elementUrl, Columns }).update({ ...opts, silentInfo: true })
+		res = await this.of({ [KEY_PROP]: elementUrl, Columns }).update({ ...opts, silentInfo: true })
 	} else if (needResponse) {
-		res = await this.of({ Url: elementUrl }).get(opts)
+		res = await this.of({ [KEY_PROP]: elementUrl }).get(opts)
 	}
 	return res
 }
@@ -268,8 +269,6 @@ class FileList {
 		this.count = this.box.getCount()
 		this.contextUrl = parent.parent.box.getHeadPropValue()
 		this.listUrl = parent.box.getHeadPropValue()
-		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
-		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
@@ -295,10 +294,9 @@ class FileList {
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-			const listSPObject = this.getListSPObject(listUrl, this.getContextSPObject(clientContext))
 			const spObject = isExists(elementUrl) && hasUrlTailSlash(elementUrl)
-				? this.getSPObjectCollection(elementUrl, listSPObject)
-				: this.getSPObject(elementUrl, listSPObject)
+				? this.getSPObjectCollection(elementUrl, clientContext)
+				: this.getSPObject(elementUrl, clientContext)
 			return load(clientContext, spObject, options)
 		})
 		await Promise.all(clientContexts.map(executorJSOM))
@@ -360,12 +358,10 @@ class FileList {
 			const { Content, Columns } = element
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			if (!hasUrlFilename(elementUrl)) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			let spObject
 			if (isUndefined(Content)) {
 				spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, Columns))(
-					this.getSPObject(elementUrl, listSPObject).get_listItemAllFields()
+					this.getSPObject(elementUrl, clientContext).get_listItemAllFields()
 				)
 			} else {
 				const fieldsToUpdate = {}
@@ -380,7 +376,7 @@ class FileList {
 					set_content: convertFileContent(Content),
 					set_fieldValues: fieldsToUpdate
 				})(binaryInfo)
-				spObject = this.getSPObject(elementUrl, listSPObject)
+				spObject = this.getSPObject(elementUrl, clientContext)
 				spObject.saveBinary(binaryInfo)
 				spObject = spObject.get_listItemAllFields()
 			}
@@ -399,8 +395,7 @@ class FileList {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 			if (!hasUrlFilename(elementUrl)) return undefined
-			const listSPObject = this.getListSPObject(listUrl, this.getContextSPObject(clientContext))
-			const spObject = this.getSPObject(elementUrl, listSPObject)
+			const spObject = this.getSPObject(elementUrl, clientContext)
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementUrl
 		})
@@ -419,24 +414,29 @@ class FileList {
 		return copyOrMove.call(this, true, opts)
 	}
 
-	getSPObject(elementUrl, parentSPObject) {
+	getSPObject(elementUrl, clientContext) {
 		const filename = getFilenameFromUrl(elementUrl)
 		const folder = getFolderFromUrl(elementUrl)
+		const rootSPFolder = this.getRootFolder(clientContext)
 		return folder
-			? getSPFolderByUrl(folder)(parentSPObject.get_rootFolder())
+			? getSPFolderByUrl(folder)(rootSPFolder)
 				.get_files()
 				.getByUrl(filename)
-			: parentSPObject
-				.get_rootFolder()
+			: rootSPFolder
 				.get_files()
 				.getByUrl(filename)
 	}
 
-	getSPObjectCollection(elementUrl, parentSPObject) {
+	getSPObjectCollection(elementUrl, clientContext) {
 		const folder = getFolderFromUrl(popSlash(elementUrl))
+		const rootSPFolder = this.getRootFolder(clientContext)
 		return folder
-			? getSPFolderByUrl(folder)(parentSPObject.get_rootFolder()).get_files()
-			: parentSPObject.get_rootFolder().get_files()
+			? getSPFolderByUrl(folder)(rootSPFolder).get_files()
+			: rootSPFolder.get_files()
+	}
+
+	getRootFolder(clientContext) {
+		return this.parent.getSPObject(this.listUrl, clientContext).get_rootFolder()
 	}
 
 	getRESTObject(elementUrl, listUrl, contextUrl) {
@@ -506,9 +506,7 @@ export default getInstance(FileList)
 // 		const { Content = '', Columns = {}, Overwrite = true } = element
 // 		const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
 // 		if (!hasUrlFilename(elementUrl)) return undefined
-// 		const contextSPObject = this.getContextSPObject(clientContext)
-// 		const listSPObject = this.getListSPObject(listUrl, contextSPObject)
-// 		const spObjects = this.getSPObjectCollection(elementUrl, listSPObject)
+// 		const spObjects = this.getSPObjectCollection(elementUrl, clientContext)
 // 		const fileCreationInfo = getInstanceEmpty(SP.FileCreationInformation)
 // 		setFields({
 // 			set_url: `/${contextUrl}/${listUrl}/${elementUrl}`,

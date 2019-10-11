@@ -10,8 +10,8 @@ import {
 class RecycleBin {
 	constructor(parent) {
 		this.name = 'recycleBin'
+		this.parent = parent
 		this.contextUrl = parent.box.getHeadPropValue()
-		this.getSPObject = this.contextUrl ? parent.getSPObject : parent.getSiteSPObject
 	}
 
 	async get(opts) {
@@ -43,7 +43,11 @@ class RecycleBin {
 	}
 
 	getSPObjectCollection(clientContext) {
-		return this.getSPObject(clientContext).get_recycleBin()
+		return this.parent[
+			this.contextUrl
+				? 'getSPObject'
+				: 'getSiteSPObject'
+		](clientContext).get_recycleBin()
 	}
 }
 

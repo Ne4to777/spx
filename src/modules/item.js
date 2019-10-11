@@ -66,56 +66,6 @@ const getPagingColumnsStr = columns => {
 	return str
 }
 
-const getTypedSPObject = (typeStr, listUrl) => (element, parentElement) => {
-	let camlQuery = new SP.CamlQuery()
-	const { ID } = element
-	const contextUrl = parentElement.get_context().get_url()
-	switch (typeOf(ID)) {
-		case 'number': {
-			const spObject = parentElement.getItemById(ID)
-			return spObject
-		}
-		case 'string':
-			if (hasUrlTailSlash(ID)) {
-				camlQuery.set_folderServerRelativeUrl(`${contextUrl}/${popSlash(ID)}`)
-			} else {
-				camlQuery.set_viewXml(getCamlView(ID))
-			}
-			break
-		default:
-			if (element.set_viewXml) {
-				camlQuery = element
-			} else if (element.get_lookupId) {
-				const spObject = parentElement.getItemById(element.get_lookupId())
-				return spObject
-			} else {
-				const { Folder, Page } = element
-				if (Folder) {
-					let fullUrl = ''
-					const folderUrl = `${typeStr}${listUrl}/${Folder}`
-					if (contextUrl === '/') {
-						fullUrl = folderUrl
-					} else {
-						const isFullUrl = new RegExp(parentElement.get_context().get_url(), 'i').test(Folder)
-						fullUrl = isFullUrl ? Folder : folderUrl
-					}
-					camlQuery.set_folderServerRelativeUrl(fullUrl)
-				}
-				camlQuery.set_viewXml(getCamlView(element))
-				if (Page) {
-					const { IsPrevious, ID, Columns } = Page
-					const position = getInstanceEmpty(SP.ListItemCollectionPosition)
-					position.set_pagingInfo(
-						`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${ID}${getPagingColumnsStr(Columns)}`
-					)
-					camlQuery.set_listItemCollectionPosition(position)
-				}
-			}
-	}
-	const spObject = parentElement.getItems(camlQuery)
-	spObject.camlQuery = camlQuery
-	return spObject
-}
 
 const lifter = switchCase(typeOf)({
 	object: item => Object.assign({}, item),
@@ -164,8 +114,7 @@ class Item {
 		this.box = getInstance(Box)(items)
 		this.contextUrl = parent.parent.box.getHeadPropValue()
 		this.listUrl = parent.box.getHeadPropValue()
-		this.getSPObject = getTypedSPObject(parent.name === 'list' ? 'Lists/' : '', this.listUrl)
-		this.getContextSPObject = parent.parent.getSPObject.bind(parent.parent)
+		this.listFolder = parent.name === 'list' ? 'Lists/' : ''
 		this.getListSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: parent.contextUrl,
@@ -176,8 +125,7 @@ class Item {
 	async get(opts = {}) {
 		const { showCaml } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const listSPObject = this.getListSPObject(this.listUrl, clientContext)
-			const spObject = this.getSPObject(element, listSPObject)
+			const spObject = this.getSPObject(element, clientContext)
 			if (showCaml && spObject.camlQuery) camlLog(spObject.camlQuery.get_viewXml())
 			return load(clientContext, spObject, opts)
 		})
@@ -206,8 +154,7 @@ class Item {
 
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
+			const listSPObject = this.getListSPObject(listUrl, clientContext)
 			const { Folder, Columns } = element
 			let folder = Folder
 			let newElement
@@ -245,12 +192,10 @@ class Item {
 		await this.cacheColumns()
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			if (!element[KEY_PROP]) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 			const elementNew = Object.assign({}, element)
 			delete elementNew[KEY_PROP]
 			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(elementNew)(
-				this.getSPObject(element, listSPObject)
+				this.getSPObject(element, clientContext)
 			)
 			return load(clientContext, spObject, opts)
 		})
@@ -284,9 +229,7 @@ class Item {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementID = element[KEY_PROP]
 			if (!elementID) return undefined
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
-			const spObject = this.getSPObject(element, listSPObject)
+			const spObject = this.getSPObject(element, clientContext)
 			if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementID
 		})
@@ -457,8 +400,7 @@ class Item {
 
 	async createDiscussion(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const listSPObject = this.getListSPObject(this.listUrl, clientContext)
 			const skippedProps = {
 				Url: true,
 				ID: true
@@ -480,9 +422,7 @@ class Item {
 	async createReply(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const { Columns } = element
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
-			const spItemObject = this.getSPObject(element, listSPObject)
+			const spItemObject = this.getSPObject(element, clientContext)
 			const spObject = SP.Utilities.Utility.createNewDiscussionReply(clientContext, spItemObject)
 			const keys = Reflect.ownKeys(Columns)
 			for (let i = 0; i < keys.length; i += 1) {
@@ -523,6 +463,58 @@ class Item {
 				})
 			cache.set(columns)(['columns', contextUrl, listUrl])
 		}
+	}
+
+	getSPObject(element, clientContext) {
+		let camlQuery = new SP.CamlQuery()
+		const { ID } = element
+		const spListObject = this.getListSPObject(this.listUrl, clientContext)
+		const contextUrl = clientContext.get_url()
+		switch (typeOf(ID)) {
+			case 'number': {
+				const spObject = spListObject.getItemById(ID)
+				return spObject
+			}
+			case 'string':
+				if (hasUrlTailSlash(ID)) {
+					camlQuery.set_folderServerRelativeUrl(`${contextUrl}/${popSlash(ID)}`)
+				} else {
+					camlQuery.set_viewXml(getCamlView(ID))
+				}
+				break
+			default:
+				if (element.set_viewXml) {
+					camlQuery = element
+				} else if (element.get_lookupId) {
+					const spObject = spListObject.getItemById(element.get_lookupId())
+					return spObject
+				} else {
+					const { Folder, Page } = element
+					if (Folder) {
+						let fullUrl = ''
+						const folderUrl = `${this.listFolder}${this.listUrl}/${Folder}`
+						if (contextUrl === '/') {
+							fullUrl = folderUrl
+						} else {
+							const isFullUrl = new RegExp(contextUrl, 'i').test(Folder)
+							fullUrl = isFullUrl ? Folder : folderUrl
+						}
+						camlQuery.set_folderServerRelativeUrl(fullUrl)
+					}
+					camlQuery.set_viewXml(getCamlView(element))
+					if (Page) {
+						const { IsPrevious, ID, Columns } = Page
+						const position = getInstanceEmpty(SP.ListItemCollectionPosition)
+						position.set_pagingInfo(
+							`${IsPrevious ? 'PagedPrev=TRUE&' : ''}Paged=TRUE&p_ID=${ID}${getPagingColumnsStr(Columns)}`
+						)
+						camlQuery.set_listItemCollectionPosition(position)
+					}
+				}
+		}
+		const spObject = spListObject.getItems(camlQuery)
+		spObject.camlQuery = camlQuery
+		return spObject
 	}
 
 	of(items) {

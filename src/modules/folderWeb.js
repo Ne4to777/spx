@@ -33,6 +33,8 @@ import {
 	isArray
 } from '../lib/utility'
 
+const KEY_PROP = 'Url'
+
 const buildFolderTree = acc => element => {
 	let folder
 	if (isObject(element)) {
@@ -71,20 +73,20 @@ const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 const lifter = switchCase(typeOf)({
 	object: context => {
 		const newContext = Object.assign({}, context)
-		if (!context.Url && context.ServerRelativeUrl) newContext.Url = context.ServerRelativeUrl
-		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
-		if (!context.ServerRelativeUrl && context.Url) newContext.ServerRelativeUrl = context.Url
+		if (!context[KEY_PROP] && context.ServerRelativeUrl) newContext[KEY_PROP] = context.ServerRelativeUrl
+		if (context[KEY_PROP] !== '/') newContext[KEY_PROP] = shiftSlash(newContext[KEY_PROP])
+		if (!context.ServerRelativeUrl && context[KEY_PROP]) newContext.ServerRelativeUrl = context[KEY_PROP]
 		return newContext
 	},
 	string: contextUrl => {
 		const url = contextUrl === '/' ? '/' : shiftSlash(mergeSlashes(contextUrl))
 		return {
-			Url: url,
+			[KEY_PROP]: url,
 			ServerRelativeUrl: url
 		}
 	},
 	default: () => ({
-		Url: '',
+		[KEY_PROP]: '',
 		ServerRelativeUrl: ''
 	})
 })
@@ -102,7 +104,6 @@ class FolderWeb {
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
 		this.contextUrl = parent.box.getHeadPropValue()
-		this.getContextSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
@@ -112,12 +113,11 @@ class FolderWeb {
 	async	get(opts) {
 		const { contextUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const parentSPObject = this.getContextSPObject(clientContext)
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)
 			const isCollection = hasUrlTailSlash(elementUrl)
 			const spObject = isCollection
-				? this.getSPObjectCollection(elementUrl, parentSPObject)
-				: this.getSPObject(elementUrl, parentSPObject)
+				? this.getSPObjectCollection(elementUrl, clientContext)
+				: this.getSPObject(elementUrl, clientContext)
 			return load(clientContext, spObject, opts)
 		})
 		await Promise.all(clientContexts.map(executorJSOM))
@@ -171,7 +171,7 @@ class FolderWeb {
 
 			result.reduce((acc, el) => {
 				if (foldersMap[getRelativeUrl({
-					Url: el.ServerRelativeUrl
+					[KEY_PROP]: el.ServerRelativeUrl
 				})]) acc.push(el)
 				return acc
 			}, filteredResult)
@@ -199,8 +199,7 @@ class FolderWeb {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)
 			if (!isStrictUrl(elementUrl)) return undefined
-			const parentSPObject = this.getContextSPObject(clientContext)
-			const spObject = this.getSPObject(elementUrl, parentSPObject)
+			const spObject = this.getSPObject(elementUrl, clientContext)
 			if (!spObject.isRoot) methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return elementUrl
 		})
@@ -211,8 +210,9 @@ class FolderWeb {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	getSPObject(elementUrl, parentSPObject) {
+	getSPObject(elementUrl, clientContext) {
 		let folder
+		const parentSPObject = this.parent.getSPObject(clientContext)
 		if (elementUrl) {
 			folder = parentSPObject.getFolderByServerRelativeUrl(elementUrl)
 		} else {
@@ -223,10 +223,10 @@ class FolderWeb {
 		return folder
 	}
 
-	getSPObjectCollection(elementUrl, parentSPObject) {
+	getSPObjectCollection(elementUrl, clientContext) {
 		return !elementUrl || elementUrl === '/'
-			? this.getSPObject(undefined, parentSPObject).get_folders()
-			: this.getSPObject(popSlash(elementUrl), parentSPObject).get_folders()
+			? this.getSPObject(undefined, clientContext).get_folders()
+			: this.getSPObject(popSlash(elementUrl), clientContext).get_folders()
 	}
 
 
