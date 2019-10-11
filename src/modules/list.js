@@ -452,6 +452,38 @@ class List {
 		}, {})
 	}
 
+	async breakRoleInheritance() {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const title = element[KEY_PROP]
+			if (!title) return undefined
+			const parentSPObject = this.parent.getSPObject(clientContext)
+			const spObject = this.getSPObject(title, parentSPObject)
+			methodEmpty('breakRoleInheritance')(spObject)
+			return title
+		})
+		if (this.count) {
+			await Promise.all(clientContexts.map(executorJSOM))
+		}
+
+		return result
+	}
+
+	async resetRoleInheritance() {
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const title = element[KEY_PROP]
+			if (!title) return undefined
+			const parentSPObject = this.parent.getSPObject(clientContext)
+			const spObject = this.getSPObject(title, parentSPObject)
+			methodEmpty('resetRoleInheritance')(spObject)
+			return title
+		})
+		if (this.count) {
+			await Promise.all(clientContexts.map(executorJSOM))
+		}
+
+		return result
+	}
+
 	column(elements) {
 		return column(this, elements)
 	}

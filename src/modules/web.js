@@ -218,6 +218,24 @@ class Web {
 		}, {})
 	}
 
+	async breakRoleInheritance() {
+		return this.box.chain(async element => {
+			const clientContext = getClientContext(element[KEY_PROP])
+			const spObject = this.getSPObject(clientContext)
+			methodEmpty('breakRoleInheritance')(spObject)
+			return executorJSOM(clientContext)
+		})
+	}
+
+	async resetRoleInheritance() {
+		return this.box.chain(async element => {
+			const clientContext = getClientContext(element[KEY_PROP])
+			const spObject = this.getSPObject(clientContext)
+			methodEmpty('resetRoleInheritance')(spObject)
+			return executorJSOM(clientContext)
+		})
+	}
+
 	async getSite(opts) {
 		const clientContext = getClientContext('/')
 		const spObject = this.getSiteSPObject(clientContext)
