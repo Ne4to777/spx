@@ -176,8 +176,7 @@ class Item {
 	async get(opts = {}) {
 		const { showCaml } = opts
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const contextSPObject = this.getContextSPObject(clientContext)
-			const listSPObject = this.getListSPObject(this.listUrl, contextSPObject)
+			const listSPObject = this.getListSPObject(this.listUrl, clientContext)
 			const spObject = this.getSPObject(element, listSPObject)
 			if (showCaml && spObject.camlQuery) camlLog(spObject.camlQuery.get_viewXml())
 			return load(clientContext, spObject, opts)

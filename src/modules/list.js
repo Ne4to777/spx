@@ -18,7 +18,6 @@ import {
 	getTitleFromUrl,
 	isExists,
 	isString,
-	isArray,
 	webReport,
 	switchCase,
 	typeOf,
@@ -92,7 +91,7 @@ class List {
 		this.contextUrl = parent.box.getHeadPropValue()
 		this.box = getInstance(Box)(lists)
 		this.count = parent.box.getCount()
-		this.getContextSPObject = parent.getSPObject
+		this.getContextSPObject = parent.getSPObject.bind(parent)
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
@@ -101,11 +100,10 @@ class List {
 
 	async get(opts) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const parentSPObject = this.parent.getSPObject(clientContext)
 			const isCollection = hasUrlTailSlash(element.Url)
 			const spObject = isCollection
-				? this.getSPObjectCollection(parentSPObject)
-				: this.getSPObject(element.Title, parentSPObject)
+				? this.getSPObjectCollection(clientContext)
+				: this.getSPObject(element.Title, clientContext)
 			return load(clientContext, spObject, opts)
 		})
 
@@ -118,7 +116,6 @@ class List {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
 			if (!title) return undefined
-			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = pipe([
 				getInstanceEmpty,
 				setFields({
@@ -133,7 +130,7 @@ class List {
 					set_documentTemplateType: element.DocumentTemplateType,
 					set_quickLaunchOption: element.QuickLaunchOption
 				}),
-				methodI('add')(this.getSPObjectCollection(parentSPObject)),
+				methodI('add')(this.getSPObjectCollection(clientContext)),
 				overstep(
 					setFields({
 						set_contentTypesEnabled: element.ContentTypesEnabled,
@@ -197,7 +194,6 @@ class List {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
 			if (!title) return undefined
-			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = pipe([
 				setFields({
 					set_title: title,
@@ -233,7 +229,7 @@ class List {
 					set_validationMessage: element.ValidationMessage
 				}),
 				overstep(methodEmpty('update'))
-			])(this.getSPObject(title, parentSPObject))
+			])(this.getSPObject(title, clientContext))
 			return load(clientContext, spObject, opts)
 		})
 		if (this.count) {
@@ -248,8 +244,7 @@ class List {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
 			if (!title) return undefined
-			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(title, parentSPObject)
+			const spObject = this.getSPObject(title, clientContext)
 			methodEmpty(noRecycle ? 'deleteObject' : 'recycle')(spObject)
 			return title
 		})
@@ -408,7 +403,7 @@ class List {
 				Query
 			} = element
 			const clientContext = getClientContext(contextUrl)
-			const list = this.getSPObject(Title, this.parent.getSPObject(clientContext))
+			const list = this.getSPObject(Title, clientContext)
 			const keys = Reflect.ownKeys(Columns)
 			for (let i = 0; i < keys.length; i += 1) {
 				const columnName = keys[i]
@@ -438,8 +433,7 @@ class List {
 
 	async getPermissions() {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(element[KEY_PROP], parentSPObject)
+			const spObject = this.getSPObject(element[KEY_PROP], clientContext)
 			return load(clientContext, spObject, { view: 'EffectiveBasePermissions' })
 		})
 
@@ -456,8 +450,7 @@ class List {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
 			if (!title) return undefined
-			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(title, parentSPObject)
+			const spObject = this.getSPObject(title, clientContext)
 			methodEmpty('breakRoleInheritance')(spObject)
 			return title
 		})
@@ -472,8 +465,7 @@ class List {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const title = element[KEY_PROP]
 			if (!title) return undefined
-			const parentSPObject = this.parent.getSPObject(clientContext)
-			const spObject = this.getSPObject(title, parentSPObject)
+			const spObject = this.getSPObject(title, clientContext)
 			methodEmpty('resetRoleInheritance')(spObject)
 			return title
 		})
@@ -500,18 +492,15 @@ class List {
 		return pager(this, params)
 	}
 
-	getSPObject(elementTitle, parentSPObject) {
-		return pipe([
-			this.getSPObjectCollection,
-			ifThen(constant(isGUID(elementTitle)))([
-				method('getById')(elementTitle),
-				method('getByTitle')(elementTitle)
-			])
-		])(parentSPObject)
+	getSPObject(elementTitle, clientContext) {
+		const spObjectCollection = this.getSPObjectCollection(clientContext)
+		return isGUID(elementTitle)
+			? spObjectCollection.getById(elementTitle)
+			: spObjectCollection.getByTitle(elementTitle)
 	}
 
-	getSPObjectCollection(parentSPObject) {
-		return parentSPObject.get_lists()
+	getSPObjectCollection(clientContext) {
+		return this.getContextSPObject(clientContext).get_lists()
 	}
 
 	report(actionType, opts = {}) {

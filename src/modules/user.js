@@ -36,7 +36,7 @@ class User {
 		}
 	}
 
-	async	get(opts = {}) {
+	async get(opts = {}) {
 		if (this.users.length) {
 			const el = this.users[0]
 			if (isObject(el)) {

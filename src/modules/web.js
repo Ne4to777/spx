@@ -33,6 +33,7 @@ import folder from './folderWeb'
 import file from './fileWeb'
 import recycleBin from './recycleBin'
 import user from './user'
+import group from './group'
 import keyword from './keyword'
 import mail from './mail'
 import time from './time'
@@ -289,6 +290,10 @@ class Web {
 
 	user(elements) {
 		return user(this, elements)
+	}
+
+	group(elements) {
+		return group(this, elements)
 	}
 
 	mail(elements) {
