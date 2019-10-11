@@ -436,18 +436,20 @@ class List {
 		})
 	}
 
-	async doesUserHavePermissions(type = 'manageWeb') {
+	async getPermissions() {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const parentSPObject = this.parent.getSPObject(clientContext)
 			const spObject = this.getSPObject(element[KEY_PROP], parentSPObject)
 			return load(clientContext, spObject, { view: 'EffectiveBasePermissions' })
 		})
-		const permissionId = getPermissionMasks()[type]
-		if (permissionId === undefined) throw new Error('Permission mask has invalid value')
+
 		await Promise.all(clientContexts.map(executorJSOM))
-		return isArray(result)
-			? result.map(el => el.get_effectiveBasePermissions().has(permissionId))
-			: result.get_effectiveBasePermissions().has(permissionId)
+
+		const allPermissionMasks = getPermissionMasks()
+		return Object.keys(allPermissionMasks).reduce((acc, el) => {
+			acc[el] = result.get_effectiveBasePermissions().has(allPermissionMasks[el])
+			return acc
+		}, {})
 	}
 
 	column(elements) {

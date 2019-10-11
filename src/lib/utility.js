@@ -1292,7 +1292,7 @@ export const testIsOk = (name) => () => console.log(`${name} is OK`)
 //  ========    =======  =====  ====  ==        ==  ====  ======
 //  ============================================================
 
-export const getRequestDigest = async (contextUrl) => axios({
+export const getRequestDigest = contextUrl => axios({
 	url: `${prependSlash(contextUrl)}/_api/contextinfo`,
 	headers: {
 		Accept: 'application/json; odata=verbose'

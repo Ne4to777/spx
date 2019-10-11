@@ -37,23 +37,25 @@ import keyword from './keyword'
 import mail from './mail'
 import time from './time'
 
+const KEY_PROP = 'Url'
+
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
 const lifter = switchCase(typeOf)({
 	object: context => {
-		const newContext = Object.assign({ Url: '', Title: '' }, context)
-		if (!context.Url && context.Title) newContext.Url = context.Title
-		if (context.Url !== '/') newContext.Url = shiftSlash(newContext.Url)
-		if (!context.Title && context.Url) newContext.Title = getTitleFromUrl(context.Url)
-		newContext.Url = newContext.Url.replace('file:///', '')
+		const newContext = Object.assign({ [KEY_PROP]: '', Title: '' }, context)
+		if (!context[KEY_PROP] && context.Title) newContext[KEY_PROP] = context.Title
+		if (context[KEY_PROP] !== '/') newContext[KEY_PROP] = shiftSlash(newContext[KEY_PROP])
+		if (!context.Title && context[KEY_PROP]) newContext.Title = getTitleFromUrl(context[KEY_PROP])
+		newContext[KEY_PROP] = newContext[KEY_PROP].replace('file:///', '')
 		return newContext
 	},
 	string: (contextUrl = '') => ({
-		Url: contextUrl === '/' ? '/' : shiftSlash(contextUrl.replace('file:///', '')),
+		[KEY_PROP]: contextUrl === '/' ? '/' : shiftSlash(contextUrl.replace('file:///', '')),
 		Title: getTitleFromUrl(contextUrl)
 	}),
 	default: () => ({
-		Url: '',
+		[KEY_PROP]: '',
 		Title: ''
 	})
 })
@@ -67,7 +69,7 @@ class Web {
 
 	async get(opts) {
 		const result = await this.box.chain(async element => {
-			const elementUrl = element.Url
+			const elementUrl = element[KEY_PROP]
 			const clientContext = getClientContext(elementUrl)
 			const spObject = hasUrlTailSlash(elementUrl)
 				? this.getSPObjectCollection(clientContext)
@@ -82,7 +84,7 @@ class Web {
 		const result = []
 		for (let i = 0; i < values.length; i += 1) {
 			const element = values[i]
-			const parentElementUrl = getParentUrl(element.Url)
+			const parentElementUrl = getParentUrl(element[KEY_PROP])
 			const clientContext = getClientContext(parentElementUrl)
 			const spObject = pipe([
 				getInstanceEmpty,
@@ -134,7 +136,7 @@ class Web {
 		const result = []
 		for (let i = 0; i < values.length; i += 1) {
 			const element = values[i]
-			const elementUrl = element.Url
+			const elementUrl = element[KEY_PROP]
 			if (!isStrictUrl(elementUrl)) return undefined
 			const clientContext = getClientContext(elementUrl)
 			const spObject = pipe([
@@ -174,7 +176,7 @@ class Web {
 		const values = this.box.getIterable()
 		for (let i = 0; i < values.length; i += 1) {
 			const element = values[i]
-			const elementUrl = element.Url
+			const elementUrl = element[KEY_PROP]
 			if (!isStrictUrl(elementUrl)) throw new Error('Wrong context url')
 			const clientContext = getClientContext(elementUrl)
 			const spObject = this.getSPObject(clientContext)
@@ -191,7 +193,7 @@ class Web {
 
 	async doesUserHavePermissions(type = 'fullMask') {
 		const result = await this.box.chain(async element => {
-			const clientContext = getClientContext(element.Url)
+			const clientContext = getClientContext(element[KEY_PROP])
 			const ob = getInstanceEmpty(SP.BasePermissions)
 			const permissionId = getPermissionMasks()[type]
 			if (permissionId === undefined) throw new Error('Permission mask has invalid value')
@@ -201,6 +203,19 @@ class Web {
 			return spObject.get_value()
 		})
 		return result
+	}
+
+	async getPermissions() {
+		const result = await this.box.chain(async element => {
+			const clientContext = getClientContext(element[KEY_PROP])
+			return executeJSOM(clientContext, this.getSPObject(clientContext), { view: 'EffectiveBasePermissions' })
+		})
+
+		const allPermissionMasks = getPermissionMasks()
+		return Object.keys(allPermissionMasks).reduce((acc, el) => {
+			acc[el] = result.get_effectiveBasePermissions().has(allPermissionMasks[el])
+			return acc
+		}, {})
 	}
 
 	async getSite(opts) {
