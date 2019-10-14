@@ -20,7 +20,7 @@ class RecycleBin {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	restoreAll(opts) {
+	async restoreAll(opts) {
 		const clientContext = getClientContext(this.contextUrl)
 		const spObject = this.getSPObjectCollection(clientContext)
 		spObject.restoreAll()

@@ -4,8 +4,7 @@ import {
 	getArray,
 	map,
 	getInstance,
-	switchCase,
-	typeOf,
+	switchType,
 	identity,
 	report,
 	executorREST,
@@ -16,7 +15,7 @@ import {
 const EMAIL_RE = /\S+@\S+\.\S+/
 const KEY_PROP = 'To'
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: identity,
 	default: () => ({
 		[KEY_PROP]: ''

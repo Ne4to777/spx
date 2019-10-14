@@ -28,8 +28,8 @@ class User {
 	constructor(parent, users) {
 		this.name = 'user'
 		this.parent = parent
-		this.isUsersArray = isArray(users)
-		this.users = users ? (this.isUsersArray ? flatten(users) : [users]) : []
+		this.isArray = isArray(users)
+		this.users = users ? (this.isArray ? flatten(users) : [users]) : []
 
 		if (!defaultList) {
 			defaultList = parent.of().list('User Information List')
@@ -54,7 +54,7 @@ class User {
 				? this.getAll(opts)
 				: isNumberFilled(el)
 					? this.getByUid(opts)
-					: /[а-яА-ЯЁё\s]/.test(el)
+					: /[а-яА-ЯЁё\s\\]/.test(el)
 						? this.getByName(opts)
 						: /\S+@\S+\.\S+/.test(el)
 							? this.getByEMail(opts)
@@ -109,25 +109,33 @@ class User {
 			? defaultList.item(userIds)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
-		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
+		return this.isArray || elements.length > 1 ? elements : elements[0]
 	}
 
 	async getByLogin(opts = {}) {
 		const { isSP } = opts
 		const isNative = isSP || !customList
+		let isByName = false
 		const userLogins = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
+					if (/\|/.test(item)) isByName = true
 					acc.push(item)
 					break
 				case 'Object': {
-					const value = item[isNative ? 'UserName' : customLoginColumn]
-					if (value) acc.push(value)
+					const userName = item.UserName
+					if (!userName) isByName = true
+					acc.push(isNative
+						? (userName || item.Name)
+						: item.customLoginColumn)
 					break
 				}
 				case 'SP.ListItem': {
-					const login = item.get_item(isNative ? 'UserName' : customLoginColumn)
-					if (login) acc.push(login)
+					const userName = item.get_item('UserName')
+					if (!userName) isByName = true
+					acc.push(isNative
+						? (userName || item.get_item('Name'))
+						: item.get_item(customLoginColumn))
 					break
 				}
 				default: {
@@ -138,10 +146,10 @@ class User {
 		})([])(this.users)
 		const query = `${customLoginColumn} In ${userLogins}`
 		const users = isNative
-			? defaultList.item(`UserName In ${userLogins}`)
+			? defaultList.item(`${isByName ? 'Name' : 'UserName'} In ${userLogins}`)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
-		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
+		return this.isArray || elements.length > 1 ? elements : elements[0]
 	}
 
 	async getByName(opts = {}) {
@@ -203,7 +211,7 @@ class User {
 			? defaultList.item(`EMail In ${userEMails}`)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
-		return this.isUsersArray || elements.length > 1 ? elements : elements[0]
+		return this.isArray || elements.length > 1 ? elements : elements[0]
 	}
 
 	async getAll(opts = {}) {
@@ -238,7 +246,7 @@ class User {
 			const results = await defaultList
 				.item(usersToUpdate)
 				.update(opts)
-			return this.isUsersArray || results.length > 1 ? results : results[0]
+			return this.isArray || results.length > 1 ? results : results[0]
 		}
 		if (!customList) throw new Error('Custom user list is missed')
 		const ids = this.users.filter(el => !!el[customIdColumn])
@@ -259,7 +267,7 @@ class User {
 				return acc
 			}, [])
 			const results = await customList.item(usersToUpdate).update({ ...opts, view: ['ID', customIdColumn] })
-			return this.isUsersArray || results.length > 1 ? results : results[0]
+			return this.isArray || results.length > 1 ? results : results[0]
 		}
 		throw new Error('missing user id')
 	}

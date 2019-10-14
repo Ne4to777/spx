@@ -51,7 +51,7 @@ spx().user().setDefaults({
 	customQuery: 'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
 })
 
-// test()
+test()
 
 // const getTermStore = clientContext => SP
 // 	.Taxonomy
@@ -108,20 +108,20 @@ clientContext.load(terms)
 const term = terms.getByName('test')
 clientContext.load(term)
 
-clientContext.executeQueryAsync(() => {
-	console.log(taxonomySession)
-	console.log(termStores)
-	console.log(termStore)
-	console.log(hashTags)
-	console.log(keywords)
-	console.log(orphanedTags)
-	console.log(groups)
-	console.log(group)
-	console.log(termSets)
-	console.log(termSet)
-	console.log(terms)
-	console.log(term)
-}, (sender, args) => console.error(args.get_message()))
+// clientContext.executeQueryAsync(() => {
+// 	console.log(taxonomySession)
+// 	console.log(termStores)
+// 	console.log(termStore)
+// 	console.log(hashTags)
+// 	console.log(keywords)
+// 	console.log(orphanedTags)
+// 	console.log(groups)
+// 	console.log(group)
+// 	console.log(termSets)
+// 	console.log(termSet)
+// 	console.log(terms)
+// 	console.log(term)
+// }, (sender, args) => console.error(args.get_message()))
 
 
 window.setListsNowCrawlByWeb = webUrl => spx(webUrl)

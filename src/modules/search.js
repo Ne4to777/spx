@@ -4,11 +4,10 @@ import {
 	load,
 	executorJSOM,
 	setFields,
-	switchCase,
-	typeOf
+	switchType
 } from '../lib/utility'
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: query => Object.assign({}, query),
 	string: (query = '') => ({
 		Query: query,

@@ -16,7 +16,7 @@ import {
 	pipe,
 	popSlash,
 	getListRelativeUrl,
-	switchCase,
+	switchType,
 	typeOf,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
@@ -79,7 +79,7 @@ const buildFoldersTree = elements => {
 }
 
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		if (!context[KEY_PROP]) newContext[KEY_PROP] = context.ServerRelativeUrl || context.FileRef

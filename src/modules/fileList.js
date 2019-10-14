@@ -26,13 +26,12 @@ import {
 	getInstanceEmpty,
 	executeJSOM,
 	isObject,
-	typeOf,
 	setItem,
 	ifThen,
 	join,
 	getListRelativeUrl,
 	listReport,
-	switchCase,
+	switchType,
 	shiftSlash,
 	pipe,
 	removeEmptyUrls,
@@ -134,7 +133,7 @@ async function copyOrMove(isMove, opts = {}) {
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		const name = context.Content ? context.Content.name : undefined

@@ -17,8 +17,7 @@ import {
 	hasUrlTailSlash,
 	rootReport,
 	isStrictUrl,
-	switchCase,
-	typeOf,
+	switchType,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	shiftSlash,
@@ -42,7 +41,7 @@ const KEY_PROP = 'Url'
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({ [KEY_PROP]: '', Title: '' }, context)
 		if (!context[KEY_PROP] && context.Title) newContext[KEY_PROP] = context.Title

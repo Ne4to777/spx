@@ -19,11 +19,9 @@ import {
 	isExists,
 	isString,
 	webReport,
-	switchCase,
-	typeOf,
+	switchType,
 	getInstance,
 	isGUID,
-	method,
 	removeEmptiesByProp,
 	removeDuplicatedProp,
 	getListRelativeUrl,
@@ -44,7 +42,7 @@ const KEY_PROP = 'Title'
 
 const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: list => {
 		const newList = Object.assign({}, list)
 		const { Url, EntityTypeName, Title } = list
@@ -70,7 +68,7 @@ const lifter = switchCase(typeOf)({
 	},
 	default: () => ({
 		Url: '/',
-		Title: undefined
+		[KEY_PROP]: undefined
 	})
 })
 

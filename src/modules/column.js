@@ -18,7 +18,7 @@ import {
 	switchCase,
 	isStringEmpty,
 	hasUrlTailSlash,
-	typeOf,
+	switchType,
 	shiftSlash,
 	mergeSlashes,
 	listReport,
@@ -37,7 +37,7 @@ const addFieldAsXml = spParentObject => schema => spParentObject.addFieldAsXml(
 
 const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: column => {
 		const newColumn = Object.assign({}, column)
 		if (column[KEY_PROP] !== '/') newColumn[KEY_PROP] = shiftSlash(newColumn[KEY_PROP])

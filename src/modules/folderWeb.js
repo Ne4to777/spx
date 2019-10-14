@@ -6,7 +6,7 @@ import {
 	prepareResponseJSOM,
 	load,
 	executorJSOM,
-	switchCase,
+	switchType,
 	getTitleFromUrl,
 	popSlash,
 	pipe,
@@ -70,7 +70,7 @@ const buildFoldersTree = elements => {
 }
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		if (!context[KEY_PROP] && context.ServerRelativeUrl) newContext[KEY_PROP] = context.ServerRelativeUrl

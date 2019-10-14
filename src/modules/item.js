@@ -17,7 +17,7 @@ import {
 	isNull,
 	isFilled,
 	getInstance,
-	switchCase,
+	switchType,
 	typeOf,
 	hasUrlTailSlash,
 	isObjectFilled,
@@ -67,7 +67,7 @@ const getPagingColumnsStr = columns => {
 }
 
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: item => Object.assign({}, item),
 	string: (item = '') => ({
 		[KEY_PROP]: item

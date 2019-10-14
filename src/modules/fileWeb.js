@@ -18,8 +18,7 @@ import {
 	executorREST,
 	prepareResponseREST,
 	getWebRelativeUrl,
-	switchCase,
-	typeOf,
+	switchType,
 	shiftSlash,
 	pipe,
 	removeEmptyUrls,
@@ -35,7 +34,7 @@ const KEY_PROP = 'Url'
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({}, context)
 		if (context[KEY_PROP] !== '/') newContext[KEY_PROP] = shiftSlash(newContext[KEY_PROP])

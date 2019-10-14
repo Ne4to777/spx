@@ -4,14 +4,13 @@ import {
 	load,
 	executorJSOM,
 	getInstance,
-	switchCase,
-	typeOf,
+	switchType,
 	deep1Iterator
 } from '../lib/utility'
 
 const KEY_PROP = 'Url'
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: item => Object.assign({}, item),
 	string: (item = '') => ({ [KEY_PROP]: item }),
 	default: () => ({ [KEY_PROP]: '/' })

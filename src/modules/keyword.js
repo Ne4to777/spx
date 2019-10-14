@@ -6,8 +6,7 @@ import {
 	getInstance,
 	prepareResponseJSOM,
 	executorJSOM,
-	switchCase,
-	typeOf,
+	switchType,
 	shiftSlash,
 	pipe,
 	removeEmptiesByProp,
@@ -34,7 +33,7 @@ const getAllTerms = clientContext => getTermSet(clientContext).getAllTerms()
 
 const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
-const lifter = switchCase(typeOf)({
+const lifter = switchType({
 	object: tag => {
 		const newTag = Object.assign({}, tag)
 		if (tag[KEY_PROP] !== '/') newTag[KEY_PROP] = shiftSlash(newTag[KEY_PROP])

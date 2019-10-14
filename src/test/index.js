@@ -22,8 +22,8 @@ export default async () => {
 	// await fileWeb()
 	// await list()
 	// await column()
-	// await folderList();
-	// await fileList();
+	// await folderList()
+	// await fileList()
 	// await item()
 	// await keyword()
 	testIsOk('whole test')()

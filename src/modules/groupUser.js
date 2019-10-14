@@ -12,32 +12,31 @@ import {
 	removeDuplicatedProp,
 	switchType,
 	pipe,
-	webReport,
+	setFields,
 	getInstanceEmpty,
-	setFields
+	listReport
 } from '../lib/utility'
 
-import user from './groupUser'
 
 const KEY_PROP = 'Title'
 
 const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
 const lifter = switchType({
-	object: group => {
-		const newGroup = Object.assign({}, group)
-		const { Title, LoginName } = group
+	object: user => {
+		const newGroup = Object.assign({}, user)
+		const { Title, LoginName } = user
 		newGroup[KEY_PROP] = LoginName || Title
 		if (!newGroup.LoginName) newGroup.LoginName = newGroup[KEY_PROP]
 		return newGroup
 	},
-	string: group => ({
-		[KEY_PROP]: group,
-		LoginName: group
+	string: user => ({
+		[KEY_PROP]: user,
+		LoginName: user
 	}),
-	number: group => ({
-		[KEY_PROP]: group,
-		LoginName: group
+	number: user => ({
+		[KEY_PROP]: user,
+		LoginName: user
 	}),
 	default: () => ({
 		[KEY_PROP]: undefined,
@@ -53,12 +52,13 @@ class Box extends AbstractBox {
 	}
 }
 
-class Group {
-	constructor(parent, groups) {
-		this.name = 'group'
+class GroupUser {
+	constructor(parent, groupUsers) {
+		this.name = 'user'
 		this.parent = parent
-		this.isArray = isArray(groups)
-		this.box = getInstance(Box)(groups)
+		this.isArray = isArray(groupUsers)
+		this.box = getInstance(Box)(groupUsers)
+		this.groupName = this.parent.box.getHead()[KEY_PROP]
 		this.count = this.box.getCount()
 		this.iterator = deep1Iterator({
 			elementBox: this.box
@@ -82,21 +82,13 @@ class Group {
 	async create(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const spObject = this.getSPObjectCollection(clientContext)
-			const groupCreationInfo = getInstanceEmpty(SP.GroupCreationInformation)
+			const userCreationInfo = getInstanceEmpty(SP.UserCreationInformation)
 			setFields({
-				set_description: element.Description,
+				set_email: element.Email,
+				set_loginName: element.LoginName,
 				set_title: element[KEY_PROP]
-			})(groupCreationInfo)
-			const newSPObject = spObject.add(groupCreationInfo)
-			setFields({
-				set_allowMembersEditMembership: element.AllowMembersEditMembership,
-				set_allowRequestToJoinLeave: element.AllowRequestToJoinLeave,
-				set_autoAcceptRequestToJoinLeave: element.AutoAcceptRequestToJoinLeave,
-				set_onlyAllowMembersViewMembership: element.OnlyAllowMembersViewMembership,
-				set_owner: element.Owner,
-				set_requestToJoinLeaveEmailSetting: element.RequestToJoinLeaveEmailSetting
-			})(newSPObject)
-			spObject.update()
+			})(userCreationInfo)
+			const newSPObject = spObject.add(userCreationInfo)
 			return load(clientContext, newSPObject, opts)
 		})
 
@@ -105,27 +97,6 @@ class Group {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async update(opts = {}) {
-		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
-			const spObject = this.getSPObject(element[KEY_PROP], clientContext)
-			setFields({
-				set_allowMembersEditMembership: element.AllowMembersEditMembership,
-				set_allowRequestToJoinLeave: element.AllowRequestToJoinLeave,
-				set_autoAcceptRequestToJoinLeave: element.AutoAcceptRequestToJoinLeave,
-				set_description: element.Description,
-				set_onlyAllowMembersViewMembership: element.OnlyAllowMembersViewMembership,
-				set_owner: element.Owner,
-				set_requestToJoinLeaveEmailSetting: element.RequestToJoinLeaveEmailSetting,
-				set_title: element[KEY_PROP]
-			})(spObject)
-			spObject.update()
-			return load(clientContext, spObject, opts)
-		})
-
-		if (this.count) await Promise.all(clientContexts.map(executorJSOM))
-		this.report('update', opts)
-		return prepareResponseJSOM(result, opts)
-	}
 
 	async delete(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
@@ -140,32 +111,34 @@ class Group {
 		return prepareResponseJSOM(result, opts)
 	}
 
-	user(elements) {
-		return user(this, elements)
-	}
-
-
 	getSPObject(element, clientContext) {
-		return this.getSPObjectCollection(clientContext)[isNumber(element) ? 'getById' : 'getByName'](element)
+		return this.getSPObjectCollection(clientContext)[
+			isNumber(element)
+				? 'getById'
+				: /@.+\./.test(element)
+					? 'getByEmail'
+					: 'getByLoginName'
+		](element)
 	}
 
 
 	getSPObjectCollection(clientContext) {
-		return this.parent.getSPObject(clientContext).get_siteGroups()
+		return this.parent.getSPObject(this.groupName, clientContext).get_users()
 	}
 
 	report(actionType, opts = {}) {
-		webReport(actionType, {
+		listReport(actionType, {
 			...opts,
 			name: this.name,
 			box: this.box,
-			contextUrl: '/'
+			contextUrl: '/',
+			listUrl: this.groupName
 		})
 	}
 
-	of(groups) {
-		return getInstance(this.constructor)(this.parent, groups)
+	of(groupUsers) {
+		return getInstance(this.constructor)(this.parent, groupUsers)
 	}
 }
 
-export default getInstance(Group)
+export default getInstance(GroupUser)
