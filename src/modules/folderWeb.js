@@ -121,10 +121,11 @@ class FolderWeb {
 			return load(clientContext, spObject, opts)
 		})
 		await Promise.all(clientContexts.map(executorJSOM))
+
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	create(opts = {}) {
+	async create(opts = {}) {
 		const { contextUrl } = this
 		const getRelativeUrl = getWebRelativeUrl(contextUrl)
 
@@ -153,10 +154,7 @@ class FolderWeb {
 
 				const parentFolderUrl = getParentUrl(elementUrl)
 				const spObject = this
-					.getSPObjectCollection(
-						`${parentFolderUrl}/`,
-						this.getContextSPObject(clientContext)
-					)
+					.getSPObjectCollection(`${parentFolderUrl}/`, clientContext)
 					.add(getTitleFromUrl(elementUrl))
 
 				load(clientContext, spObject, opts)
@@ -190,10 +188,10 @@ class FolderWeb {
 			contextUrl: this.contextUrl
 		})
 
-		return filteredResult
+		return this.box.isArray() ? filteredResult : filteredResult[0]
 	}
 
-	async	delete(opts = {}) {
+	async delete(opts = {}) {
 		const { noRecycle } = opts
 		const { contextUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {

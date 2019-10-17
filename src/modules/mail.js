@@ -30,7 +30,7 @@ class Box extends AbstractBox {
 	}
 
 	getCount() {
-		return this.isArray ? this.value.length : 1
+		return this.isArray() ? this.value.length : 1
 	}
 }
 

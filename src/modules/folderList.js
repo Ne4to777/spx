@@ -36,7 +36,9 @@ import {
 	urlSplit,
 	isArray,
 	isObjectFilled,
-	prop
+	reduce,
+	ifThen,
+	isNotError
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
@@ -44,7 +46,7 @@ const KEY_PROP = 'Url'
 
 const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 
-const buildFolderTree = acc => element => {
+const buildFolderTree = (acc = {}) => element => {
 	let folder
 	if (isObject(element)) {
 		const { Folder, Columns = {} } = element
@@ -57,26 +59,18 @@ const buildFolderTree = acc => element => {
 	return acc
 }
 
-const mutateObjectTreeFromArray = fix(fR => b => parentName => ([h, ...t]) => {
+const mutateObjectTreeFromArray = b => parentName => ([h, ...t]) => {
 	const base = b
 	const currentName = parentName ? `${parentName}/${h}` : h
 	if (t.length) {
 		if (!base[currentName]) base[currentName] = {}
-		return fR(base[currentName])(currentName)(t)
+		return mutateObjectTreeFromArray(base[currentName])(currentName)(t)
 	}
 	if (!base[currentName]) base[currentName] = {}
-	return undefined
-})
-
-const buildFoldersTree = elements => {
-	const foldersTree = {}
-	if (isArray(elements)) {
-		elements.map(buildFolderTree(foldersTree))
-	} else {
-		buildFolderTree(foldersTree)(elements)
-	}
-	return foldersTree
+	return base
 }
+
+const buildFoldersTree = ifThen(isArray)([reduce(buildFolderTree)(), buildFolderTree()])
 
 
 const lifter = switchType({
@@ -122,7 +116,7 @@ class FolderList {
 		})
 	}
 
-	async	get(opts = {}) {
+	async get(opts = {}) {
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		const { contextUrl, listUrl } = this
 		const { clientContexts, result } = await this.iterator()(({ clientContext, element }) => {
@@ -137,7 +131,7 @@ class FolderList {
 		return prepareResponseJSOM(result, options)
 	}
 
-	async	create(opts = {}) {
+	async create(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const { asItem } = opts
 		const getRelativeUrl = getListRelativeUrl(contextUrl)(listUrl)
@@ -146,64 +140,59 @@ class FolderList {
 			await this.cacheColumns()
 		}
 
-		const property = this.box.prop
-
 		const foldersMap = this.box.reduce(acc => el => {
-			acc[el[property]] = el
+			acc[getRelativeUrl(el)] = el
 			return acc
 		}, {})
+
 		const filteredResult = []
 
 		await fix(fR => async b => {
-			const names = Reflect.ownKeys(b)
-			const promises = []
+			const names = Object.keys(b)
 
+			const promises = []
 			for (let i = 0; i < names.length; i += 1) {
 				const name = names[i]
 				const element = foldersMap[name]
 				let elementUrl
-				let newElement
+				let newColumns
+
 				if (element) {
+					const { Columns } = element
 					elementUrl = getRelativeUrl(element)
-					newElement = { ...element, Title: getTitleFromUrl(elementUrl) }
-					delete newElement[KEY_PROP]
-					delete newElement.ServerRelativeUrl
+					newColumns = { ...Columns, Title: getTitleFromUrl(elementUrl) }
 				} else {
 					elementUrl = name
-					newElement = { Title: getTitleFromUrl(elementUrl) }
+					newColumns = { Title: getTitleFromUrl(elementUrl) }
 				}
 
 				const clientContext = getClientContext(contextUrl)
 				if (!isStrictUrl(elementUrl)) return undefined
-				const contextSPObject = this.getContextSPObject(clientContext)
-				const listSPObject = this.getListSPObject(listUrl, contextSPObject)
 				const itemCreationInfo = getInstanceEmpty(SP.ListItemCreationInformation)
 				itemCreationInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder)
 				itemCreationInfo.set_leafName(elementUrl)
 				const spObject = setItem(
 					cache.get(['columns', contextUrl, listUrl]) || {}
-				)(newElement)(listSPObject.addItem(itemCreationInfo))
+				)(newColumns)(this.parent.getSPObject(listUrl, clientContext).addItem(itemCreationInfo))
 				promises.push(executeJSOM(clientContext, spObject.get_folder(), options).catch(identity))
 			}
 
 			const result = prepareResponseJSOM(
-				(await Promise.all(promises)).filter(el => typeOf(el) !== 'error'),
+				(await Promise.all(promises)).filter(isNotError),
 				opts
 			)
 
 			result.reduce((acc, el) => {
 				if (foldersMap[getRelativeUrl({
-					[KEY_PROP]: el.ServerRelativeUrl
+					[KEY_PROP]: el.ServerRelativeUrl || el.FileRef
 				})]) acc.push(el)
 				return acc
 			}, filteredResult)
-			await Promise.all(names.map(async name => {
+			return Promise.all(names.map(async name => {
 				const o = b[name]
-				if (isObjectFilled(o)) await fR(o)
-				return undefined
+				return isObjectFilled(o) && fR(o)
 			}))
-			return undefined
-		})(buildFoldersTree(this.box.getIterable().map(prop(property))))
+		})(buildFoldersTree(this.box.getIterable().map(getRelativeUrl)))
 
 		listReport('create', {
 			...opts,
@@ -213,10 +202,10 @@ class FolderList {
 			contextUrl: this.contextUrl
 		})
 
-		return filteredResult
+		return this.box.isArray() ? filteredResult : filteredResult[0]
 	}
 
-	async	update(opts = {}) {
+	async update(opts = {}) {
 		const { contextUrl, listUrl } = this
 		const options = opts.asItem ? { ...opts, view: ['ListItemAllFields'] } : { ...opts }
 		await this.cacheColumns()
@@ -224,8 +213,10 @@ class FolderList {
 			REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE
 		)(({ clientContext, element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-			if (!isStrictUrl(elementUrl)) return undefined
-			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, element))(
+			const { Columns } = element
+			if (!isStrictUrl(elementUrl) || !Columns) return undefined
+
+			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, Columns))(
 				this.getSPObject(elementUrl, clientContext).get_listItemAllFields()
 			)
 			return load(clientContext, spObject.get_folder(), options)
@@ -234,10 +225,11 @@ class FolderList {
 			await Promise.all(clientContexts.map(executorJSOM))
 		}
 		this.report('update', opts)
+
 		return prepareResponseJSOM(result, opts)
 	}
 
-	async	delete(opts = {}) {
+	async delete(opts = {}) {
 		const { noRecycle } = opts
 		const { contextUrl, listUrl } = this
 		const { clientContexts, result } = await this.iterator(
@@ -283,7 +275,7 @@ class FolderList {
 		})
 	}
 
-	async	cacheColumns() {
+	async cacheColumns() {
 		const { contextUrl, listUrl } = this
 		if (!cache.get(['columns', contextUrl, listUrl])) {
 			const columns = await this

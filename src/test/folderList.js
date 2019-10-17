@@ -73,16 +73,22 @@ const workingWebList = web('test/spx').list('Test')
 const crud = async () => {
 	const folder = 'a/sub'
 	const url = `${folder}/singleFolder`
+
 	await workingWebList
 		.folder(folder)
 		.delete({ noRecycle: true, silentErrors: true })
 		.catch(identity)
+
 	const newFolder = await assertObjectProps('new folder')(workingWebList.folder(url).create())
+
 	assert('Name is not a "singleFolder"')(newFolder.Name === 'singleFolder')
+
 	const updatedFolder = await assertObjectProps('new folder')(
-		workingWebList.folder({ Url: url, Title: 'updated folder' }).update()
+		workingWebList.folder({ Url: url, Columns: { Title: 'updated folder' } }).update()
 	)
+
 	assert('Name is not a "singleFolder"')(updatedFolder.Name === 'singleFolder')
+
 	await workingWebList.folder(url).delete({ noRecycle: true })
 }
 
@@ -97,7 +103,7 @@ const crudAsItem = async () => {
 	// console.log(newFolder)
 	assert('FileLeafRef is not a "singleFolderAsItem"')(newFolder.FileLeafRef === 'singleFolderAsItem')
 	const updatedFolder = await assertObjectItemProps('new folder')(
-		workingWebList.folder({ Url: url, Title: 'updated folder' }).update({ asItem: true })
+		workingWebList.folder({ Url: url, Columns: { Title: 'updated folder' } }).update({ asItem: true })
 	)
 	// console.log(updatedFolder)
 	assert('Title is not a "updated folder"')(updatedFolder.Title === 'updated folder')
@@ -117,7 +123,17 @@ const crudCollection = async () => {
 	assert('Name is not a "multiFolderAnother"')(newFolders[1].Name === 'multiFolderAnother')
 	const updatedFolder = await assertCollectionProps('new folder')(
 		workingWebList
-			.folder([{ Url: url, Title: 'updated folder' }, { Url: urlAnother, Title: 'updated folder another' }])
+			.folder([{
+				Url: url,
+				Columns: {
+					Title: 'updated folder'
+				}
+			}, {
+				Url: urlAnother,
+				Columns: {
+					Title: 'updated folder another'
+				}
+			}])
 			.update({ silent: false })
 	)
 	assert('Name is not a "multiFolder"')(updatedFolder[0].Name === 'multiFolder')
@@ -135,18 +151,37 @@ const crudCollectionAsItem = async () => {
 		.catch(identity)
 	const newFolders = await assertCollectionItemProps('new folder')(
 		workingWebList
-			.folder([{ Url: url, Title1: 'new folder' }, { Url: urlAnother, Title1: 'new folder another' }])
+			.folder([{
+				Url: url,
+				Columns: {
+					Title1: 'new folder'
+				}
+			}, {
+				Url: urlAnother,
+				Columns: {
+					Title1: 'new folder another'
+				}
+			}])
 			.create({ asItem: true })
 	)
+
 	assert('Title1 is not a "new folder"')(newFolders[0].Title1 === 'new folder')
 	assert('Title1 is not a "new folder another"')(newFolders[1].Title1 === 'new folder another')
 	const updatedFolders = await assertCollectionItemProps('new folder')(
 		workingWebList
-			.folder([{ Url: url, Title1: 'updated folder' }, { Url: urlAnother, Title1: 'updated folder another' }])
+			.folder([{
+				Url: url,
+				Columns: { Title1: 'updated folder' }
+			}, {
+				Url: urlAnother,
+				Columns: { Title1: 'updated folder another' }
+			}])
 			.update({ asItem: true })
 	)
+
 	assert('Title1 is not a "updated folder"')(updatedFolders[0].Title1 === 'updated folder')
 	assert('Title1 is not a "updated folder another"')(updatedFolders[1].Title1 === 'updated folder another')
+
 	await workingWebList.folder([url, urlAnother]).delete({ noRecycle: true })
 }
 
@@ -166,7 +201,9 @@ const crudBundle = async () => {
 	console.log(newFolders)
 	const foldersToUpdate = reduce(acc => el => acc.concat({
 		Url: el.ServerRelativeUrl,
-		Title: `${el.Name} updated`
+		Columns: {
+			Title: `${el.Name} updated`
+		}
 	}))([])(newFolders)
 	console.log(foldersToUpdate)
 	const updatedItems = await bundleList.folder(foldersToUpdate).update()
@@ -184,7 +221,9 @@ export default () => Promise.all([
 	assertCollectionProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get()),
 
 	assertObjectItemProps('web a list folder')(workingWebList.folder('a').get({ asItem: true })),
-	assertCollectionItemProps('web a list folder')(workingWebList.folder('a/').get({ asItem: true })
+	assertCollectionItemProps('web a list folder')(workingWebList
+		.folder('a/')
+		.get({ asItem: true })
 		.then(filter(isObjectFilled))),
 	assertCollectionItemProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get({ asItem: true })),
 

@@ -10,11 +10,12 @@ class Time {
 	constructor(parent) {
 		this.name = 'time'
 		this.parent = parent
+		this.contextUrl = this.parent.contextUrl || '/'
 	}
 
 	async get() {
 		return new Promise(
-			(resolve, reject) => new SP.RequestExecutor('/').executeAsync({
+			(resolve, reject) => new SP.RequestExecutor(this.contextUrl).executeAsync({
 				url: '/_api/web/RegionalSettings/TimeZone',
 				success(res) {
 					resolve(new Date(res.headers.DATE))
@@ -25,11 +26,8 @@ class Time {
 	}
 
 	async getZone(opts) {
-		const clientContext = getClientContext('/')
-		const spObject = clientContext
-			.get_web()
-			.get_regionalSettings()
-			.get_timeZone()
+		const clientContext = getClientContext(this.contextUrl)
+		const spObject = this.parent.getSPObject(clientContext).get_regionalSettings().get_timeZone()
 		const result = await executeJSOM(clientContext, spObject, opts)
 		return prepareResponseJSOM(result, opts)
 	}

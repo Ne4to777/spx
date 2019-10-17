@@ -116,15 +116,14 @@ const crudCollection = async () => {
 	await web([name1, name2])
 		.delete({ noRecycle: true })
 		.catch(identity)
-	const newWebs = await assertCollectionProps('new webs')(
-		web([{
-			Url: name1,
-			Description: 'Default Aura Web Template'
-		}, {
-			Url: name2,
-			Description: 'Default Aura Web Template'
-		}]).create()
-	)
+	const webs = await web([{
+		Url: name1,
+		Description: 'Default Aura Web Template'
+	}, {
+		Url: name2,
+		Description: 'Default Aura Web Template'
+	}]).create()
+	const newWebs = await assertCollectionProps('new webs')(webs)
 	map(newWeb => assert('Description is not a "Default Aura Web Template"')(
 		newWeb.Description === 'Default Aura Web Template'
 	))(newWebs)
@@ -159,5 +158,5 @@ export default () => Promise.all([
 	// assertCollectionProps('web')(web([{ Url: 'test/spx/testWeb' }, { Url: 'test/spx/testWebAnother' }]).get()),
 	// doesUserHavePermissions(),
 	// crud(),
-	crudCollection()
+	// crudCollection()
 ]).then(testIsOk('web'))

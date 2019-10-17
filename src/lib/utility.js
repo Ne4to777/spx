@@ -551,6 +551,8 @@ export const isArrayFilled = pipe([filter(isDefined), prop('length'), toBoolean]
 export const isArrayEmpty = pipe([isArrayFilled, not])
 export const isObjectFilled = ifThen(isObject)([pipe([keys, isArrayFilled]), FALSE])
 export const isObjectEmpty = pipe([keys, isArrayEmpty])
+export const isError = x => typeOf(x) === 'error'
+export const isNotError = x => typeOf(x) !== 'error'
 export const isExists = (x) => isDefined(x) && isNotNull(x)
 export const isNotExists = pipe([isExists, not])
 export const isFilled = ifThen(isExists)([
@@ -757,7 +759,7 @@ export const getFolderFromUrl = ifThen(stringTest(/\./))([getParentUrl, popSlash
 export const getFilenameFromUrl = ifThen(stringTest(/\./))([getTitleFromUrl, NULL])
 export const isStrictUrl = (url) => isStringFilled(url) && !hasUrlTailSlash(url)
 
-export const getListRelativeUrl = (webUrl) => (listUrl) => (element = {}) => {
+export const getListRelativeUrl = webUrl => listUrl => (element = {}) => {
 	const { Url, Folder } = element
 	if (Folder) {
 		const folder = shiftSlash(Folder)
@@ -837,6 +839,10 @@ export class AbstractBox {
 	getIterable() {
 		return isArray(this.value) ? this.value : [this.value]
 	}
+
+	isArray() {
+		return isArray(this.value)
+	}
 }
 
 //  =============================================================================
@@ -913,14 +919,16 @@ export const getClientContext = url => {
 //  =====  ====  =        ==      ==  =========    ===  =======  ==      ==        =====
 //  ====================================================================================
 
-const getSPObjectValues = (asItem) => ifThen(isExists)([
+const getSPObjectValues = asItem => ifThen(isExists)([
 	pipe([
 		ifThen(constant(asItem))([methodEmpty('get_listItemAllFields')]),
-		switchProp({
-			get_fieldValues: methodEmpty('get_fieldValues'),
-			get_objectData: pipe([methodEmpty('get_objectData'), methodEmpty('get_properties')]),
-			default: tryCatch(pipe([JSON.stringify, sum('Wrong spObject: '), throwError]))(throwError)
-		})
+		ifThen(isObject)([
+			switchProp({
+				get_fieldValues: methodEmpty('get_fieldValues'),
+				get_objectData: pipe([methodEmpty('get_objectData'), methodEmpty('get_properties')]),
+				default: tryCatch(pipe([JSON.stringify, sum('Wrong spObject: '), throwError]))(throwError)
+			})
+		])
 	])
 ])
 

@@ -87,7 +87,7 @@ class Tag {
 		})
 
 		await Promise.all(clientContexts.map(executorJSOM))
-		return prepareResponseJSOM(isExact && this.box.isArray === 1 ? result[0] : result, opts)
+		return prepareResponseJSOM(isExact && this.box.isArray() === 1 ? result[0] : result, opts)
 	}
 
 	async search(opts) {

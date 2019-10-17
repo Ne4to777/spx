@@ -1,7 +1,6 @@
 /* eslint-disable class-methods-use-this */
 import { isNumber } from 'util'
 import {
-	isArray,
 	getInstance,
 	executorJSOM,
 	load,
@@ -56,7 +55,6 @@ class GroupUser {
 	constructor(parent, groupUsers) {
 		this.name = 'user'
 		this.parent = parent
-		this.isArray = isArray(groupUsers)
 		this.box = getInstance(Box)(groupUsers)
 		this.groupName = this.parent.box.getHead()[KEY_PROP]
 		this.count = this.box.getCount()

@@ -128,7 +128,7 @@ class Web {
 		}
 
 		this.report('create', opts)
-		return prepareResponseJSOM(this.box.isArray ? result : result[0], opts)
+		return prepareResponseJSOM(this.box.isArray() ? result : result[0], opts)
 	}
 
 	async update(opts) {
@@ -169,7 +169,7 @@ class Web {
 			}
 		}
 		this.report('update', opts)
-		return prepareResponseJSOM(this.box.isArray ? result : result[0], opts)
+		return prepareResponseJSOM(this.box.isArray() ? result : result[0], opts)
 	}
 
 	async delete(opts) {

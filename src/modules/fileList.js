@@ -256,7 +256,7 @@ class Box extends AbstractBox {
 	}
 
 	getCount() {
-		return this.isArray ? removeEmptyFilenames(this.value).length : hasUrlFilename(this.value[this.prop]) ? 1 : 0
+		return this.isArray() ? removeEmptyFilenames(this.value).length : hasUrlFilename(this.value[this.prop]) ? 1 : 0
 	}
 }
 

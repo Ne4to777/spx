@@ -123,11 +123,12 @@ const crudCollection = async () => {
 		.delete({ noRecycle: true })
 }
 
-const doesUserHavePermissions = async () => {
-	const has = await web('test/spx')
+const getPermissions = async () => {
+	const permissions = await web('test/spx')
 		.list('Test')
-		.doesUserHavePermissions()
-	assert('user has wrong permissions for list')(has)
+		.getPermissions()
+
+	assert('user has wrong permissions for list')(Object.keys(permissions).length === 37)
 }
 
 export default () => Promise.all([
@@ -136,7 +137,7 @@ export default () => Promise.all([
 	assertObjectProps('web list')(workingWeb.list('Test').get()),
 	assertCollectionProps('web root list')(workingWeb.list('/').get()),
 	assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
-	doesUserHavePermissions()
+	getPermissions(),
 	// crud(),
 	// crudCollection(),
 ]).then(testIsOk('list'))

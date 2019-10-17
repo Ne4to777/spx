@@ -21,6 +21,7 @@ const crud = async () => {
 		.folder('singleFolder')
 		.delete({ noRecycle: true, silent: true })
 		.catch(identity)
+
 	const newFolder = await assertObjectProps('new folder')(workingWeb.folder('singleFolder').create())
 	assert('Name is not a "singleFolder"')(newFolder.Name === 'singleFolder')
 	await workingWeb.folder('singleFolder').delete({ noRecycle: true })
