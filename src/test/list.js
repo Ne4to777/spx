@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	identity
 } from '../lib/utility'
@@ -131,13 +131,22 @@ const getPermissions = async () => {
 	assert('user has wrong permissions for list')(Object.keys(permissions).length === 37)
 }
 
-export default () => Promise.all([
-	assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
-	assertCollectionProps('root web list')(rootWeb.list('/').get()),
-	assertObjectProps('web list')(workingWeb.list('Test').get()),
-	assertCollectionProps('web root list')(workingWeb.list('/').get()),
-	assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
-	getPermissions(),
-	// crud(),
-	// crudCollection(),
-]).then(testIsOk('list'))
+export default {
+	get: () => testWrapper('web GET')([
+		() => assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
+		() => assertCollectionProps('root web list')(rootWeb.list('/').get()),
+		() => assertObjectProps('web list')(workingWeb.list('Test').get()),
+		() => assertCollectionProps('web root list')(workingWeb.list('/').get()),
+		() => assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
+		() => getPermissions(),
+	]),
+	crud: () => testWrapper('web CRUD')([crud]),
+	crudCollection: () => testWrapper('web CRUD Collection')([crudCollection]),
+	all() {
+		testWrapper('web ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+		])
+	}
+}

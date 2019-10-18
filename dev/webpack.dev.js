@@ -15,6 +15,7 @@ module.exports = {
 		contentBase: './dev/assets',
 		port: 3000,
 		hot: true,
+		watchContentBase: true,
 		before: (app) => {
 			new RestProxy({
 				configPath: './dev/private.json',
@@ -28,7 +29,8 @@ module.exports = {
 		new HtmlWebpackPlugin({
 			template: 'dev/assets/index.ejs',
 			templateParameters: {
-				sp: 'sp.assembly.js'
+				sp: 'sp.assembly.js',
+				style: 'index.css'
 			}
 		})
 	],

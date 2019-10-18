@@ -29,6 +29,7 @@ import {
 } from './lib/utility'
 import * as cache from './lib/cache'
 
+window.test = test
 
 window.axios = axios
 window.log = log
@@ -51,7 +52,7 @@ spx().user().setDefaults({
 	customQuery: 'Email IsNotNull && (deleted IsNull && (Position Neq Неактивный сотрудник && Position Neq Резерв))'
 })
 
-test()
+// test()
 
 // const getTermStore = clientContext => SP
 // 	.Taxonomy

@@ -35,51 +35,59 @@ const assertObjectProps = assertObject(PROPS)
 const assertCollectionProps = assertCollection(PROPS)
 
 const crud = async () => {
-	const tagName = 'Sharepoint rocks'
-	const newTagName = 'Sharepoint rocks!!!'
+	const keywordName = 'Sharepoint rocks'
+	const newKeywordName = 'Sharepoint rocks!!!'
 	await web()
-		.tag(tagName)
+		.keyword(keywordName)
 		.delete({ silentErrors: true })
 		.catch(identity)
-	const newTag = await assertObjectProps('new tag')(web().tag({ Label: tagName }).create({ detailed: true }))
-	assert(`Name is not a "${tagName}"`)(newTag.Name === tagName)
-	const updatedTag = await assertObjectProps('updated tag')(web().tag({
-		Label: tagName,
-		Name: newTagName
+	const newKeyword = await assertObjectProps('new keyword')(web()
+		.keyword({ Label: keywordName })
+		.create({ detailed: true }))
+	assert(`Name is not a "${keywordName}"`)(newKeyword.Name === keywordName)
+	const updatedkeyword = await assertObjectProps('updated keyword')(web().keyword({
+		Label: keywordName,
+		Name: newKeywordName
 	}).update({ detailed: true }))
-	assert(`Name is not a "${newTagName}"`)(updatedTag.Name === newTagName)
-	await web().tag(newTagName).delete({ detailed: true })
+	assert(`Name is not a "${newKeywordName}"`)(updatedkeyword.Name === newKeywordName)
+	await web().keyword(newKeywordName).delete({ detailed: true })
 }
 
 const crudCollection = async () => {
-	const tagName = 'Sharepoint rocks multi'
-	const tagNameAnother = 'Sharepoint rocks another multi'
-	const newTagName = 'Sharepoint rocks!!! multi'
-	const newTagNameAnother = 'Sharepoint rocks another!!! multi'
+	const keywordName = 'Sharepoint rocks multi'
+	const keywordNameAnother = 'Sharepoint rocks another multi'
+	const newKeywordName = 'Sharepoint rocks!!! multi'
+	const newKeywordNameAnother = 'Sharepoint rocks another!!! multi'
 	await web()
-		.tag([tagName, tagNameAnother])
+		.keyword([keywordName, keywordNameAnother])
 		.delete({ silentErrors: true })
 		.catch(identity)
-	const newTags = await assertCollectionProps('new tags')(
-		web().tag([{ Label: tagName }, { Label: tagNameAnother }]).create()
+	const newkeywords = await assertCollectionProps('new keywords')(
+		web().keyword([{ Label: keywordName }, { Label: keywordNameAnother }]).create()
 	)
-	assert(`Name is not a "${tagName}"`)(newTags[0].Name === tagName)
-	assert(`Name is not a "${tagNameAnother}"`)(newTags[1].Name === tagNameAnother)
-	const updatedTags = await assertCollectionProps('updated tag')(
+	assert(`Name is not a "${keywordName}"`)(newkeywords[0].Name === keywordName)
+	assert(`Name is not a "${keywordNameAnother}"`)(newkeywords[1].Name === keywordNameAnother)
+	const updatedkeywords = await assertCollectionProps('updated keyword')(
 		web()
-			.tag([{ Label: tagName, Name: newTagName }, { Label: tagNameAnother, Name: newTagNameAnother }])
+			.keyword([{
+				Label: keywordName,
+				Name: newKeywordName
+			}, {
+				Label: keywordNameAnother,
+				Name: newKeywordNameAnother
+			}])
 			.update()
-			.catch(() => web().tag([newTagName, newTagNameAnother]).delete())
+			.catch(() => web().keyword([newKeywordName, newKeywordNameAnother]).delete())
 	)
-	assert(`Name is not a "${newTagName}"`)(updatedTags[0].Name === newTagName)
-	assert(`Name is not a "${newTagNameAnother}"`)(updatedTags[1].Name === newTagNameAnother)
-	await web().tag([newTagName, newTagNameAnother]).delete()
+	assert(`Name is not a "${newKeywordName}"`)(updatedkeywords[0].Name === newKeywordName)
+	assert(`Name is not a "${newKeywordNameAnother}"`)(updatedkeywords[1].Name === newKeywordNameAnother)
+	await web().keyword([newKeywordName, newKeywordNameAnother]).delete()
 }
 
 export default async () => Promise.all([
-	// assertObjectProps('tag "test"')(web().tag('test').get()),
-	// assert('tags are present')((await web().tag(['test', 'b']).get()).length === 1),
-	// assert('tags are missed')((await web().tag(['test', 'a']).get()).length === 2),
+	assertObjectProps('keyword "test"')(web().keyword('test').get()),
+	assert('keywords are present')((await web().keyword(['test', 'b']).get()).length === 1),
+	assert('keywords are missed')((await web().keyword(['test', 'a']).get()).length === 2),
 	// crud(),
 	// crudCollection()
-]).then(testIsOk('tag'))
+]).then(testIsOk('keyword'))

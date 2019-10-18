@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	map,
 	prop,
@@ -253,9 +253,9 @@ const page = async () => {
 	const limit = 10
 	const spxList = web('test/spx').list('Pager')
 	const firstPage = await spxList.item({ Page: { ID: 10 }, Limit: limit }).get()
-	console.log(firstPage)
+	// console.log(firstPage)
 	const secondPage = await spxList.item({ Page: { ID: 30 }, Limit: limit }).get()
-	console.log(secondPage)
+	// console.log(secondPage)
 
 	const firstPageDesc = await spxList.item({
 		Page: {
@@ -267,7 +267,7 @@ const page = async () => {
 		Limit: limit,
 		OrderBy: ['Title>']
 	}).get()
-	console.log(firstPageDesc)
+	// console.log(firstPageDesc)
 	const secondPageDesc = await spxList.item({
 		Page: {
 			ID: 20,
@@ -278,23 +278,36 @@ const page = async () => {
 		Limit: limit,
 		OrderBy: 'Title>'
 	}).get()
-	console.log(secondPageDesc)
+	// console.log(secondPageDesc)
 }
 
-export default () => Promise.all([
-	assertObjectUserProps('user web list item 10842 ID')(userWebList.item(10842).get()),
-	assertCollectionUserProps('user web list item first')(userWebList.item({ Limit: 1 }).get()),
-	assertCollectionUserProps('user web list item 10842 ID')(userWebList.item('ID eq 10842').get()),
-	assertCollectionProps('web list item')(workingWebList.item().get()),
-	assertObjectProps('web a list item 305 ID ')(workingWebList.item(305).get()),
-	assertCollectionProps('web d list item')(workingWebList.item({ Folder: 'd' }).get()),
-	assertCollectionProps('web d, e list item')(workingWebList.item([{ Folder: 'd' }, { Folder: 'e' }]).get()),
-
-	// crud(),
-	// crudCollection(),
-
-	// crudTags(),
-
-	// page()
-	// crudBundle(),
-]).then(testIsOk('itemList'))
+export default {
+	get: () => testWrapper('item GET')([
+		() => assertObjectUserProps('user item 10842 ID')(userWebList.item(10842).get()),
+		() => assertCollectionUserProps('user item first')(userWebList.item({ Limit: 1 }).get()),
+		() => assertCollectionUserProps('user item 10842 ID')(userWebList.item('ID eq 10842').get()),
+		() => assertCollectionProps('item')(workingWebList.item().get()),
+		() => assertObjectProps('item 305 ID ')(workingWebList.item(305).get()),
+		() => assertCollectionProps('folder d item')(workingWebList.item({ Folder: 'd' }).get()),
+		() => assertCollectionProps('folders d, e items')(workingWebList.item([{
+			Folder: 'd'
+		}, {
+			Folder: 'e'
+		}]).get()),
+	]),
+	crud: () => testWrapper('item CRUD')([crud]),
+	crudCollection: () => testWrapper('item CRUD Collection')([crudCollection]),
+	crudTags: () => testWrapper('item CRUD tags')([crudTags]),
+	page: () => testWrapper('item Page')([page]),
+	crudBundle: () => testWrapper('item CRUD Bundle')([crudBundle]),
+	all() {
+		testWrapper('item ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudTags,
+			this.page,
+			this.crudBundle
+		])
+	}
+}

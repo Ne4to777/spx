@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	identity
 } from '../lib/utility'
@@ -127,37 +127,30 @@ const crudCollection = async () => {
 		.delete()
 }
 
-export default async () => Promise.all([
-	assertObjectProps('root web list column')(
-		rootWeb
+export default {
+	get: () => testWrapper('column GET')([
+		() => assertObjectProps('root web list column')(rootWeb
 			.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
 			.column('Title')
-			.get()
-	),
-	assertCollectionProps('root web list column')(
-		rootWeb
+			.get()),
+		() => assertCollectionProps('root web list column')(rootWeb
 			.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2')
 			.column()
-			.get()
-	),
-	assertObjectProps('web list column')(
-		workingWeb
-			.list('Test')
-			.column('Title')
-			.get()
-	),
-	assertCollectionProps('web root list column')(
-		workingWeb
-			.list('Test')
-			.column()
-			.get()
-	),
-	assertCollectionProps('web Test, TestAnother list column')(
-		workingWeb
+			.get()),
+		() => assertObjectProps('web list column')(workingWeb.list('Test').column('Title').get()),
+		() => assertCollectionProps('web root list column')(workingWeb.list('Test').column().get()),
+		() => assertCollectionProps('web Test, TestAnother list column')(workingWeb
 			.list(['Test', 'TestAnother'])
 			.column(['Title', 'Author'])
-			.get()
-	),
-	// await crud(),
-	// crudCollection()
-]).then(testIsOk('column'))
+			.get()),
+	]),
+	crud: () => testWrapper('column CRUD')([crud]),
+	crudCollection: () => testWrapper('column CRUD Collection')([crudCollection]),
+	all() {
+		testWrapper('column ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+		])
+	}
+}

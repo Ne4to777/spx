@@ -1,6 +1,10 @@
 
-/* eslint no-unused-vars:0 */
 import cache from './cache'
+import recycleBin from './recycleBin'
+import attachment from './attachment'
+import group from './group'
+import groupUser from './groupUser'
+import time from './time'
 import web from './web'
 import column from './column'
 import fileList from './fileList'
@@ -12,19 +16,23 @@ import list from './list'
 import user from './user'
 import keyword from './keyword'
 import queryParser from './query-parser'
-import { testIsOk } from '../lib/utility'
 
-export default async () => {
-	// await cache()
-	// await queryParser()
-	// await web()
-	// await folderWeb()
-	// await fileWeb()
-	// await list()
-	// await column()
-	await folderList()
-	// await fileList()
-	// await item()
-	// await keyword()
-	testIsOk('whole test')()
+export default {
+	recycleBin,
+	group,
+	groupUser,
+	attachment,
+	time,
+	web,
+	column,
+	fileList,
+	fileWeb,
+	folderList,
+	folderWeb,
+	item,
+	list,
+	user,
+	keyword,
+	queryParser,
+	cache
 }

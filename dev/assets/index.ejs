@@ -2,12 +2,158 @@
 <html>
 
 <head>
-  <title>SPX</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
-  <script src="<%= sp %>"></script>
+	<title>SPX</title>
+	<link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+	<style>
+		body {
+			margin: 20px
+		}
+
+		.elements__container {
+			margin-left: 20px;
+		}
+
+		h2 {
+			display: inline-block;
+			font-family: Arial, Helvetica, sans-serif;
+			vertical-align: sub;
+			margin: 0 50px 10px 0;
+		}
+	</style>
+	<script src="<%= sp %>"></script>
 </head>
 
 <body>
+	<div class="web__container">
+		<div class="element__container">
+			<h2>Web</h2>
+			<input type="button" value="Get" onClick="test.web.get()" />
+			<input type="button" value="CRUD" onClick="test.web.crud()" />
+			<input type="button" value="CRUD Collection" onClick="test.web.crudCollection()" />
+			<input type="button" value="All" onClick="test.web.all()" />
+		</div>
+		<div class="elements__container">
+			<div class="list__container">
+				<div class="element__container">
+					<h2>List</h2>
+					<input type="button" value="Get" onClick="test.list.get()" />
+					<input type="button" value="CRUD" onClick="test.list.crud()" />
+					<input type="button" value="CRUD Collection" onClick="test.list.crudCollection()" />
+					<input type="button" value="All" onClick="test.list.all()" />
+				</div>
+				<div class="elements__container">
+					<div class="column__container">
+						<h2>Column</h2>
+						<input type="button" value="Get" onClick="test.column.get()" />
+						<input type="button" value="CRUD" onClick="test.column.crud()" />
+						<input type="button" value="CRUD Collection" onClick="test.column.crudCollection()" />
+						<input type="button" value="All" onClick="test.column.all()" />
+					</div>
+					<div class="folder__container">
+						<h2>Folder</h2>
+						<input type="button" value="Get" onClick="test.folderList.get()" />
+						<input type="button" value="CRUD" onClick="test.folderList.crud()" />
+						<input type="button" value="CRUD Collection" onClick="test.folderList.crudCollection()" />
+						<input type="button" value="CRUD as item" onClick="test.folderList.crudAsItem()" />
+						<input type="button" value="CRUD Collection as item"
+							onClick="test.folderList.crudCollectionAsItem()" />
+						<input type="button" value="CRUD Bundle" onClick="test.folderList.crudBundle()" />
+						<input type="button" value="All" onClick="test.folderList.all()" />
+					</div>
+					<div class="file__container">
+						<h2>File</h2>
+						<input type="button" value="Get" onClick="test.fileList.get()" />
+						<input type="button" value="CRUD" onClick="test.fileList.crud()" />
+						<input type="button" value="CRUD Collection" onClick="test.fileList.crudCollection()" />
+						<input type="button" value="CRUD as item" onClick="test.fileList.crudAsItem()" />
+						<input type="button" value="CRUD Collection as item"
+							onClick="test.fileList.crudCollectionAsItem()" />
+						<input type="button" value="CRUD as string" onClick="test.fileList.crudAsSting()" />
+						<input type="button" value="CRUD as blob" onClick="test.fileList.crudAsBlob()" />
+						<input type="button" value="All" onClick="test.fileList.all()" />
+					</div>
+					<div class="item__container">
+						<div class="element__container">
+							<h2>Item</h2>
+							<input type="button" value="Get" onClick="test.item.get()" />
+							<input type="button" value="CRUD" onClick="test.item.crud()" />
+							<input type="button" value="CRUD Collection" onClick="test.item.crudCollection()" />
+							<input type="button" value="CRUD Bundle" onClick="test.item.crudBundle()" />
+							<input type="button" value="CRUD Tags" onClick="test.item.crudTags()" />
+							<input type="button" value="Page" onClick="test.item.page()" />
+							<input type="button" value="All" onClick="test.item.all()" />
+						</div>
+						<div class="elements__container">
+							<div class="attachment__container">
+								<div class="element__container">
+									<h2>Attachment</h2>
+									<input type="button" value="Get" onClick="test.attachment.get()" />
+									<input type="button" value="All" onClick="test.attachment.all()" />
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="folder__container">
+				<h2>Folder</h2>
+				<input type="button" value="Get" onClick="test.folderWeb.get()" />
+				<input type="button" value="CRUD" onClick="test.folderWeb.crud()" />
+				<input type="button" value="CRUD Collection" onClick="test.folderWeb.crudCollection()" />
+				<input type="button" value="CRUD Bundle" onClick="test.folderWeb.crudBundle()" />
+				<input type="button" value="All" onClick="test.folderWeb.all()" />
+			</div>
+			<div class="file__container">
+				<h2>File</h2>
+				<input type="button" value="Get" onClick="test.fileWeb.get()" />
+				<input type="button" value="CRUD" onClick="test.fileWeb.crud()" />
+				<input type="button" value="CRUD Collection" onClick="test.fileWeb.crudCollection()" />
+				<input type="button" value="CRUD Bundle" onClick="test.fileWeb.crudBundle()" />
+				<input type="button" value="All" onClick="test.fileWeb.all()" />
+			</div>
+			<div class="recycle-bin__container">
+				<div class="element__container">
+					<h2>RecycleBin</h2>
+					<input type="button" value="Get" onClick="test.recycleBin.get()" />
+					<input type="button" value="All" onClick="test.recycleBin.all()" />
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="time__container">
+		<div class="element__container">
+			<h2>Time</h2>
+			<input type="button" value="Get" onClick="test.time.get()" />
+			<input type="button" value="All" onClick="test.time.all()" />
+		</div>
+	</div>
+	<div class="group__container">
+		<div class="element__container">
+			<h2>Group</h2>
+			<input type="button" value="Get" onClick="test.group.get()" />
+			<input type="button" value="CRUD" onClick="test.group.crud()" />
+			<input type="button" value="CRUD Collection" onClick="test.group.crudCollection()" />
+			<input type="button" value="All" onClick="test.group.all()" />
+		</div>
+		<div class="elements__container">
+			<div class="user__container">
+				<div class="element__container">
+					<h2>User</h2>
+					<input type="button" value="Get" onClick="test.groupUser.get()" />
+					<input type="button" value="CRUD" onClick="test.groupUser.crud()" />
+					<input type="button" value="CRUD Collection" onClick="test.groupUser.crudCollection()" />
+					<input type="button" value="All" onClick="test.groupUser.all()" />
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="utility__container">
+		<div class="element__container">
+			<h2>Utility</h2>
+			<input type="button" value="Cache" onClick="test.cache.run()" />
+			<input type="button" value="Query Parse" onClick="test.queryParser.run()" />
+		</div>
+	</div>
 </body>
 
 </html>

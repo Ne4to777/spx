@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	identity
 } from '../lib/utility'
@@ -57,14 +57,24 @@ const crudBundle = async () => {
 		.delete({ noRecycle: true })
 }
 
-export default () => Promise.all([
-	// assertObjectProps('root web folder')(rootWeb.folder().get()),
-	// assertCollectionProps('root web folder')(rootWeb.folder('/').get()),
-	// assertObjectProps('web root folder')(workingWeb.folder().get()),
-	// assertObjectProps('web _catalogs folder')(workingWeb.folder('_catalogs').get()),
-	// assertCollectionProps('web _catalogs folder')(workingWeb.folder('_catalogs/').get()),
-	// assertCollectionProps('web _catalogs folder')(workingWeb.folder(['_catalogs', 'Files']).get()),
-	// crud(),
-	// crudCollection(),
-	// crudBundle()
-]).then(testIsOk('folderWeb'))
+export default {
+	get: () => testWrapper('web folder GET')([
+		() => assertObjectProps('root web folder')(rootWeb.folder().get()),
+		() => assertCollectionProps('root web folder')(rootWeb.folder('/').get()),
+		() => assertObjectProps('web root folder')(workingWeb.folder().get()),
+		() => assertObjectProps('web _catalogs folder')(workingWeb.folder('_catalogs').get()),
+		() => assertCollectionProps('web _catalogs folder')(workingWeb.folder('_catalogs/').get()),
+		() => assertCollectionProps('web _catalogs folder')(workingWeb.folder(['_catalogs', 'Files']).get()),
+	]),
+	crud: () => testWrapper('web folder CRUD')([crud]),
+	crudCollection: () => testWrapper('web folder CRUD Collection')([crudCollection]),
+	crudBundle: () => testWrapper('web folder CRUD Bundle')([crudBundle]),
+	all() {
+		testWrapper('web folder ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudBundle
+		])
+	}
+}

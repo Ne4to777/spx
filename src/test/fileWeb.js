@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	identity
 } from '../lib/utility'
@@ -77,13 +77,25 @@ const crudBundle = async () => {
 	await workingWeb.folder(foldersToCreate).delete({ noRecycle: true })
 }
 
-export default () => Promise.all([
-	assertObjectProps('root web file')(rootWeb.file('index.html').get()),
-	assertCollectionProps('root web file')(rootWeb.file('/').get()),
-	assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
-	assertCollectionProps('web root file')(workingWeb.file('/').get()),
-	assertCollectionProps('web index.aspx, default.aspx file')(workingWeb.file(['index.aspx', 'default.aspx']).get()),
-	// crud(),
-	// crudCollection(),
-	// crudBundle()
-]).then(testIsOk('fileWeb'))
+export default {
+	get: () => testWrapper('web file GET')([
+		() => assertObjectProps('root web file')(rootWeb.file('index.html').get()),
+		() => assertCollectionProps('root web file')(rootWeb.file('/').get()),
+		() => assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
+		() => assertCollectionProps('web root file')(workingWeb.file('/').get()),
+		() => assertCollectionProps('web index.aspx, default.aspx file')(workingWeb
+			.file(['index.aspx', 'default.aspx'])
+			.get()),
+	]),
+	crud: () => testWrapper('web file CRUD')([crud]),
+	crudCollection: () => testWrapper('web file CRUD Collection')([crudCollection]),
+	crudBundle: () => testWrapper('web file CRUD Bundle')([crudBundle]),
+	all() {
+		testWrapper('web file ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudBundle
+		])
+	}
+}

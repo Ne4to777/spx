@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	map,
 	prop,
@@ -212,25 +212,35 @@ const crudBundle = async () => {
 	await bundleList.folder(foldersToCreate).delete({ noRecycle: true })
 }
 
-export default () => Promise.all([
-	assertObjectProps('root web list folder')(rootWebList.folder().get()),
-	assertCollectionProps('root web list folder')(rootWebList.folder('/').get()),
-	assertObjectProps('web root list folder')(workingWebList.folder().get()),
-	assertObjectProps('web a list folder')(workingWebList.folder('a').get()),
-	assertCollectionProps('web a list folder')(workingWebList.folder('a/').get()),
-	assertCollectionProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get()),
-
-	assertObjectItemProps('web a list folder')(workingWebList.folder('a').get({ asItem: true })),
-	assertCollectionItemProps('web a list folder')(workingWebList
-		.folder('a/')
-		.get({ asItem: true })
-		.then(filter(isObjectFilled))),
-	assertCollectionItemProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get({ asItem: true })),
-
-	// crud(),
-	// crudCollection(),
-	// crudAsItem(),
-	// crudCollectionAsItem()
-
-	// crudBundle()
-]).then(testIsOk('folderList'))
+export default {
+	get: () => testWrapper('web list folder GET')([
+		() => assertObjectProps('root web list folder')(rootWebList.folder().get()),
+		() => assertCollectionProps('root web list folder')(rootWebList.folder('/').get()),
+		() => assertObjectProps('web root list folder')(workingWebList.folder().get()),
+		() => assertObjectProps('web a list folder')(workingWebList.folder('a').get()),
+		() => assertCollectionProps('web a list folder')(workingWebList.folder('a/').get()),
+		() => assertCollectionProps('web a, c list folder')(workingWebList.folder(['a', 'c']).get()),
+		() => assertObjectItemProps('web a list folder')(workingWebList.folder('a').get({ asItem: true })),
+		() => assertCollectionItemProps('web a list folder')(workingWebList
+			.folder('a/')
+			.get({ asItem: true })
+			.then(filter(isObjectFilled))),
+		() => assertCollectionItemProps('web a, c list folder')(workingWebList.folder(['a', 'c'])
+			.get({ asItem: true })),
+	]),
+	crud: () => testWrapper('web list folder CRUD')([crud]),
+	crudCollection: () => testWrapper('web list folder CRUD Collection')([crudCollection]),
+	crudAsItem: () => testWrapper('web list folder CRUD as item')([crudAsItem]),
+	crudCollectionAsItem: () => testWrapper('web list folder CRUD Collection as item')([crudCollectionAsItem]),
+	crudBundle: () => testWrapper('web list folder CRUD Bundle')([crudBundle]),
+	all() {
+		testWrapper('web list folder ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudAsItem,
+			this.crudCollectionAsItem,
+			this.crudBundle
+		])
+	}
+}

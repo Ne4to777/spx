@@ -94,7 +94,7 @@ class Group {
 				set_owner: element.Owner,
 				set_requestToJoinLeaveEmailSetting: element.RequestToJoinLeaveEmailSetting
 			})(newSPObject)
-			spObject.update()
+			newSPObject.update()
 			return load(clientContext, newSPObject, opts)
 		})
 

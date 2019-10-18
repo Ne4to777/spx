@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax */
 import axios from 'axios'
 //  ================================================================================================
 //  =======     ====    ===  =======  ==      ==        ====  ====  =======  =        ==      ======
@@ -1287,6 +1288,12 @@ export const assertCollection = (props) => (name) => async (promise) => {
 }
 
 export const testIsOk = (name) => () => console.log(`${name} is OK`)
+
+export const testWrapper = msg => async tests => {
+	console.log(`${msg} testing...`)
+	for (const test of tests) await test()
+	console.log(`${msg} done!`)
+}
 
 //  ============================================================
 //  ========    ====        ==  ====  ==        ==       =======

@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	identity
 } from '../lib/utility'
@@ -318,29 +318,40 @@ const crudCollectionAsItem = async () => {
 	await workingWebList.file([url, urlAnother]).delete({ noRecycle: true })
 }
 
-export default async () => {
-	await Promise.all([
-		assertObjectProps('root web list file')(rootWebList.file('simple.aspx').get()),
-		assertCollectionProps('root web list file')(rootWebList.file('/').get()),
-		assertObjectProps('web list file')(workingWebList.file('test.txt').get()),
-		assertCollectionProps('web list root file')(workingWebList.file('/').get()),
-		assertCollectionProps('web list test.txt, test.js file')(workingWebList.file(['test.txt', 'test.js']).get()),
-		assertObjectProps('web a list folder file')(workingWebList.file('g/full.jpg').get()),
-		assertCollectionProps('web a list folder file')(workingWebList.file('g/').get()),
-
-		assertObjectItemProps('web list file')(workingWebList.file('test.txt').get({ asItem: true })),
-		assertCollectionItemProps('web list root file')(workingWebList.file('/').get({ asItem: true })),
-		assertCollectionItemProps('web list test.txt, test.js file')(
-			workingWebList.file(['test.txt', 'test.js']).get({ asItem: true })
-		),
-		assertObjectItemProps('web a list folder file')(workingWebList.file('g/full.jpg').get({ asItem: true })),
-		assertCollectionItemProps('web a list folder file')(workingWebList.file('g/').get({ asItem: true }))
-	])
-	// await crud()
-	// await crudAsSting()
-	// await crudAsBlob()
-	// await crudAsItem()
-	// await crudCollection()
-	// await crudCollectionAsItem()
-	testIsOk('fileList')()
+export default {
+	get: () => testWrapper('web list file GET')([
+		() => assertObjectProps('root web list file')(rootWebList.file('simple.aspx').get()),
+		() => assertCollectionProps('root web list file')(rootWebList.file('/').get()),
+		() => assertObjectProps('web list file')(workingWebList.file('test.txt').get()),
+		() => assertCollectionProps('web list root file')(workingWebList.file('/').get()),
+		() => assertCollectionProps('web list test.txt, test.js file')(workingWebList
+			.file(['test.txt', 'test.js'])
+			.get()),
+		() => assertObjectProps('web a list folder file')(workingWebList.file('g/full.jpg').get()),
+		() => assertCollectionProps('web a list folder file')(workingWebList.file('g/').get()),
+		() => assertObjectItemProps('web list file')(workingWebList.file('test.txt').get({ asItem: true })),
+		() => assertCollectionItemProps('web list root file')(workingWebList.file('/').get({ asItem: true })),
+		() => assertCollectionItemProps('web list test.txt, test.js file')(workingWebList
+			.file(['test.txt', 'test.js'])
+			.get({ asItem: true })),
+		() => assertObjectItemProps('web a list folder file')(workingWebList.file('g/full.jpg').get({ asItem: true })),
+		() => assertCollectionItemProps('web a list folder file')(workingWebList.file('g/').get({ asItem: true }))
+	]),
+	crud: () => testWrapper('web list file CRUD')([crud]),
+	crudCollection: () => testWrapper('web list file CRUD Collection')([crudCollection]),
+	crudAsItem: () => testWrapper('web list file CRUD asItem')([crudAsItem]),
+	crudCollectionAsItem: () => testWrapper('web list file CRUD Collection as item')([crudCollectionAsItem]),
+	crudAsSting: () => testWrapper('web list file CRUD as string')([crudAsSting]),
+	crudAsBlob: () => testWrapper('web list file CRUD Collection as blob')([crudAsBlob]),
+	all() {
+		testWrapper('web list file ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudAsItem,
+			this.crudCollectionAsItem,
+			this.crudAsSting,
+			this.crudAsBlob
+		])
+	}
 }

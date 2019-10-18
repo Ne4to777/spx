@@ -29,7 +29,7 @@ class Attachment {
 		})
 	}
 
-	async	get(opts = {}) {
+	async get(opts = {}) {
 		const { clientContexts, result } = await this.iterator(({
 			clientContext,
 			element
@@ -42,8 +42,12 @@ class Attachment {
 
 	getSPObject(element, clientContext) {
 		const url = element[KEY_PROP]
-		const attachments = this.parent.getSPObject(this.item, clientContext).get_attachmentFiles()
+		const attachments = this.getSPObjectCollection(clientContext)
 		return url && url !== '/' ? attachments.getByFileName(url) : attachments
+	}
+
+	getSPObjectCollection(clientContext) {
+		return this.parent.getSPObject(this.item, clientContext).get_attachmentFiles()
 	}
 }
 

@@ -6,7 +6,8 @@ import {
 	testIsOk,
 	assert,
 	map,
-	identity
+	identity,
+	testWrapper
 } from '../lib/utility'
 
 const SITE_PROPS = [
@@ -143,20 +144,33 @@ const doesUserHavePermissions = async () => {
 	assert('user has wrong permissions for web')(has)
 }
 
-export default () => Promise.all([
-	// assertObject(SITE_PROPS)('site')(web().getSite()),
-	// assertCollection(WEB_TEMPLATE_PROPS)('web template')(web().getWebTemplates()),
-	// assertCollection(LIST_TEMPLATE_PROPS)('custom lists template')(web().getCustomListTemplates()),
-	// assertObjectProps('root web')(web().get()),
-	// assertCollectionProps('root webs')(web('/').get()),
-	// assertObjectProps('web')(web('test/spx/testWeb').get()),
-	// assertCollectionProps('test/spx/testWeb')(web('test/spx/').get()),
-	// assertCollectionProps('web')(web(['test/spx/testWeb']).get()),
-	// assertObjectProps('web')(web({ Url: 'test/spx/testWeb' }).get()),
-	// assertCollectionProps('web')(web([{ Url: 'test/spx/testWeb' }]).get()),
-	// assertCollectionProps('web')(web(['test/spx/testWeb', 'test/spx/testWebAnother']).get()),
-	// assertCollectionProps('web')(web([{ Url: 'test/spx/testWeb' }, { Url: 'test/spx/testWebAnother' }]).get()),
-	// doesUserHavePermissions(),
-	// crud(),
-	// crudCollection()
-]).then(testIsOk('web'))
+export default {
+	get: () => testWrapper('web GET')([
+		() => assertObject(SITE_PROPS)('site')(web().getSite()),
+		() => assertCollection(WEB_TEMPLATE_PROPS)('web template')(web().getWebTemplates()),
+		() => assertCollection(LIST_TEMPLATE_PROPS)('custom lists template')(web().getCustomListTemplates()),
+		() => assertObjectProps('root web')(web().get()),
+		() => assertCollectionProps('root webs')(web('/').get()),
+		() => assertObjectProps('web')(web('test/spx/testWeb').get()),
+		() => assertCollectionProps('test/spx/testWeb')(web('test/spx/').get()),
+		() => assertCollectionProps('web')(web(['test/spx/testWeb']).get()),
+		() => assertObjectProps('web')(web({ Url: 'test/spx/testWeb' }).get()),
+		() => assertCollectionProps('web')(web([{ Url: 'test/spx/testWeb' }]).get()),
+		() => assertCollectionProps('web')(web(['test/spx/testWeb', 'test/spx/testWebAnother']).get()),
+		() => assertCollectionProps('web')(web([{
+			Url: 'test/spx/testWeb'
+		}, {
+			Url: 'test/spx/testWebAnother'
+		}]).get()),
+		() => doesUserHavePermissions(),
+	]),
+	crud: () => testWrapper('web CRUD')([crud]),
+	crudCollection: () => testWrapper('web CRUD Collection')([crudCollection]),
+	all() {
+		testWrapper('web ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+		])
+	}
+}
