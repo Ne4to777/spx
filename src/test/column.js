@@ -146,11 +146,10 @@ export default {
 	]),
 	crud: () => testWrapper('column CRUD')([crud]),
 	crudCollection: () => testWrapper('column CRUD Collection')([crudCollection]),
-	all() {
-		testWrapper('column ALL')([
-			this.get,
-			this.crud,
-			this.crudCollection,
-		])
-	}
+	all: () => testWrapper('column ALL')([
+		this.get,
+		this.crud,
+		this.crudCollection,
+	])
+
 }

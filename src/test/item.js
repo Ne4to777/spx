@@ -300,14 +300,12 @@ export default {
 	crudTags: () => testWrapper('item CRUD tags')([crudTags]),
 	page: () => testWrapper('item Page')([page]),
 	crudBundle: () => testWrapper('item CRUD Bundle')([crudBundle]),
-	all() {
-		testWrapper('item ALL')([
-			this.get,
-			this.crud,
-			this.crudCollection,
-			this.crudTags,
-			this.page,
-			this.crudBundle
-		])
-	}
+	all: () => testWrapper('item ALL')([
+		this.get,
+		this.crud,
+		this.crudCollection,
+		this.crudTags,
+		this.page,
+		this.crudBundle
+	])
 }

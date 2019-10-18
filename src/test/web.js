@@ -166,11 +166,9 @@ export default {
 	]),
 	crud: () => testWrapper('web CRUD')([crud]),
 	crudCollection: () => testWrapper('web CRUD Collection')([crudCollection]),
-	all() {
-		testWrapper('web ALL')([
-			this.get,
-			this.crud,
-			this.crudCollection,
-		])
-	}
+	all: () => testWrapper('web ALL')([
+		this.get,
+		this.crud,
+		this.crudCollection,
+	])
 }
