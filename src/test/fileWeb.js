@@ -90,10 +90,12 @@ export default {
 	crud: () => testWrapper('web file CRUD')([crud]),
 	crudCollection: () => testWrapper('web file CRUD Collection')([crudCollection]),
 	crudBundle: () => testWrapper('web file CRUD Bundle')([crudBundle]),
-	all: () => testWrapper('web file ALL')([
-		this.get,
-		this.crud,
-		this.crudCollection,
-		this.crudBundle
-	])
+	all() {
+		testWrapper('web file ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudBundle
+		])
+	}
 }

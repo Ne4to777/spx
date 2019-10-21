@@ -21,5 +21,5 @@ export default {
 		() => assertObjectProps('attachment test.xlsx')(item.attachment('test.xlsx').get()),
 		() => assertCollectionProps('attachment collection test.xlsx')(item.attachment(['test.xlsx']).get()),
 	]),
-	all: () => testWrapper('attachment ALL')([this.get])
+	all() { testWrapper('attachment ALL')([this.get]) }
 }

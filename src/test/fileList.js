@@ -343,13 +343,15 @@ export default {
 	crudCollectionAsItem: () => testWrapper('web list file CRUD Collection as item')([crudCollectionAsItem]),
 	crudAsSting: () => testWrapper('web list file CRUD as string')([crudAsSting]),
 	crudAsBlob: () => testWrapper('web list file CRUD Collection as blob')([crudAsBlob]),
-	all: () => testWrapper('web list file ALL')([
-		this.get,
-		this.crud,
-		this.crudCollection,
-		this.crudAsItem,
-		this.crudCollectionAsItem,
-		this.crudAsSting,
-		this.crudAsBlob
-	])
+	all() {
+		testWrapper('web list file ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudAsItem,
+			this.crudCollectionAsItem,
+			this.crudAsSting,
+			this.crudAsBlob
+		])
+	}
 }

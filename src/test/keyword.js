@@ -3,7 +3,7 @@ import web from '../modules/web'
 import {
 	assertObject,
 	assertCollection,
-	testIsOk,
+	testWrapper,
 	assert,
 	identity
 } from '../lib/utility'
@@ -84,10 +84,19 @@ const crudCollection = async () => {
 	await web().keyword([newKeywordName, newKeywordNameAnother]).delete()
 }
 
-export default async () => Promise.all([
-	assertObjectProps('keyword "test"')(web().keyword('test').get()),
-	assert('keywords are present')((await web().keyword(['test', 'b']).get()).length === 1),
-	assert('keywords are missed')((await web().keyword(['test', 'a']).get()).length === 2),
-	// crud(),
-	// crudCollection()
-]).then(testIsOk('keyword'))
+export default {
+	get: () => testWrapper('keyword GET')([
+		() => assertObjectProps('keyword "test"')(web().keyword('test').get()),
+		async () => assert('keywords are present')((await web().keyword(['test', 'b']).get()).length === 1),
+		async () => assert('keywords are missed')((await web().keyword(['test', 'a']).get()).length === 2),
+	]),
+	crud: () => testWrapper('keyword CRUD')([crud]),
+	crudCollection: () => testWrapper('keyword CRUD Collection')([crudCollection]),
+	all() {
+		testWrapper('keyword ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+		])
+	}
+}

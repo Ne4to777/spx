@@ -7,13 +7,15 @@ import {
 	switchType
 } from '../lib/utility'
 
+const KEY_PROP = 'Query'
+
 const lifter = switchType({
 	object: query => Object.assign({}, query),
 	string: (query = '') => ({
-		Query: query,
+		[KEY_PROP]: query,
 	}),
 	default: () => ({
-		Query: ''
+		[KEY_PROP]: ''
 	})
 })
 
@@ -34,7 +36,7 @@ class Search {
 		const keywordQuery = new Microsoft.SharePoint.Client.Search.Query.KeywordQuery(clientContext)
 
 		setFields({
-			set_queryText: element.Query,
+			set_queryText: element[KEY_PROP],
 			set_clientType: element.ClientType || 'AllResultsQuery',
 			set_queryTemplate: element.QueryTemplate ? element.QueryTemplate.join(' ') : undefined,
 			set_refiners: element.Refiners,
@@ -94,8 +96,9 @@ class Search {
 		return res
 	}
 
-	async move(n = 1, opts) {
-		this.element.StartRow = n * this.rowsPerPage
+	async move(opts = {}) {
+		const { page } = opts
+		this.element.StartRow = page * this.rowsPerPage
 		return this.get(opts)
 	}
 }

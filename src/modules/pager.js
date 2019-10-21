@@ -4,7 +4,8 @@ import {
 	isArray,
 	stringCut,
 	arrayHead,
-	arrayLast
+	arrayLast,
+	isDefined
 } from '../lib/utility'
 
 
@@ -25,7 +26,7 @@ class Pager {
 		const { OrderBy } = params
 		this.mainParams = {
 			OrderBy,
-			Limit: params.Limit,
+			Limit: isDefined(params.Limit) ? params.Limit : 10,
 			Scope: params.Scope,
 			Query: params.Query,
 			Folder: params.Folder,
@@ -41,18 +42,20 @@ class Pager {
 		this.onPreloadForward = params.OnPreloadForward
 		this.onPreloadBackward = params.OnPreloadBackward
 
-		this.lastItemId = 0
-		this.firstItemId = 0
-		this.firstItemColumns = {}
-		this.lastItemColumns = {}
+		this.itemIds = {
+			first: 0,
+			last: 0
+		}
+		this.itemColumns = {
+			first: {},
+			lats: {}
+		}
 
 		this.orderColumnTitles = []
 
 		if (OrderBy) {
 			const cut = stringCut(/>$/)
-			this.orderColumnTitles = isArray(OrderBy)
-				? OrderBy.map(cut)
-				: [cut(OrderBy)]
+			this.orderColumnTitles = isArray(OrderBy) ? OrderBy.map(cut) : [cut(OrderBy)]
 		}
 	}
 
@@ -70,8 +73,8 @@ class Pager {
 				...this.mainParams,
 				Page: {
 					IsPrevious: isPrevious,
-					ID: isPrevious ? this.firstItemId : this.lastItemId,
-					Columns: isPrevious ? this.firstItemColumns : this.lastItemColumns
+					ID: this.itemIds[isPrevious ? 'first' : 'last'],
+					Columns: this.itemColumns[isPrevious ? 'first' : 'last']
 				}
 			})
 			.get({ ...opts, view, groupBy })
@@ -85,32 +88,32 @@ class Pager {
 			const firstItem = arrayHead(res)
 			const lastItem = arrayLast(res)
 			if (isPrevious) {
-				if (this.firstItemId === firstItem.ID) {
+				if (this.itemIds.first === firstItem.ID) {
 					res = []
-					this.lastItemId = 0
+					this.itemIds.last = 0
 					this.lastItemColumns = {}
 					if (this.onLoadAll) await this.onLoadAll()
 					if (this.onLoadAllBackward) await this.onLoadAllBackward()
 				} else {
-					this.firstItemId = firstItem.ID
-					this.lastItemId = lastItem.ID
+					this.itemIds.first = firstItem.ID
+					this.itemIds.last = lastItem.ID
 					if (this.orderColumnTitles.length) {
-						this.orderColumnTitles.map(el => {
-							this.firstItemColumns[el] = getPageValue(firstItem[el])
-							this.lastItemColumns[el] = getPageValue(lastItem[el])
-							return undefined
-						})
+						this.itemColumns = this.orderColumnTitles.reduce((acc, el) => {
+							acc.first[el] = getPageValue(firstItem[el])
+							acc.last[el] = getPageValue(lastItem[el])
+							return acc
+						}, { first: {}, last: {} })
 					}
 				}
 			} else {
-				this.firstItemId = firstItem.ID
-				this.lastItemId = lastItem.ID
+				this.itemIds.first = firstItem.ID
+				this.itemIds.last = lastItem.ID
 				if (this.orderColumnTitles.length) {
-					this.orderColumnTitles.map(el => {
-						this.firstItemColumns[el] = getPageValue(firstItem[el])
-						this.lastItemColumns[el] = getPageValue(lastItem[el])
-						return undefined
-					})
+					this.itemColumns = this.orderColumnTitles.reduce((acc, el) => {
+						acc.first[el] = getPageValue(firstItem[el])
+						acc.last[el] = getPageValue(lastItem[el])
+						return acc
+					}, { first: {}, last: {} })
 				}
 			}
 		} else {

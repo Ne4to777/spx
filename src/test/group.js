@@ -80,9 +80,11 @@ export default {
 	]),
 	crud: () => testWrapper('group CRUD')([crud]),
 	crudCollection: () => testWrapper('group CRUD Collection')([crudCollection]),
-	all: () => testWrapper('group ALL')([
-		this.get,
-		this.crud,
-		this.crudCollection,
-	])
+	all() {
+		testWrapper('group ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+		])
+	}
 }

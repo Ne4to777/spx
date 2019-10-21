@@ -25,20 +25,23 @@ let customEmailColumn = 'Email'
 let customQuery
 
 class User {
-	constructor(parent, users) {
+	constructor(parent, users, isSP) {
 		this.name = 'user'
 		this.parent = parent
 		this.isArray = isArray(users)
 		this.users = users ? (this.isArray ? flatten(users) : [users]) : []
+		this.isSP = isSP
+		this.isNative = this.isSP || (!customList || !customIdColumn)
 
 		if (!defaultList) {
 			defaultList = parent.of().list('User Information List')
 		}
 	}
 
-	async get(opts = {}) {
+	async get(opts) {
 		if (this.users.length) {
 			const el = this.users[0]
+
 			if (isObject(el)) {
 				return isPropExists(customIdColumn)(el)
 					? this.getByUid(opts)
@@ -54,7 +57,7 @@ class User {
 				? this.getAll(opts)
 				: isNumberFilled(el)
 					? this.getByUid(opts)
-					: /[а-яА-ЯЁё\s\\]/.test(el)
+					: /[а-яА-ЯЁё\s]/.test(el)
 						? this.getByName(opts)
 						: /\S+@\S+\.\S+/.test(el)
 							? this.getByEMail(opts)
@@ -64,21 +67,18 @@ class User {
 	}
 
 	async getCurrent(opts = {}) {
-		const { isSP } = opts
-		if (isSP || !customList) {
+		if (this.isSP || !customList) {
 			const clientContext = getClientContext('/')
 			const spUser = clientContext.get_web().get_currentUser()
 			return prepareResponseJSOM(await executeJSOM(clientContext, spUser, opts), opts)
 		}
 		const userId = window._spPageContextInfo
 			? window._spPageContextInfo.userId
-			: (await this.getCurrent({ view: 'Id', isSP: true })).Id
+			: (await this.of(null, true).getCurrent({ view: 'Id' })).Id
 		return (await customList.item(`Number ${customIdColumn} Eq ${userId}`).get(opts))[0]
 	}
 
 	async getByUid(opts = {}) {
-		const { isSP } = opts
-		const isNative = isSP || (!customList || !customIdColumn)
 		const userIds = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
@@ -86,7 +86,7 @@ class User {
 					acc.push(item)
 					break
 				case 'Object': {
-					const value = item[isNative ? 'ID' : customIdColumn]
+					const value = item[this.isNative ? 'ID' : customIdColumn]
 					if (value) acc.push(value)
 					break
 				}
@@ -94,7 +94,7 @@ class User {
 					acc.push(item.get_lookupId())
 					break
 				case 'SP.ListItem': {
-					const userId = item.get_item(isNative ? 'ID' : customIdColumn)
+					const userId = item.get_item(this.isNative ? 'ID' : customIdColumn)
 					if (userId) acc.push(userId)
 					break
 				}
@@ -105,7 +105,7 @@ class User {
 			return acc
 		})([])(this.users)
 		const query = `Number ${customIdColumn} In ${userIds}`
-		const users = isNative
+		const users = this.isNative
 			? defaultList.item(userIds)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
@@ -113,8 +113,6 @@ class User {
 	}
 
 	async getByLogin(opts = {}) {
-		const { isSP } = opts
-		const isNative = isSP || !customList
 		let isByName = false
 		const userLogins = reduce(acc => item => {
 			switch (item.constructor.getName()) {
@@ -125,7 +123,7 @@ class User {
 				case 'Object': {
 					const userName = item.UserName
 					if (!userName) isByName = true
-					acc.push(isNative
+					acc.push(this.isNative
 						? (userName || item.Name)
 						: item.customLoginColumn)
 					break
@@ -133,7 +131,7 @@ class User {
 				case 'SP.ListItem': {
 					const userName = item.get_item('UserName')
 					if (!userName) isByName = true
-					acc.push(isNative
+					acc.push(this.isNative
 						? (userName || item.get_item('Name'))
 						: item.get_item(customLoginColumn))
 					break
@@ -145,7 +143,7 @@ class User {
 			return acc
 		})([])(this.users)
 		const query = `${customLoginColumn} In ${userLogins}`
-		const users = isNative
+		const users = this.isNative
 			? defaultList.item(`${isByName ? 'Name' : 'UserName'} In ${userLogins}`)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
@@ -153,20 +151,18 @@ class User {
 	}
 
 	async getByName(opts = {}) {
-		const { isSP } = opts
-		const isNative = isSP || !customList
 		const userNames = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
 					acc.push(item)
 					break
 				case 'Object': {
-					const value = item[isNative ? 'Title' : customNameColumn]
+					const value = item[this.isNative ? 'Title' : customNameColumn]
 					if (value) acc.push(value)
 					break
 				}
 				case 'SP.ListItem': {
-					const title = item.get_item(isNative ? 'Title' : customNameColumn)
+					const title = item.get_item(this.isNative ? 'Title' : customNameColumn)
 					if (title) acc.push(title)
 					break
 				}
@@ -177,26 +173,24 @@ class User {
 			return acc
 		})([])(this.users)
 		const query = `${customNameColumn} Contains ${userNames}`
-		return isNative
+		return this.isNative
 			? defaultList.item(`Title Contains ${userNames}`).get(opts)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query).get(opts)
 	}
 
 	async getByEMail(opts = {}) {
-		const { isSP } = opts
-		const isNative = isSP || !customList
 		const userEMails = reduce(acc => item => {
 			switch (item.constructor.getName()) {
 				case 'String':
 					acc.push(item)
 					break
 				case 'Object': {
-					const value = item[isNative ? 'EMail' : customEmailColumn]
+					const value = item[this.isNative ? 'EMail' : customEmailColumn]
 					if (value) acc.push(value)
 					break
 				}
 				case 'SP.ListItem': {
-					const title = item.get_item(isNative ? 'EMail' : customEmailColumn)
+					const title = item.get_item(this.isNative ? 'EMail' : customEmailColumn)
 					if (title) acc.push(title)
 					break
 				}
@@ -207,17 +201,15 @@ class User {
 			return acc
 		})([])(this.users)
 		const query = `${customEmailColumn} In ${userEMails}`
-		const users = isNative
+		const users = this.isNative
 			? defaultList.item(`EMail In ${userEMails}`)
 			: customList.item(customQuery ? concatQueries('and')([customQuery, query]) : query)
 		const elements = await users.get(opts)
 		return this.isArray || elements.length > 1 ? elements : elements[0]
 	}
 
-	async getAll(opts = {}) {
-		return opts.isSP || !customList
-			? defaultList.item().get(opts)
-			: customList.item(customQuery).get(opts)
+	async getAll(opts) {
+		return this.isNative ? defaultList.item().get(opts) : customList.item(customQuery).get(opts)
 	}
 
 	async create(opts) {
@@ -230,30 +222,15 @@ class User {
 	}
 
 	async update(opts = {}) {
-		const { isSP } = opts
-		if (isSP) {
-			const usersToUpdate = this.users.reduce((acc, el) => {
-				if (el[customIdColumn]) {
-					const {
-						[customIdColumn]: userId,
-						...newEl
-					} = el
-					newEl.ID = userId
-					acc.push(newEl)
-				}
-				return acc
-			}, [])
-			const results = await defaultList
-				.item(usersToUpdate)
-				.update(opts)
+		if (this.isSP) {
+			const results = await defaultList.item(this.users).update(opts)
 			return this.isArray || results.length > 1 ? results : results[0]
 		}
 		if (!customList) throw new Error('Custom user list is missed')
 		const ids = this.users.filter(el => !!el[customIdColumn])
+
 		if (ids.length) {
-			const userObjects = await this
-				.of(ids)
-				.get({ view: ['ID', customIdColumn], mapBy: customIdColumn })
+			const userObjects = await this.of(ids).get({ view: ['ID', customIdColumn], mapBy: customIdColumn })
 			const usersToUpdate = this.users.reduce((acc, el) => {
 				const userID = userObjects[el[customIdColumn]] ? userObjects[el[customIdColumn]].ID : undefined
 				if (userID) {
@@ -284,8 +261,8 @@ class User {
 		if (params.customQuery) customQuery = params.customQuery
 	}
 
-	of(users) {
-		return getInstance(this.constructor)(this.parent, users)
+	of(users, isSP) {
+		return getInstance(this.constructor)(this.parent, users, isSP)
 	}
 }
 

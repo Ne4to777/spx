@@ -43,7 +43,7 @@ class Mail {
 		this.user = parent.user.bind(parent)
 	}
 
-	async	send(opts = {}) {
+	async send(opts = {}) {
 		const {
 			isFake,
 			detailed

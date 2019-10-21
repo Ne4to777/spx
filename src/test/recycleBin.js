@@ -22,5 +22,5 @@ export default {
 	get: () => testWrapper('recycleBin GET')([
 		() => assertPropsCollection('recycleBin collection')(web('test/spx').recycleBin().get()),
 	]),
-	all: () => testWrapper('time ALL')([this.get])
+	all() { testWrapper('time ALL')([this.get]) }
 }

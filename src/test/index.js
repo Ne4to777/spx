@@ -1,5 +1,8 @@
 
 import cache from './cache'
+import mail from './mail'
+import pager from './pager'
+import search from './search'
 import recycleBin from './recycleBin'
 import attachment from './attachment'
 import group from './group'
@@ -18,6 +21,9 @@ import keyword from './keyword'
 import queryParser from './query-parser'
 
 export default {
+	mail,
+	pager,
+	search,
 	recycleBin,
 	group,
 	groupUser,

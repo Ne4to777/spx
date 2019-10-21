@@ -291,6 +291,10 @@ class Web {
 		return user(this, elements)
 	}
 
+	userSP(elements) {
+		return user(this, elements, true)
+	}
+
 	group(elements) {
 		return group(this, elements)
 	}

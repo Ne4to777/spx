@@ -34,15 +34,15 @@ const getAllTerms = clientContext => getTermSet(clientContext).getAllTerms()
 const arrayValidator = pipe([removeEmptiesByProp(KEY_PROP), removeDuplicatedProp(KEY_PROP)])
 
 const lifter = switchType({
-	object: tag => {
-		const newTag = Object.assign({}, tag)
-		if (tag[KEY_PROP] !== '/') newTag[KEY_PROP] = shiftSlash(newTag[KEY_PROP])
+	object: keyword => {
+		const newTag = Object.assign({}, keyword)
+		if (keyword[KEY_PROP] !== '/') newTag[KEY_PROP] = shiftSlash(newTag[KEY_PROP])
 		return newTag
 	},
-	string: tag => {
-		const tagName = tag === '/' || !tag ? undefined : tag
+	string: keyword => {
+		const keywordName = keyword === '/' || !keyword ? undefined : keyword
 		return {
-			[KEY_PROP]: tagName
+			[KEY_PROP]: keywordName
 		}
 	},
 	default: () => ({
@@ -58,12 +58,12 @@ class Box extends AbstractBox {
 	}
 }
 
-class Tag {
-	constructor(parent, tags) {
-		this.name = 'tag'
+class Keyword {
+	constructor(parent, keywords) {
+		this.name = 'keyword'
 		this.parent = parent
-		this.tags = tags
-		this.box = getInstance(Box)(tags)
+		this.keywords = keywords
+		this.box = getInstance(Box)(keywords)
 		this.count = this.box.getCount()
 		this.iterator = deep1Iterator({ elementBox: this.box })
 	}
@@ -162,4 +162,4 @@ class Tag {
 	}
 }
 
-export default getInstance(Tag)
+export default getInstance(Keyword)

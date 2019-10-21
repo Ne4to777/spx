@@ -233,12 +233,14 @@ export default {
 	crudAsItem: () => testWrapper('web list folder CRUD as item')([crudAsItem]),
 	crudCollectionAsItem: () => testWrapper('web list folder CRUD Collection as item')([crudCollectionAsItem]),
 	crudBundle: () => testWrapper('web list folder CRUD Bundle')([crudBundle]),
-	all: () => testWrapper('web list folder ALL')([
-		this.get,
-		this.crud,
-		this.crudCollection,
-		this.crudAsItem,
-		this.crudCollectionAsItem,
-		this.crudBundle
-	])
+	all() {
+		testWrapper('web list folder ALL')([
+			this.get,
+			this.crud,
+			this.crudCollection,
+			this.crudAsItem,
+			this.crudCollectionAsItem,
+			this.crudBundle
+		])
+	}
 }
