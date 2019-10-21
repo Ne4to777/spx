@@ -213,7 +213,7 @@ const crudBundle = async () => {
 }
 
 export default {
-	get: () => testWrapper('web list folder GET')([
+	get: () => testWrapper('list folder GET')([
 		() => assertObjectProps('root web list folder')(rootWebList.folder().get()),
 		() => assertCollectionProps('root web list folder')(rootWebList.folder('/').get()),
 		() => assertObjectProps('web root list folder')(workingWebList.folder().get()),
@@ -228,13 +228,13 @@ export default {
 		() => assertCollectionItemProps('web a, c list folder')(workingWebList.folder(['a', 'c'])
 			.get({ asItem: true })),
 	]),
-	crud: () => testWrapper('web list folder CRUD')([crud]),
-	crudCollection: () => testWrapper('web list folder CRUD Collection')([crudCollection]),
-	crudAsItem: () => testWrapper('web list folder CRUD as item')([crudAsItem]),
-	crudCollectionAsItem: () => testWrapper('web list folder CRUD Collection as item')([crudCollectionAsItem]),
-	crudBundle: () => testWrapper('web list folder CRUD Bundle')([crudBundle]),
+	crud: () => testWrapper('list folder CRUD')([crud]),
+	crudCollection: () => testWrapper('list folder CRUD Collection')([crudCollection]),
+	crudAsItem: () => testWrapper('list folder CRUD as item')([crudAsItem]),
+	crudCollectionAsItem: () => testWrapper('list folder CRUD Collection as item')([crudCollectionAsItem]),
+	crudBundle: () => testWrapper('list folder CRUD Bundle')([crudBundle]),
 	all() {
-		testWrapper('web list folder ALL')([
+		testWrapper('list folder ALL')([
 			this.get,
 			this.crud,
 			this.crudCollection,

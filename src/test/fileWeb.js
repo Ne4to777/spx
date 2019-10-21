@@ -78,7 +78,7 @@ const crudBundle = async () => {
 }
 
 export default {
-	get: () => testWrapper('web file GET')([
+	get: () => testWrapper('file GET')([
 		() => assertObjectProps('root web file')(rootWeb.file('index.html').get()),
 		() => assertCollectionProps('root web file')(rootWeb.file('/').get()),
 		() => assertObjectProps('web file')(workingWeb.file('index.aspx').get()),
@@ -87,11 +87,11 @@ export default {
 			.file(['index.aspx', 'default.aspx'])
 			.get()),
 	]),
-	crud: () => testWrapper('web file CRUD')([crud]),
-	crudCollection: () => testWrapper('web file CRUD Collection')([crudCollection]),
-	crudBundle: () => testWrapper('web file CRUD Bundle')([crudBundle]),
+	crud: () => testWrapper('file CRUD')([crud]),
+	crudCollection: () => testWrapper('file CRUD Collection')([crudCollection]),
+	crudBundle: () => testWrapper('file CRUD Bundle')([crudBundle]),
 	all() {
-		testWrapper('web file ALL')([
+		testWrapper('file ALL')([
 			this.get,
 			this.crud,
 			this.crudCollection,

@@ -58,7 +58,7 @@ const crudBundle = async () => {
 }
 
 export default {
-	get: () => testWrapper('web folder GET')([
+	get: () => testWrapper('folder GET')([
 		() => assertObjectProps('root web folder')(rootWeb.folder().get()),
 		() => assertCollectionProps('root web folder')(rootWeb.folder('/').get()),
 		() => assertObjectProps('web root folder')(workingWeb.folder().get()),
@@ -66,11 +66,11 @@ export default {
 		() => assertCollectionProps('web _catalogs folder')(workingWeb.folder('_catalogs/').get()),
 		() => assertCollectionProps('web _catalogs folder')(workingWeb.folder(['_catalogs', 'Files']).get()),
 	]),
-	crud: () => testWrapper('web folder CRUD')([crud]),
-	crudCollection: () => testWrapper('web folder CRUD Collection')([crudCollection]),
-	crudBundle: () => testWrapper('web folder CRUD Bundle')([crudBundle]),
+	crud: () => testWrapper('folder CRUD')([crud]),
+	crudCollection: () => testWrapper('folder CRUD Collection')([crudCollection]),
+	crudBundle: () => testWrapper('folder CRUD Bundle')([crudBundle]),
 	all() {
-		testWrapper('web folder ALL')([
+		testWrapper('folder ALL')([
 			this.get,
 			this.crud,
 			this.crudCollection,

@@ -132,7 +132,7 @@ const getPermissions = async () => {
 }
 
 export default {
-	get: () => testWrapper('web GET')([
+	get: () => testWrapper('list GET')([
 		() => assertObjectProps('root web list')(rootWeb.list('b327d30a-b9bf-4728-a3c1-a6b4f0253ff2').get()),
 		() => assertCollectionProps('root web list')(rootWeb.list('/').get()),
 		() => assertObjectProps('web list')(workingWeb.list('Test').get()),
@@ -140,10 +140,10 @@ export default {
 		() => assertCollectionProps('web Test, TestAnother list')(workingWeb.list(['Test', 'TestAnother']).get()),
 		() => getPermissions(),
 	]),
-	crud: () => testWrapper('web CRUD')([crud]),
-	crudCollection: () => testWrapper('web CRUD Collection')([crudCollection]),
+	crud: () => testWrapper('list CRUD')([crud]),
+	crudCollection: () => testWrapper('list CRUD Collection')([crudCollection]),
 	all() {
-		testWrapper('web ALL')([
+		testWrapper('list ALL')([
 			this.get,
 			this.crud,
 			this.crudCollection,

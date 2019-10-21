@@ -319,7 +319,7 @@ const crudCollectionAsItem = async () => {
 }
 
 export default {
-	get: () => testWrapper('web list file GET')([
+	get: () => testWrapper('list file GET')([
 		() => assertObjectProps('root web list file')(rootWebList.file('simple.aspx').get()),
 		() => assertCollectionProps('root web list file')(rootWebList.file('/').get()),
 		() => assertObjectProps('web list file')(workingWebList.file('test.txt').get()),
@@ -337,14 +337,14 @@ export default {
 		() => assertObjectItemProps('web a list folder file')(workingWebList.file('g/full.jpg').get({ asItem: true })),
 		() => assertCollectionItemProps('web a list folder file')(workingWebList.file('g/').get({ asItem: true }))
 	]),
-	crud: () => testWrapper('web list file CRUD')([crud]),
-	crudCollection: () => testWrapper('web list file CRUD Collection')([crudCollection]),
-	crudAsItem: () => testWrapper('web list file CRUD asItem')([crudAsItem]),
-	crudCollectionAsItem: () => testWrapper('web list file CRUD Collection as item')([crudCollectionAsItem]),
-	crudAsSting: () => testWrapper('web list file CRUD as string')([crudAsSting]),
-	crudAsBlob: () => testWrapper('web list file CRUD Collection as blob')([crudAsBlob]),
+	crud: () => testWrapper('list file CRUD')([crud]),
+	crudCollection: () => testWrapper('list file CRUD Collection')([crudCollection]),
+	crudAsItem: () => testWrapper('list file CRUD asItem')([crudAsItem]),
+	crudCollectionAsItem: () => testWrapper('list file CRUD Collection as item')([crudCollectionAsItem]),
+	crudAsSting: () => testWrapper('list file CRUD as string')([crudAsSting]),
+	crudAsBlob: () => testWrapper('list file CRUD Collection as blob')([crudAsBlob]),
 	all() {
-		testWrapper('web list file ALL')([
+		testWrapper('list file ALL')([
 			this.get,
 			this.crud,
 			this.crudCollection,
