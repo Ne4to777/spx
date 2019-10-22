@@ -29,8 +29,7 @@ module.exports = {
 		new HtmlWebpackPlugin({
 			template: 'dev/assets/index.ejs',
 			templateParameters: {
-				sp: 'sp.assembly.js',
-				style: 'index.css'
+				sp: 'sp.assembly.js'
 			}
 		})
 	],
