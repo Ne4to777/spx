@@ -19,7 +19,9 @@ const getBundle = (file, format, plugins = []) => ({
 	external: ['axios', 'crypto-js'],
 	plugins: [
 		...plugins,
-		resolve(),
+		resolve({
+			mainFields: ['browser']
+		}),
 		commonjs()
 	]
 })

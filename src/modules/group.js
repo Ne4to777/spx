@@ -1,5 +1,4 @@
 /* eslint-disable class-methods-use-this */
-import { isNumber } from 'util'
 import {
 	getInstance,
 	executorJSOM,
@@ -13,7 +12,8 @@ import {
 	pipe,
 	webReport,
 	getInstanceEmpty,
-	setFields
+	setFields,
+	isNumber
 } from '../lib/utility'
 
 import user from './groupUser'
