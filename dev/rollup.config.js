@@ -11,7 +11,6 @@ const getBundle = (file, format, plugins = []) => ({
 			'crypto-js': 'CryptoJS'
 		},
 		sourcemap: true,
-		sourcemapExcludeSources: true,
 		name: 'spx',
 		file,
 		format
