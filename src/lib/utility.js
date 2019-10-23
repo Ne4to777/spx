@@ -826,7 +826,11 @@ export class AbstractBox {
 	}
 
 	getCount() {
-		return isArray(this.value) ? this.value.filter(el => el[this.prop]).length : this.value[this.prop] ? 1 : 0
+		return isArray(this.value)
+			? this.value.filter(el => isDefined(el[this.prop])).length
+			: isDefined(this.value[this.prop])
+				? 1
+				: 0
 	}
 
 	getHead() {

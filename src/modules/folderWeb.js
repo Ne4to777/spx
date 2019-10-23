@@ -30,7 +30,9 @@ import {
 	isObject,
 	isString,
 	urlSplit,
-	isArray
+	isArray,
+	isDefined,
+	isUndefined
 } from '../lib/utility'
 
 const KEY_PROP = 'Url'
@@ -73,7 +75,7 @@ const arrayValidator = pipe([removeEmptyUrls, removeDuplicatedUrls])
 const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({}, context)
-		if (!context[KEY_PROP] && context.ServerRelativeUrl) newContext[KEY_PROP] = context.ServerRelativeUrl
+		if (isUndefined(context[KEY_PROP])) newContext[KEY_PROP] = context.ServerRelativeUrl
 		if (context[KEY_PROP] !== '/') newContext[KEY_PROP] = shiftSlash(newContext[KEY_PROP])
 		if (!context.ServerRelativeUrl && context[KEY_PROP]) newContext.ServerRelativeUrl = context[KEY_PROP]
 		return newContext
@@ -104,13 +106,14 @@ class FolderWeb {
 		this.parent = parent
 		this.box = getInstance(Box)(folders)
 		this.contextUrl = parent.box.getHeadPropValue()
+		this.count = this.box.getCount()
 		this.iterator = deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box
 		})
 	}
 
-	async	get(opts) {
+	async get(opts) {
 		const { contextUrl } = this
 		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
 			const elementUrl = getWebRelativeUrl(contextUrl)(element)
@@ -189,6 +192,27 @@ class FolderWeb {
 		})
 
 		return this.box.isArray() ? filteredResult : filteredResult[0]
+	}
+
+	async update(opts = {}) {
+		const { contextUrl } = this
+		const { clientContexts, result } = await this.iterator(({ clientContext, element }) => {
+			const elementUrl = getWebRelativeUrl(contextUrl)(element)
+			const { WelcomePage } = element
+			const spObject = this.getSPObject(elementUrl, clientContext)
+			if (isDefined(WelcomePage)) {
+				spObject.set_welcomePage(WelcomePage)
+				spObject.update()
+			}
+			return load(clientContext, spObject, opts)
+		})
+
+		if (this.count) {
+			await Promise.all(clientContexts.map(executorJSOM))
+		}
+		this.report('update', opts)
+
+		return prepareResponseJSOM(result, opts)
 	}
 
 	async delete(opts = {}) {

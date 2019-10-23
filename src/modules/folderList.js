@@ -17,7 +17,6 @@ import {
 	popSlash,
 	getListRelativeUrl,
 	switchType,
-	typeOf,
 	removeEmptyUrls,
 	removeDuplicatedUrls,
 	shiftSlash,
@@ -38,7 +37,9 @@ import {
 	isObjectFilled,
 	reduce,
 	ifThen,
-	isNotError
+	isNotError,
+	isDefined,
+	isUndefined
 } from '../lib/utility'
 import * as cache from '../lib/cache'
 
@@ -76,8 +77,8 @@ const buildFoldersTree = ifThen(isArray)([reduce(buildFolderTree)(), buildFolder
 const lifter = switchType({
 	object: context => {
 		const newContext = Object.assign({}, context)
-		if (!context[KEY_PROP]) newContext[KEY_PROP] = context.ServerRelativeUrl || context.FileRef
-		if (!context.ServerRelativeUrl) newContext.ServerRelativeUrl = context[KEY_PROP] || context.FileRef
+		if (isUndefined(context[KEY_PROP])) newContext[KEY_PROP] = context.ServerRelativeUrl || context.FileRef
+		if (isUndefined(context.ServerRelativeUrl)) newContext.ServerRelativeUrl = context[KEY_PROP] || context.FileRef
 		return newContext
 	},
 	string: (contextUrl = '') => {
@@ -109,6 +110,7 @@ class FolderList {
 		this.contextUrl = parent.parent.box.getHeadPropValue()
 		this.listUrl = parent.box.getHeadPropValue()
 		this.count = this.box.getCount()
+
 		this.iterator = bundleSize => deep1Iterator({
 			contextUrl: this.contextUrl,
 			elementBox: this.box,
@@ -213,13 +215,18 @@ class FolderList {
 			REQUEST_LIST_FOLDER_UPDATE_BUNDLE_MAX_SIZE
 		)(({ clientContext, element }) => {
 			const elementUrl = getListRelativeUrl(contextUrl)(listUrl)(element)
-			const { Columns } = element
-			if (!isStrictUrl(elementUrl) || !Columns) return undefined
-
-			const spObject = setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, Columns))(
-				this.getSPObject(elementUrl, clientContext).get_listItemAllFields()
-			)
-			return load(clientContext, spObject.get_folder(), options)
+			const { Columns = {}, WelcomePage } = element
+			const spObject = this.getSPObject(elementUrl, clientContext)
+			if (isObjectFilled(Columns)) {
+				setItem(cache.get(['columns', contextUrl, listUrl]))(Object.assign({}, Columns))(
+					spObject.get_listItemAllFields()
+				)
+			}
+			if (isDefined(WelcomePage)) {
+				spObject.set_welcomePage(WelcomePage)
+				spObject.update()
+			}
+			return load(clientContext, spObject, options)
 		})
 		if (this.count) {
 			await Promise.all(clientContexts.map(executorJSOM))
