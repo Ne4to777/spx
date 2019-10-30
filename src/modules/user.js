@@ -1,3 +1,4 @@
+/* eslint-disable default-case */
 /* eslint class-methods-use-this:0 */
 /* eslint no-underscore-dangle:0 */
 /* eslint prefer-destructuring:0 */
@@ -98,9 +99,6 @@ class User {
 					if (userId) acc.push(userId)
 					break
 				}
-				default: {
-					// default
-				}
 			}
 			return acc
 		})([])(this.users)
@@ -136,9 +134,6 @@ class User {
 						: item.get_item(customLoginColumn))
 					break
 				}
-				default: {
-					// default
-				}
 			}
 			return acc
 		})([])(this.users)
@@ -166,9 +161,6 @@ class User {
 					if (title) acc.push(title)
 					break
 				}
-				default: {
-					// default
-				}
 			}
 			return acc
 		})([])(this.users)
@@ -193,9 +185,6 @@ class User {
 					const title = item.get_item(this.isNative ? 'EMail' : customEmailColumn)
 					if (title) acc.push(title)
 					break
-				}
-				default: {
-					// default
 				}
 			}
 			return acc

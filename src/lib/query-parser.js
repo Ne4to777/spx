@@ -1,3 +1,4 @@
+/* eslint-disable default-case */
 /* eslint max-len:0 */
 import {
 	chunkArray,
@@ -207,9 +208,6 @@ const convertExpression = str => {
 		case 'taxonomyfieldtypemulti':
 			fieldOption = ' LookupId="True"'
 			break
-		default: {
-			// default
-		}
 	}
 
 	const typeNorm = COLUMN_TYPES_MAPPED[type]
@@ -252,9 +250,6 @@ const convertExpression = str => {
 		case 'membership': {
 			const valueType = MEMBERSHIP_VALUES[value.toLowerCase()]
 			return `<${operatorNorm} Type="${valueType}"><FieldRef Name="${name}"/></${operatorNorm}>`
-		}
-		default: {
-			// default
 		}
 	}
 	const valueOrNull = /null/.test(operator) ? '' : `<Value Type="${typeNorm}"${valueOpts}>${stripQuotes(value)}</Value>`
