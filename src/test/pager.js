@@ -52,10 +52,10 @@ const assertCollectionProps = assertCollection(PROPS)
 const pager = web('test/spx').list('Pager').pager()
 
 export default {
-	get: () => testWrapper('parer GET')([
-		() => assertCollectionProps('parer next')(pager.next()),
-		() => assertCollectionProps('parer next')(pager.next()),
-		() => assertCollectionProps('parer previous')(pager.previous()),
+	get: () => testWrapper('pager GET')([
+		() => assertCollectionProps('pager next')(pager.next()),
+		() => assertCollectionProps('pager next')(pager.next()),
+		() => assertCollectionProps('pager previous')(pager.previous()),
 	]),
 	all() {
 		testWrapper('pager ALL')([
