@@ -1,5 +1,10 @@
+/* eslint-disable no-mixed-operators */
+/* eslint-disable no-plusplus */
+/* eslint-disable no-bitwise */
+/* eslint-disable func-names */
 /* eslint-disable no-restricted-syntax */
 import axios from 'axios'
+import { Uint8Array } from 'typedarray'
 //  ================================================================================================
 //  =======     ====    ===  =======  ==      ==        ====  ====  =======  =        ==      ======
 //  ======  ===  ==  ==  ==   ======  =  ====  ====  ======    ===   ======  ====  ====  ====  =====
@@ -1095,6 +1100,59 @@ export const executorREST = async (contextUrl, opts = {}) => pipe([
 //  =====      ===  ====  ==      ==        ===     ========  =======
 //  =================================================================
 
+const CHARS = {
+	ascii: () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
+	indices: () => {
+		if (!this.cache) {
+			this.cache = {}
+			const ascii = CHARS.ascii()
+
+			for (let c = 0; c < ascii.length; c += 1) {
+				this.cache[ascii[c]] = c
+			}
+		}
+		return this.cache
+	}
+}
+
+const btoa = window.btoa || function (data) {
+	const ascii = CHARS.ascii()
+	const len = data.length - 1
+	let i = -1
+	let b64 = ''
+
+	while (i < len) {
+		const code = data.charCodeAt(++i) << 16 | data.charCodeAt(++i) << 8 | data.charCodeAt(++i)
+		b64 += ascii[(code >>> 18) & 63] + ascii[(code >>> 12) & 63] + ascii[(code >>> 6) & 63] + ascii[code & 63]
+	}
+
+	const pads = data.length % 3
+	if (pads > 0) {
+		b64 = b64.slice(0, pads - 3)
+		while (b64.length % 4 !== 0) b64 += '='
+	}
+
+	return b64
+}
+
+const atob = window.atob || function (b64) {
+	const indices = CHARS.indices()
+	const pos = b64.indexOf('=')
+	const padded = pos > -1
+	const len = padded ? pos : b64.length
+	let i = -1
+	let data = ''
+
+	while (i < len) {
+		const code = indices[b64[++i]] << 18 | indices[b64[++i]] << 12 | indices[b64[++i]] << 6 | indices[b64[++i]]
+		if (code !== 0) data += String.fromCharCode((code >>> 16) & 255, (code >>> 8) & 255, code & 255)
+	}
+
+	if (padded) data = data.slice(0, pos - b64.length)
+
+	return data
+}
+
 export const convertFileContent = switchType({
 	arraybuffer: pipe([getInstance(Uint8Array), reduce(functionSum(String.fromCharCode))(''), btoa]),
 	default: tryCatch(btoa)(() => identity)
@@ -1134,7 +1192,7 @@ export const blobToBase64 = async (blob) => (await blobToDataUrl(blob)).replace(
 export const dataUrlToBinary = (dataUrl) => {
 	const BASE64_MARKER = ';base64,'
 	const base64Index = dataUrl.indexOf(BASE64_MARKER) + BASE64_MARKER.length
-	const raw = window.atob(dataUrl.substring(base64Index))
+	const raw = atob(dataUrl.substring(base64Index))
 	const rawLength = raw.length
 	const array = new Uint8Array(new ArrayBuffer(rawLength))
 	for (let i = 0; i < rawLength; i += 1) {

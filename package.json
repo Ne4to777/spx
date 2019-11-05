@@ -44,6 +44,7 @@
     "webpack-dev-server": "^3.7.2"
   },
   "dependencies": {
+    "typedarray": "0.0.6",
     "axios": ">=0.18.1",
     "babel-jest": "^24.9.0",
     "cpass": "^2.0.4",
