@@ -1,8 +1,7 @@
-const robocopy = require('robocopy')
+const {
+	deploy
+} = require('aura-connector')
+const path = require('path')
 const config = require('./private.json')
 
-robocopy({
-	source: './publish/iife',
-	destination: config.deployPath,
-	files: ['index.min.js', 'index.min.js.map']
-})
+deploy(path.win32.normalize(path.join(config.siteDisk, config.deployPath)))

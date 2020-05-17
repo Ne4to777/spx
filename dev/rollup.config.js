@@ -3,6 +3,8 @@ import resolve from 'rollup-plugin-node-resolve'
 import commonjs from 'rollup-plugin-commonjs'
 import { terser } from 'rollup-plugin-terser'
 
+const isBuild = process.env.packingType === 'build'
+
 const getBundle = (file, format, plugins = []) => ({
 	input: './src/modules/web.js',
 	output: [{
@@ -30,9 +32,13 @@ const babelPlugin = babel({
 	extensions: ['.js']
 })
 const terserPlugin = terser()
-export default [
+
+const buildBundle = () => getBundle('dist/index.min.js', 'iife', [babelPlugin, terserPlugin])
+
+const publishBundle = () => [
 	getBundle('publish/iife/index.js', 'iife', [babelPlugin]),
 	getBundle('publish/iife/index.min.js', 'iife', [babelPlugin, terserPlugin]),
 	getBundle('publish/umd/index.js', 'umd'),
 	getBundle('publish/umd/index.min.js', 'umd', [terserPlugin])
 ]
+export default isBuild ? buildBundle() : publishBundle()
